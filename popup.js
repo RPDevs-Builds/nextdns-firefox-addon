@@ -291,17 +291,24 @@ async function syncLists(force = false) {
   listsSynced = true;
 }
 
+async function loadMetaFile(file) {
+  if (blocksMeta[file] && blocksMeta[file].length > 0) return blocksMeta[file];
+  try {
+    const REMOTE_BASE = 'https://raw.githubusercontent.com/DNS-Forge/nextdns-addon-data/main/data/';
+    const response = await fetch(`${REMOTE_BASE}${file}.json`).catch(() => fetch(browser.runtime.getURL(`data/${file}.json`)));
+    const data = await response.json();
+    blocksMeta[file] = data;
+    return data;
+  } catch (e) { console.error(`Failed to load ${file} metadata`, e); return []; }
+}
+
 async function initializeApp() {
   const { apiKey, autoRefreshDefault, aliases } = await browser.storage.sync.get(["apiKey", "autoRefreshDefault", "aliases"]);
   isAutoRefreshDefault = autoRefreshDefault !== false;
   deviceAliases = aliases || {};
   
-  // Load Metadata (Remote fallback to Local)
-  try {
-    const REMOTE_META = 'https://raw.githubusercontent.com/DNS-Forge/nextdns-addon-data/main/data/blocks_meta.json';
-    const response = await fetch(REMOTE_META).catch(() => fetch(browser.runtime.getURL('data/blocks_meta.json')));
-    blocksMeta = await response.json();
-  } catch (e) { console.error("Failed to load blocks metadata", e); }
+  // Load initial index and core categories
+  await loadMetaFile('categories');
 
   if (!apiKey) { document.querySelector('.tab-btn[data-tab="settings"]').click(); return; }
   
@@ -663,6 +670,12 @@ async function loadToggles(force = false) {
     const res = await browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: activeProfile });
     lastBlocksData = res?.data || {};
   }
+  
+  // Lazy load metadata based on sub-tab
+  if (activeBlocksSubTab === 'blocklists') await loadMetaFile('blocklists');
+  else if (activeBlocksSubTab === 'parental') await loadMetaFile('parental_services');
+  else if (activeBlocksSubTab === 'tlds') await loadMetaFile('tlds');
+
   const container = document.getElementById("toggles-container");
   const searchContainer = document.getElementById("blocks-search-container");
   const searchInput = document.getElementById("blocks-search-input");
