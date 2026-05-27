@@ -296,9 +296,10 @@ async function initializeApp() {
   isAutoRefreshDefault = autoRefreshDefault !== false;
   deviceAliases = aliases || {};
   
-  // Load Metadata
+  // Load Metadata (Remote fallback to Local)
   try {
-    const response = await fetch(browser.runtime.getURL('data/blocks_meta.json'));
+    const REMOTE_META = 'https://raw.githubusercontent.com/DNS-Forge/nextdns-addon-data/main/data/blocks_meta.json';
+    const response = await fetch(REMOTE_META).catch(() => fetch(browser.runtime.getURL('data/blocks_meta.json')));
     blocksMeta = await response.json();
   } catch (e) { console.error("Failed to load blocks metadata", e); }
 
