@@ -96,6 +96,9 @@
     input[type="color"] { -webkit-appearance: none; border: none; width: 28px; height: 28px; padding: 0; border-radius: 4px; cursor: pointer; background: transparent; }
     input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
     input[type="color"]::-webkit-color-swatch { border: 1px solid var(--border-color); border-radius: 4px; }
+    .sub-tab-btn { background: transparent; border: none; padding: 10px 15px; color: var(--text-muted); font-size: 0.85em; cursor: pointer; border-bottom: 2px solid transparent; flex-shrink: 0; box-sizing: border-box; width: auto; }
+    .sub-tab-btn.active { color: #4facf7; border-bottom-color: #4facf7; font-weight: bold; }
+    .sub-tab-btn:hover { color: var(--text-main); }
   </style>
 </head>
 <body>
@@ -145,7 +148,7 @@
     </div>
     
     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;">
-      <h4 style="margin: 0; font-size: 0.85em; color: var(--text-muted);">Tab Requests:</h4>
+      <h4 id="tab-log-header" style="margin: 0; font-size: 0.85em; color: var(--text-muted);">Tab Requests:</h4>
       <button id="toggle-tab-tracking-btn" class="btn-secondary" style="width: auto; padding: 2px 8px; font-size: 0.75em;" title="Pause live tab tracking for research">⏸️ Live</button>
     </div>
     <div id="tab-log" style="flex-grow: 1; overflow-y: auto; font-size: 0.8em; background: var(--bg-panel); border-radius: 4px; border: 1px solid var(--border-color);"></div>
@@ -153,16 +156,37 @@
 
   <div id="tab-logs" class="tab-content" style="padding: 0;">
     <div class="logs-control-bar">
-      <div style="display: flex; gap: 5px; align-items: center;">
-        <input type="text" id="log-search" placeholder="Filter domains or devices..." style="margin-bottom: 0; flex-grow: 1; height: 34px;">
+      <div style="display: flex; gap: 5px; align-items: center; margin-bottom: 5px;">
+        <input type="text" id="log-search" placeholder="Filter domains..." style="margin-bottom: 0; flex-grow: 1; height: 34px;">
         <button id="auto-refresh-btn" class="btn-dark" style="width: auto; padding: 0 12px; height: 34px;" title="Toggle Auto-Refresh">⏸️ Auto</button>
       </div>
-      <div class="logs-filters" id="log-filters">
-        <span style="color: var(--text-muted);">Show:</span>
-        <label><input type="checkbox" value="status:allowed" checked> Allowed</label>
-        <label><input type="checkbox" value="status:blocked" checked> Blocked</label>
-        <label><input type="checkbox" value="reason:allowlist" checked> Allowlist</label>
-        <label><input type="checkbox" value="reason:denylist" checked> Denylist</label>
+      
+      <div style="display: flex; gap: 5px;">
+        <div style="flex: 1;">
+          <select id="log-device-filter" style="margin-bottom: 0; height: 30px; font-size: 0.8em; padding: 2px 8px;">
+            <option value="">All Devices</option>
+          </select>
+        </div>
+        
+        <div style="flex: 1;">
+          <select id="log-type-filter" style="margin-bottom: 0; height: 30px; font-size: 0.8em; padding: 2px 8px;">
+            <option value="">All DNS Types</option>
+            <option value="doh">DoH (HTTPS)</option>
+            <option value="dot">DoT (TLS)</option>
+            <option value="dns">Standard DNS</option>
+          </select>
+        </div>
+
+        <div style="flex: 1; position: relative;" id="status-filter-wrapper">
+          <button id="status-filter-dropdown-btn" class="btn-dark" style="height: 30px; font-size: 0.8em; padding: 2px 8px; font-weight: normal;">Traffic Filters ▾</button>
+          <div id="status-filter-content" style="display: none; position: absolute; right: 0; top: 100%; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.6); z-index: 100; min-width: 150px; padding: 10px; flex-direction: column; gap: 8px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85em; cursor: pointer;"><input type="checkbox" value="status:allowed" checked> Allowed</label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85em; cursor: pointer;"><input type="checkbox" value="status:blocked" checked> Blocked</label>
+            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 2px 0;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85em; cursor: pointer;"><input type="checkbox" value="reason:allowlist" checked> Allowlist Only</label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85em; cursor: pointer;"><input type="checkbox" value="reason:denylist" checked> Denylist Only</label>
+          </div>
+        </div>
       </div>
     </div>
     <div id="logs-container" style="flex-grow: 1; overflow-y: auto;">
@@ -197,65 +221,133 @@
   </div>
 
   <div id="tab-toggles" class="tab-content">
-    <p style="color: var(--text-muted); font-size: 0.85em; margin-top: 0;">Instantly kill network access to telemetry servers and applications.</p>
-    <div class="grid" style="flex-grow: 1; overflow-y: auto;">
-      <div class="toggle-card">
-        <h4 style="margin-top: 0; border-bottom: 1px solid #4facf7; padding-bottom: 5px; font-size: 0.95em;">OS Telemetry</h4>
-        <div id="telemetry-list"></div>
-      </div>
-      <div class="toggle-card">
-        <h4 style="margin-top: 0; border-bottom: 1px solid #f39c12; padding-bottom: 5px; font-size: 0.95em;">Apps & Services</h4>
-        <div id="services-list"></div>
-      </div>
+    <div id="blocks-sub-nav" style="display: flex; background: var(--bg-panel); border-bottom: 1px solid var(--border-color); overflow-x: auto; white-space: nowrap; margin: -15px -15px 0 -15px; flex-shrink: 0;">
+      <button class="sub-tab-btn active" data-sub="security">Security</button>
+      <button class="sub-tab-btn" data-sub="privacy">Privacy</button>
+      <button class="sub-tab-btn" data-sub="blocklists">Blocklists</button>
+      <button class="sub-tab-btn" data-sub="parental">Parental</button>
+      <button class="sub-tab-btn" data-sub="tlds">TLDs</button>
+    </div>
+    <div id="blocks-search-container" style="padding: 10px 0; display: none; flex-shrink: 0; align-items: center; gap: 5px;">
+      <input type="text" id="blocks-search-input" placeholder="Search..." style="margin-bottom: 0; flex-grow: 1;">
+      <select id="blocks-sort-select" style="width: auto; margin-bottom: 0; padding: 2px 5px; font-size: 0.8em; height: 32px; display: none;">
+        <option value="popularity">Popularity</option>
+        <option value="name">Name</option>
+        <option value="updated">Updated</option>
+        <option value="entries">Entries</option>
+      </select>
+    </div>
+    <div id="toggles-container" style="flex-grow: 1; overflow-y: auto; padding-top: 10px;">
+      <!-- Dynamic rendering goes here -->
     </div>
   </div>
 
   <div id="tab-labs" class="tab-content">
     <h4 style="margin: 0 0 10px 0; font-size: 1em; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">🧪 Experimental Features</h4>
-    
-    <div style="background: var(--bg-panel); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color);">
-      <label style="display: block; font-weight: bold; font-size: 0.9em; color: #dc3545;">Local Regex Firewall</label>
-      <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 2px; margin-bottom: 10px;">Intercepts domains natively in the browser before they hit DNS (One regex per line).</p>
-      <textarea id="setting-regex-rules" rows="6" placeholder=".*\.tiktok\.com$&#10;.*analytics.*" style="margin-bottom: 10px; font-family: monospace; font-size: 0.85em; background: var(--bg-main);"></textarea>
-      <button id="save-labs-btn" class="btn-allow">💾 Save Labs Settings</button>
+
+    <div style="background: var(--bg-panel); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color); text-align: center;">
+      <h5 style="margin-top: 0; color: var(--text-muted);">Coming Soon</h5>
+      <p style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 15px;">Advanced feature previews will appear here. We recommend building <b>Custom DoH Endpoints</b> or <b>CNAME Uncloaking Analytics</b> next!</p>
+      <button class="btn-secondary" style="opacity: 0.5; cursor: not-allowed;" disabled>Feature Not Available</button>
     </div>
   </div>
+  <div id="tab-settings" class="tab-content" style="padding: 0;">
+    <div id="settings-sub-nav" style="display: flex; background: var(--bg-panel); border-bottom: 1px solid var(--border-color); overflow-x: auto; white-space: nowrap;">
+      <button class="sub-tab-btn active" data-sub="setup">Setup</button>
+      <button class="sub-tab-btn" data-sub="analytics">Analytics</button>
+      <button class="sub-tab-btn" data-sub="hostnames">Hostnames</button>
+      <button class="sub-tab-btn" data-sub="data">Data</button>
+      <button class="sub-tab-btn" data-sub="theme">Theme</button>
+    </div>
 
-  <div id="tab-settings" class="tab-content">
-    <div style="background: var(--bg-panel); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color);">
-      <label style="display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em;">API Key</label>
-      <input type="text" id="setting-api-key" placeholder="Enter NextDNS API Key">
-      
-      <label style="display: block; margin-top: 15px; margin-bottom: 2px; font-weight: bold; font-size: 0.9em;">Configuration Profile Override</label>
-      <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 0;">Bypasses browser DoH fingerprinting.</p>
-      
-      <div style="display: flex; gap: 5px;">
-        <select id="setting-profile-select" style="margin-bottom: 0;">
-          <option value="">Auto-Detect (Default)</option>
+    <!-- Setup Sub-Tab -->
+    <div id="settings-setup" class="settings-sub-content active" style="padding: 15px;">
+      <div style="background: var(--bg-panel); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color);">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em;">API Key</label>
+        <input type="text" id="setting-api-key" placeholder="Enter NextDNS API Key">
+        
+        <label style="display: block; margin-top: 15px; margin-bottom: 2px; font-weight: bold; font-size: 0.9em;">Configuration Profile Override</label>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 0;">Bypasses browser DoH fingerprinting.</p>
+        
+        <div style="display: flex; gap: 5px;">
+          <select id="setting-profile-select" style="margin-bottom: 0;">
+            <option value="">Auto-Detect (Default)</option>
+          </select>
+          <button id="setting-fetch-profiles" class="btn-secondary" style="width: auto;" title="Fetch Profiles">🔄</button>
+        </div>
+
+        <label style="display: flex; align-items: center; gap: 8px; margin-top: 20px; font-size: 0.9em; cursor: pointer;">
+          <input type="checkbox" id="setting-auto-refresh" style="width: auto; margin: 0;">
+          Enable Auto-Refresh on Logs tab by default
+        </label>
+
+        <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.9em; cursor: pointer;">
+          <input type="checkbox" id="setting-enable-labs" style="width: auto; margin: 0;">
+          Enable Experimental Labs Tab
+        </label>
+
+        <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.9em; cursor: pointer;">
+          <input type="checkbox" id="setting-block-notif" style="width: auto; margin: 0;">
+          Enable Block Notifications
+        </label>
+
+        <label style="display: block; margin-top: 15px; margin-bottom: 5px; font-weight: bold; font-size: 0.9em;">Logs Refresh Interval (seconds)</label>
+        <input type="number" id="setting-refresh-time" min="1" max="300" style="margin-bottom: 0;">
+
+        <label style="display: block; margin-top: 15px; margin-bottom: 2px; font-weight: bold; font-size: 0.9em;">Toolbar Icon Action</label>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 0;">What happens when you click the browser extension icon.</p>
+        <select id="setting-icon-action" style="margin-bottom: 0;">
+          <option value="popup">Open Dropdown Popup (Default)</option>
+          <option value="sidebar">Open Native Sidebar</option>
         </select>
-        <button id="setting-fetch-profiles" class="btn-secondary" style="width: auto;" title="Fetch Profiles">🔄</button>
+
+        <button id="save-settings-btn" class="btn-allow" style="margin-top: 20px;">💾 Save Options</button>
       </div>
+    </div>
 
-      <label style="display: flex; align-items: center; gap: 8px; margin-top: 20px; font-size: 0.9em; cursor: pointer;">
-        <input type="checkbox" id="setting-auto-refresh" style="width: auto; margin: 0;">
-        Enable Auto-Refresh on Logs tab by default
-      </label>
+    <!-- Analytics Sub-Tab -->
+    <div id="settings-analytics" class="settings-sub-content" style="padding: 15px; display: none;">
+      <div style="background: var(--bg-panel); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color);">
+        <h4 style="margin: 0 0 10px 0; font-size: 0.9em; color: var(--text-muted);">Quick Insights</h4>
+        <div id="analytics-overview" style="font-size: 0.85em; color: var(--text-muted);">
+          Loading detailed metrics...
+        </div>
+      </div>
+    </div>
 
-      <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.9em; cursor: pointer;">
-        <input type="checkbox" id="setting-enable-labs" style="width: auto; margin: 0;">
-        Enable Experimental Labs Tab
-      </label>
+    <!-- Hostnames Sub-Tab -->
+    <div id="settings-hostnames" class="settings-sub-content" style="padding: 15px; display: none;">
+      <div style="background: var(--bg-panel); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color);">
+        <h4 style="margin: 0 0 10px 0; font-size: 0.9em; color: var(--text-muted);">Device Aliases</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 0;">Map Device IDs or IPs to friendly names for logs.</p>
+        
+        <div id="hostname-alias-list" style="margin-bottom: 15px; max-height: 200px; overflow-y: auto;">
+          <!-- Aliases go here -->
+        </div>
 
-      <label style="display: block; margin-top: 15px; margin-bottom: 2px; font-weight: bold; font-size: 0.9em;">Toolbar Icon Action</label>
-      <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 0;">What happens when you click the browser extension icon.</p>
-      <select id="setting-icon-action" style="margin-bottom: 0;">
-        <option value="popup">Open Dropdown Popup (Default)</option>
-        <option value="sidebar">Open Native Sidebar</option>
-      </select>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <input type="text" id="alias-id" placeholder="Device ID or IP (e.g. 192.168.1.1)" style="margin-bottom: 0;">
+          <div style="display: flex; gap: 5px;">
+            <input type="text" id="alias-name" placeholder="Friendly Name (e.g. My PC)" style="margin-bottom: 0;">
+            <button id="add-alias-btn" class="btn-secondary" style="width: auto; white-space: nowrap;">Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-      <button id="save-settings-btn" class="btn-allow" style="margin-top: 20px;">💾 Save Options</button>
-      
-      <div style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+    <!-- Data Sub-Tab -->
+    <div id="settings-data" class="settings-sub-content" style="padding: 15px; display: none;">
+      <div style="background: var(--bg-panel); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color);">
+        <h4 style="margin: 0 0 10px 0; font-size: 0.9em; color: var(--text-muted);">Data Management</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 0; margin-bottom: 15px;">Export your logs to CSV or clear them from your NextDNS account.</p>
+        <button id="download-logs-btn" class="btn-secondary" style="margin-bottom: 8px;">📥 Download Logs (CSV)</button>
+        <button id="wipe-logs-btn" class="btn-deny">🗑️ Wipe All Logs</button>
+      </div>
+    </div>
+
+    <!-- Theme Sub-Tab -->
+    <div id="settings-theme" class="settings-sub-content" style="padding: 15px; display: none;">
+      <div style="background: var(--bg-panel); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color);">
         <h4 style="margin: 0 0 10px 0; font-size: 0.9em; color: var(--text-muted);">Theme Manager</h4>
         
         <div style="display: flex; gap: 5px; margin-bottom: 10px;">
@@ -276,12 +368,6 @@
           <input type="text" id="theme-name-input" placeholder="Name new theme..." style="margin-bottom: 0;">
           <button id="save-theme-btn" class="btn-allow" style="background-color: #4facf7; width: auto; white-space: nowrap;">💾 Save</button>
         </div>
-      </div>
-
-      <div style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 15px;">
-        <h4 style="margin: 0 0 10px 0; font-size: 0.9em; color: var(--text-muted);">Data Management</h4>
-        <button id="download-logs-btn" class="btn-secondary" style="margin-bottom: 8px;">📥 Download Logs (CSV)</button>
-        <button id="wipe-logs-btn" class="btn-deny">🗑️ Wipe All Logs</button>
       </div>
     </div>
   </div>

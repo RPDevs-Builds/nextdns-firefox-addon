@@ -1,87 +1,206 @@
 const API_BASE = "https://api.nextdns.io";
 const TEST_URL = "https://test.nextdns.io/";
 
-let tabDomains = {}; 
+let tabRequests = {}; 
 let blockedTabRequests = {}; 
-let combinedRegexRule = null;
+let currentProfileData = { allowlist: new Set(), denylist: new Set() };
 
 const ALARM_PREFIX = "tempAllow?"; 
 
+async function updateProfileCache() {
+  const { activeProfile } = await browser.storage.sync.get("activeProfile");
+  if (!activeProfile) return;
+  
+  const [allow, deny] = await Promise.all([
+    manageDomain(activeProfile, "allowlist", null, "list"),
+    manageDomain(activeProfile, "denylist", null, "list")
+  ]);
+
+  currentProfileData.allowlist = new Set((allow?.data || []).map(d => d.id));
+  currentProfileData.denylist = new Set((deny?.data || []).map(d => d.id));
+}
+
+async function setupContextMenus() {
+  await browser.menus.removeAll();
+  browser.menus.create({
+    id: "dns-forge-allow",
+    title: "Allow domain '%s'",
+    contexts: ["link", "page"],
+  });
+  browser.menus.create({
+    id: "dns-forge-deny",
+    title: "Deny domain '%s'",
+    contexts: ["link", "page"],
+  });
+}
+
+browser.menus.onClicked.addListener(async (info, tab) => {
+  const { activeProfile } = await browser.storage.sync.get("activeProfile");
+  if (!activeProfile) return;
+
+  let url;
+  try {
+    url = new URL(info.linkUrl || info.pageUrl || tab.url);
+  } catch (e) { return; }
+  
+  const domain = url.hostname;
+  const listType = info.menuItemId === "dns-forge-allow" ? "allowlist" : "denylist";
+  
+  await manageDomain(activeProfile, listType, domain, "add");
+  updateProfileCache();
+  updateWebRequestListeners();
+});
+
 async function applyIconAction() {
-  const { iconAction } = await browser.storage.local.get("iconAction");
+  const { iconAction } = await browser.storage.sync.get("iconAction");
   if (iconAction === "sidebar") await browser.action.setPopup({ popup: "" });
   else await browser.action.setPopup({ popup: "popup.html" });
+}
+
+async function initializeBackground() {
+  console.log("Initializing DNS Forge Background...");
+  await detectActiveProfile();
+  await applyIconAction();
+  setupContextMenus();
+  await updateProfileCache();
+  updateWebRequestListeners();
+  console.log("DNS Forge Background Initialized.");
+}
+
+// Ensure initialization runs on every script load (handles reloads/updates)
+initializeBackground();
+
+// For Testing
+if (typeof module !== 'undefined') {
+  module.exports = { initializeBackground, requestListener };
 }
 
 browser.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") browser.runtime.openOptionsPage();
   browser.alarms.create("refreshProfile", { periodInMinutes: 15 });
-  detectActiveProfile();
-  loadRegexRules();
-  applyIconAction();
+  browser.alarms.create("syncCache", { periodInMinutes: 5 });
 });
 
 browser.runtime.onStartup.addListener(() => {
-  applyIconAction();
-  loadRegexRules();
+  // initializeBackground already runs at top level
 });
 
-async function loadRegexRules() {
-  const { regexBlocklist, enableLabs } = await browser.storage.local.get(["regexBlocklist", "enableLabs"]);
-  if (enableLabs && regexBlocklist) {
-    const rules = regexBlocklist.split('\n').filter(r => r.trim() !== '');
-    if (rules.length > 0) {
-      try { combinedRegexRule = new RegExp(rules.map(r => `(?:${r.trim()})`).join('|'), 'i'); } 
-      catch (e) { combinedRegexRule = null; }
-    } else combinedRegexRule = null;
-  } else combinedRegexRule = null;
-  updateWebRequestListeners();
-}
+browser.action.onClicked.addListener(async () => {
+  const { iconAction } = await browser.storage.sync.get("iconAction");
+  if (iconAction === "sidebar") {
+    try {
+      await browser.sidebarAction.open();
+    } catch (e) {
+      console.error("Failed to open sidebar:", e);
+    }
+  }
+});
 
 function updateWebRequestListeners() {
-  const isListening = browser.webRequest.onBeforeRequest.hasListener(blockingListener);
-  if (combinedRegexRule && !isListening) {
+  const isListening = browser.webRequest.onBeforeRequest.hasListener(requestListener);
+  if (!isListening) {
     browser.webRequest.onBeforeRequest.addListener(
-      blockingListener,
+      requestListener,
       { urls: ["<all_urls>"] },
       ["blocking"]
     );
-  } else if (!combinedRegexRule && isListening) {
-    browser.webRequest.onBeforeRequest.removeListener(blockingListener);
   }
 }
 
-function blockingListener(details) {
-  if (combinedRegexRule && combinedRegexRule.test(details.url)) {
-    if (details.tabId >= 0) blockedTabRequests[details.tabId]++;
-    return { cancel: true };
+function getMatch(domain, listSet) {
+  if (listSet.has(domain)) return domain;
+  const parts = domain.split('.');
+  for (let i = 1; i < parts.length - 1; i++) {
+    const root = parts.slice(i).join('.');
+    if (listSet.has(root)) return root;
+  }
+  return null;
+}
+
+let lastNotificationTimes = {};
+
+function requestListener(details) {
+  if (details.tabId >= 0) {
+    try {
+      const url = new URL(details.url);
+      const domain = url.hostname;
+      
+      if (!tabRequests[details.tabId] || details.type === "main_frame") {
+        tabRequests[details.tabId] = {};
+        blockedTabRequests[details.tabId] = 0;
+      }
+      
+      let status = 'allowed';
+      let reason = 'Default';
+      
+      if (getMatch(domain, currentProfileData.allowlist)) {
+        status = 'allowed';
+        reason = 'Allow List';
+      } else if (getMatch(domain, currentProfileData.denylist)) {
+        status = 'blocked';
+        reason = 'Deny List';
+      }
+
+      tabRequests[details.tabId][domain] = { status, reason, timestamp: Date.now() };
+
+      if (status === 'blocked') {
+        blockedTabRequests[details.tabId]++;
+        
+        // Trigger Notification if enabled
+        browser.storage.sync.get("blockNotif").then(({ blockNotif }) => {
+          if (blockNotif) {
+            const now = Date.now();
+            if (!lastNotificationTimes[domain] || (now - lastNotificationTimes[domain] > 10000)) {
+              lastNotificationTimes[domain] = now;
+              browser.notifications.create({
+                type: "basic",
+                iconUrl: "icons/icon-48.png",
+                title: "NextDNS Blocked",
+                message: `${domain} was blocked.`
+              });
+            }
+          }
+        });
+
+        return { cancel: true };
+      }
+    } catch (e) {
+      console.error("Error in requestListener:", e);
+    }
   }
   return { cancel: false };
 }
 
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.url) { tabDomains[tabId] = new Set(); blockedTabRequests[tabId] = 0; }
-  if (changeInfo.status === 'loading' && tab.url) {
-    try {
-      const url = new URL(tab.url);
-      if (!tabDomains[tabId]) tabDomains[tabId] = new Set();
-      if (tabDomains[tabId].size < 500) tabDomains[tabId].add(url.hostname);
-    } catch (e) {}
+  // Initialize tab tracking if it doesn't exist
+  if (!tabRequests[tabId]) {
+    tabRequests[tabId] = {};
+    blockedTabRequests[tabId] = 0;
   }
+  // We no longer clear here because changeInfo.url fires AFTER network requests have started, wiping out the logs.
+});
+
+browser.tabs.onRemoved.addListener((tabId) => {
+  delete tabRequests[tabId];
+  delete blockedTabRequests[tabId];
 });
 
 browser.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === "refreshProfile") detectActiveProfile();
+  else if (alarm.name === "syncCache") updateProfileCache();
   else if (alarm.name.startsWith(ALARM_PREFIX)) {
     const params = new URLSearchParams(alarm.name.slice(ALARM_PREFIX.length));
     const profileId = params.get("p");
     const domain = params.get("d");
-    if (profileId && domain) await manageDomain(profileId, "allowlist", domain, "delete");
+    if (profileId && domain) {
+      await manageDomain(profileId, "allowlist", domain, "delete");
+      updateProfileCache();
+    }
   }
 });
 
 async function getHeaders() {
-  const { apiKey } = await browser.storage.local.get("apiKey");
+  const { apiKey } = await browser.storage.sync.get("apiKey");
   return { "Content-Type": "application/json", "X-Api-Key": apiKey || "" };
 }
 
@@ -102,8 +221,9 @@ async function manageDomain(profileId, listType, domain, action) {
 }
 
 async function detectActiveProfile() {
-  const { overrideProfileId } = await browser.storage.local.get("overrideProfileId");
+  const { overrideProfileId, apiKey } = await browser.storage.sync.get(["overrideProfileId", "apiKey"]);
   let activeId = overrideProfileId;
+  
   if (!activeId) {
     try {
       const response = await fetch(TEST_URL, { cache: 'no-store' });
@@ -111,6 +231,19 @@ async function detectActiveProfile() {
       if (data && data.profile) activeId = data.profile;
     } catch (e) {}
   }
+
+  // Fallback to first profile if we have an API key but no active ID
+  if (!activeId && apiKey) {
+    try {
+      const h = { "X-Api-Key": apiKey };
+      const res = await fetch(`${API_BASE}/profiles`, { headers: h });
+      if (res.ok) {
+        const pData = await res.json();
+        if (pData.data && pData.data.length > 0) activeId = pData.data[0].id;
+      }
+    } catch (e) {}
+  }
+
   if (activeId) {
     let profileName = activeId; 
     const headers = await getHeaders();
@@ -119,19 +252,28 @@ async function detectActiveProfile() {
         const pRes = await fetch(`${API_BASE}/profiles`, { headers });
         if (pRes.ok) {
           const pData = await pRes.json();
-          const matchedProfile = pData.data.find(p => p.id === activeId);
-          if (matchedProfile) profileName = `${matchedProfile.name} (${activeId})`;
+          const matchedProfile = pData.data.find(p => p.id === activeId || p.fingerprint === activeId);
+          if (matchedProfile) {
+            activeId = matchedProfile.id;
+            profileName = `${matchedProfile.name} (${activeId})`;
+          }
         }
       } catch(e) {}
     }
-    await browser.storage.local.set({ activeProfile: activeId, activeProfileName: profileName });
+    await browser.storage.sync.set({ activeProfile: activeId, activeProfileName: profileName });
     return { id: activeId, name: profileName };
   }
   return null;
 }
 
 const messageHandlers = {
-  MANAGE_DOMAIN: async (msg) => await manageDomain(msg.profileId, msg.listType, msg.domain, msg.action),
+  MANAGE_DOMAIN: async (msg) => {
+    const res = await manageDomain(msg.profileId, msg.listType, msg.domain, msg.action);
+    if (res.success && (msg.action === 'add' || msg.action === 'delete')) {
+      await updateProfileCache();
+    }
+    return res;
+  },
   TEMP_ALLOW: async (msg) => {
     const res = await manageDomain(msg.profileId, "allowlist", msg.domain, "add");
     if (res.success) {
@@ -140,10 +282,17 @@ const messageHandlers = {
     }
     return res;
   },
-  GET_TAB_STATS: async (msg) => ({ domains: Array.from(tabDomains[msg.tabId] || []), blockedCount: blockedTabRequests[msg.tabId] || 0 }),
+  GET_TAB_STATS: async (msg) => ({ requests: tabRequests[msg.tabId] || {}, blockedCount: blockedTabRequests[msg.tabId] || 0 }),
   GET_LOGS: async (msg) => {
     const h = await getHeaders();
-    try { return await (await fetch(`${API_BASE}/profiles/${msg.profileId}/logs`, { headers: h })).json(); } catch(e) { return { data: [] }; }
+    h["Accept"] = "application/json";
+    try { 
+      const r = await fetch(`${API_BASE}/profiles/${msg.profileId}/logs`, { headers: h });
+      const json = await r.json();
+      if (json && json.data) return { success: true, data: json.data };
+      if (Array.isArray(json)) return { success: true, data: json };
+      return { success: false, data: [] };
+    } catch(e) { return { success: false, data: [] }; }
   },
   GET_ANALYTICS: async (msg) => {
     const h = await getHeaders();
@@ -164,49 +313,57 @@ const messageHandlers = {
     try { return await (await fetch(`${API_BASE}/profiles/${msg.profileId}/logs/download`, { headers: h })).text(); } catch(e) { return null; }
   },
   
-  // --- NEW: Smart Batch Fetcher for all Blocks UI Tabs ---
+  // --- Optimized: Fetch root profile for all Blocks UI Tabs ---
   GET_ALL_SETTINGS: async (msg) => {
     const h = await getHeaders();
     try {
-      const [sec, priv, par, serv, cat, nat] = await Promise.all([
-        fetch(`${API_BASE}/profiles/${msg.profileId}/security`, { headers: h }).then(r=>r.json()),
-        fetch(`${API_BASE}/profiles/${msg.profileId}/privacy`, { headers: h }).then(r=>r.json()),
-        fetch(`${API_BASE}/profiles/${msg.profileId}/parentalcontrol`, { headers: h }).then(r=>r.json()),
-        fetch(`${API_BASE}/profiles/${msg.profileId}/parentalcontrol/services`, { headers: h }).then(r=>r.json()),
-        fetch(`${API_BASE}/profiles/${msg.profileId}/parentalcontrol/categories`, { headers: h }).then(r=>r.json()),
-        fetch(`${API_BASE}/profiles/${msg.profileId}/privacy/natives`, { headers: h }).then(r=>r.json())
-      ]);
+      const r = await fetch(`${API_BASE}/profiles/${msg.profileId}`, { headers: h });
+      if (!r.ok) return { success: false, error: r.statusText };
+      const res = await r.json();
+      const p = res.data || {};
+      
       return { 
         success: true, 
         data: { 
-          security: sec.data || {}, 
-          privacy: priv.data || {}, 
-          parentalcontrol: par.data || {},
-          services: serv.data || [],
-          categories: cat.data || [],
-          natives: nat.data || []
+          security: p.security || {}, 
+          privacy: p.privacy || {}, 
+          parentalcontrol: p.parentalControl || p.parentalcontrol || {},
+          services: p.parentalControl?.services || [],
+          categories: p.parentalControl?.categories || [],
+          natives: p.privacy?.natives || [],
+          blocklists: p.privacy?.blocklists || [],
+          tlds: p.security?.tlds || []
         } 
       };
     } catch(e) { return { success: false, error: e.message }; }
   },
 
-  // --- NEW: Smart Method Dispatcher (PATCH vs POST/DELETE) ---
   TOGGLE_SETTING: async (msg) => {
     const h = await getHeaders();
     const { profileId, category, id, action, settingType } = msg;
-    const url = `${API_BASE}/profiles/${profileId}/${category}`;
+    
+    // Normalize category: NextDNS API is case-sensitive for 'parentalControl'
+    let finalCategory = category;
+    if (category.toLowerCase().startsWith('parentalcontrol')) {
+      finalCategory = category.replace(/parentalcontrol/i, 'parentalControl');
+    }
+    
+    const url = `${API_BASE}/profiles/${profileId}/${finalCategory}`;
     
     try {
       let r;
       if (settingType === 'boolean') {
-        // PATCH booleans directly to the root endpoint
         const body = {};
         body[id] = (action === "add");
         r = await fetch(url, { method: 'PATCH', headers: h, body: JSON.stringify(body) });
       } else {
-        // POST/DELETE lists to specific sub-endpoints
-        if (action === "add") {
-          r = await fetch(url, { method: 'POST', headers: h, body: JSON.stringify({ id: id, active: true }) });
+        const isAdd = (action === "add");
+        if (isAdd) {
+          const body = { id: id };
+          if (finalCategory.includes('parentalControl')) {
+            body.active = true; 
+          }
+          r = await fetch(url, { method: 'POST', headers: h, body: JSON.stringify(body) });
         } else {
           r = await fetch(`${url}/${id}`, { method: 'DELETE', headers: h });
         }

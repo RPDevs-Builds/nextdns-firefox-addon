@@ -8,8 +8,6 @@ const observer = new MutationObserver(() => {
     if (path.endsWith('/security')) {
       injectPageButtons();
       injectModalButtons();
-    } else if (path.endsWith('/account')) {
-      extractApiKey();
     }
   }, 150);
 });
@@ -18,25 +16,6 @@ observer.observe(document.body, { childList: true, subtree: true });
 function getProfileId() {
   const match = window.location.pathname.match(/\/([a-z0-9]+)\//);
   return match ? match[1] : null;
-}
-
-// --- NEW: API Key Auto-Extraction ---
-async function extractApiKey() {
-  // Target the exact class combination from the NextDNS account page
-  const apiDiv = document.querySelector('.font-monospace.flex-shrink-1.ms-3.no-scrollbars');
-  if (apiDiv) {
-    const key = apiDiv.textContent.trim();
-    // Validate it looks like a standard API key (length check)
-    if (key && key.length > 20) {
-      const data = await browser.storage.local.get("apiKey");
-      if (data.apiKey !== key) {
-        await browser.storage.local.set({ apiKey: key });
-        showProgressUI("API Key Synced to DNS Forge!", 1);
-        updateProgress(1, 1);
-        setTimeout(removeProgressUI, 3000);
-      }
-    }
-  }
 }
 
 // --- UI Injection ---
@@ -107,13 +86,29 @@ function showProgressUI(actionText, total) {
     ui = document.createElement('div');
     ui.id = 'nxm-progress-ui';
     ui.style.cssText = 'position: fixed; top: 20px; right: 20px; width: 300px; background: white; color: #333; padding: 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.25); z-index: 10000; font-family: sans-serif; border: 1px solid #ccc;';
-    ui.innerHTML = `
-      <div style="font-weight: bold; margin-bottom: 10px;" id="nxm-progress-text">${actionText}...</div>
-      <div style="width: 100%; height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-        <div id="nxm-progress-bar" style="height: 100%; background: #007bff; width: 0%; transition: width 0.1s;"></div>
-      </div>
-      <div style="font-size: 0.85em; color: #666; margin-top: 5px; text-align: right;" id="nxm-progress-count">0 / ${total}</div>
-    `;
+    
+    const textDiv = document.createElement('div');
+    textDiv.id = 'nxm-progress-text';
+    textDiv.style.cssText = 'font-weight: bold; margin-bottom: 10px;';
+    textDiv.textContent = actionText + '...';
+
+    const barContainer = document.createElement('div');
+    barContainer.style.cssText = 'width: 100%; height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden;';
+
+    const bar = document.createElement('div');
+    bar.id = 'nxm-progress-bar';
+    bar.style.cssText = 'height: 100%; background: #007bff; width: 0%; transition: width 0.1s;';
+    barContainer.appendChild(bar);
+
+    const countDiv = document.createElement('div');
+    countDiv.id = 'nxm-progress-count';
+    countDiv.style.cssText = 'font-size: 0.85em; color: #666; margin-top: 5px; text-align: right;';
+    countDiv.textContent = `0 / ${total}`;
+
+    ui.appendChild(textDiv);
+    ui.appendChild(barContainer);
+    ui.appendChild(countDiv);
+
     document.body.appendChild(ui);
   } else {
     document.getElementById('nxm-progress-text').textContent = actionText + '...';
@@ -140,7 +135,7 @@ function removeProgressUI() {
 async function checkBackupStatus() {
   const profileId = getProfileId();
   if (!profileId) return;
-  const data = await browser.storage.local.get(`tldBackup_${profileId}`);
+  const data = await browser.storage.sync.get(`tldBackup_${profileId}`);
   const restoreBtn = document.getElementById('nxm-restore');
   if (restoreBtn) restoreBtn.style.display = data[`tldBackup_${profileId}`] ? 'inline-block' : 'none';
 }
@@ -158,7 +153,7 @@ async function handleEnableAll() {
   if (!profileId) return;
   if (!confirm("This will enable all TLDs. We will create a backup of your current setup first. Continue?")) return;
   const currentTLDs = await getCurrentActiveTLDs(profileId);
-  await browser.storage.local.set({ [`tldBackup_${profileId}`]: currentTLDs });
+  await browser.storage.sync.set({ [`tldBackup_${profileId}`]: currentTLDs });
   checkBackupStatus();
   const modalItems = document.querySelectorAll('.modal-dialog .list-group-item');
   const allTLDs = Array.from(modalItems).map(el => el.textContent.trim().toLowerCase()).filter(text => text.startsWith('.')); 
@@ -178,7 +173,7 @@ async function handleDisableAll() {
 async function handleRestore() {
   const profileId = getProfileId();
   if (!profileId) return;
-  const data = await browser.storage.local.get(`tldBackup_${profileId}`);
+  const data = await browser.storage.sync.get(`tldBackup_${profileId}`);
   const backup = data[`tldBackup_${profileId}`];
   if (!backup || backup.length === 0) return alert("No backup found.");
   const currentTLDs = await getCurrentActiveTLDs(profileId);

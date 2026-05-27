@@ -1,0 +1,39 @@
+name: Daily Metadata Sync
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs daily at midnight UTC
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Extension Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Fetch and Sync Metadata
+        env:
+          NEXTDNS_COOKIE: ${{ secrets.NEXTDNS_COOKIE }}
+        run: |
+          # Create temporary staging dir if it doesn't exist (action runner is clean)
+          mkdir -p .staging/nextdns-addon-data/data
+          
+          # Run the sync script
+          # Note: We've updated the script locally to use the environment variable
+          python3 scripts/sync_metadata.py
+
+      - name: Commit and Push Changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/blocks_meta.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: automated metadata sync [skip ci]" && git push)

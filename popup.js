@@ -9,6 +9,9 @@ let isTabTrackingPaused = false;
 let listsSynced = false;
 let currentAllowlist = new Set();
 let currentDenylist = new Set();
+let deviceAliases = {};
+let blocksMeta = { blocklists: [], parental_services: [], tlds: [], categories: [] };
+let activeBlocksSort = 'popularity';
 
 const urlParams = new URLSearchParams(window.location.search);
 const isPopoutMode = urlParams.get('mode') === 'popout';
@@ -48,11 +51,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   const bulkSubmitBtn = document.getElementById("list-bulk-submit-btn");
   const bulkTextarea = document.getElementById("list-bulk-domains");
 
-  bulkToggleBtn.addEventListener('click', () => { bulkContainer.style.display = bulkContainer.style.display === 'none' ? 'flex' : 'none'; });
-  bulkCancelBtn.addEventListener('click', () => { bulkContainer.style.display = 'none'; bulkTextarea.value = ''; });
+  if (bulkToggleBtn) bulkToggleBtn.onclick = () => { bulkContainer.style.display = bulkContainer.style.display === 'none' ? 'flex' : 'none'; };
+  if (bulkCancelBtn) bulkCancelBtn.onclick = () => { bulkContainer.style.display = 'none'; bulkTextarea.value = ''; };
 
-  bulkSubmitBtn.addEventListener('click', async () => {
-    const listType = document.getElementById("list-type-select").value;
+  if (bulkSubmitBtn) bulkSubmitBtn.onclick = async () => {
+    const listTypeSelect = document.getElementById("list-type-select");
+    const listType = listTypeSelect ? listTypeSelect.value : 'denylist';
     const domains = bulkTextarea.value.split('\n').map(d => d.trim()).filter(d => d !== '');
     if (domains.length === 0 || !activeProfile) return;
 
@@ -64,7 +68,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (listType === 'allowlist') currentAllowlist.add(domains[i]);
       else currentDenylist.add(domains[i]);
 
-      await browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: activeProfile, listType: listType, domain: domains[i], action: "add" });
+      await browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: activeProfile, listType, domain: domains[i], action: "add" });
       bulkSubmitBtn.textContent = `Processing (${i + 1}/${domains.length})...`;
       await new Promise(r => setTimeout(r, 500)); 
     }
@@ -74,801 +78,740 @@ document.addEventListener("DOMContentLoaded", async () => {
     bulkCancelBtn.disabled = false;
     bulkSubmitBtn.textContent = "Submit Bulk Add";
     bulkContainer.style.display = 'none';
-    
-    syncLists(true); 
-    loadManagerList(); 
-  });
+    syncLists(true); loadManagerList(); 
+  };
 
-  // --- Live Tab Tracking & Freeze Logic ---
-  tabSyncBtn.addEventListener('click', () => {
+  // --- Live Tab Tracking ---
+  if (tabSyncBtn) tabSyncBtn.onclick = () => {
     isTabTrackingPaused = !isTabTrackingPaused;
-    if (isTabTrackingPaused) {
-      tabSyncBtn.classList.replace('btn-secondary', 'btn-dark');
-      tabSyncBtn.textContent = '▶️ Paused';
-    } else {
-      tabSyncBtn.classList.replace('btn-dark', 'btn-secondary');
-      tabSyncBtn.textContent = '⏸️ Live';
-      updateDashboardTabInfo(); 
-    }
-  });
+    tabSyncBtn.classList.toggle('btn-secondary', !isTabTrackingPaused);
+    tabSyncBtn.classList.toggle('btn-dark', isTabTrackingPaused);
+    tabSyncBtn.textContent = isTabTrackingPaused ? '▶️ Paused' : '⏸️ Live';
+    if (!isTabTrackingPaused) updateDashboardTabInfo();
+  };
 
   browser.tabs.onActivated.addListener(() => { if (!isTabTrackingPaused) updateDashboardTabInfo(); });
-  browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => { if (tab.active && changeInfo.status === 'complete' && !isTabTrackingPaused) updateDashboardTabInfo(); });
+  browser.tabs.onUpdated.addListener((id, ch, t) => { if (t.active && ch.status === 'complete' && !isTabTrackingPaused) updateDashboardTabInfo(); });
 
   // View Router Logic
-  if (isSidebarMode) {
-    document.body.classList.add('sidebar-mode');
-    popoutBtn.style.display = 'none';
-    pinBtn.style.display = 'none';
-    sidebarBtn.style.display = 'none';
-  } else if (isPopoutMode) {
+  if (isSidebarMode) document.body.classList.add('sidebar-mode');
+  else if (isPopoutMode) {
     document.body.classList.add('popout-mode');
-    popoutBtn.style.display = 'none';
-    sidebarBtn.style.display = 'none';
-    pinBtn.style.display = 'flex';
-
-    pinBtn.addEventListener('click', async () => {
+    if (pinBtn) pinBtn.onclick = async () => {
       isPinnedOnTop = !isPinnedOnTop;
-      try {
-        const win = await browser.windows.getCurrent();
-        await browser.windows.update(win.id, { alwaysOnTop: isPinnedOnTop });
-        pinBtn.style.color = isPinnedOnTop ? '#28a745' : 'var(--text-muted)'; 
-        pinBtn.title = isPinnedOnTop ? "Unpin Window" : "Toggle Always on Top";
-      } catch (e) {
-        alert("Your desktop environment explicitly blocks API-driven 'Always on Top' requests. You will need to right-click the window titlebar and pin it natively.");
-        isPinnedOnTop = false;
-      }
-    });
+      const win = await browser.windows.getCurrent();
+      await browser.windows.update(win.id, { alwaysOnTop: isPinnedOnTop }).catch(() => alert("Pinning blocked by OS."));
+      pinBtn.style.color = isPinnedOnTop ? '#28a745' : 'var(--text-muted)';
+    };
   } else {
-    popoutBtn.addEventListener('click', async () => {
+    if (popoutBtn) popoutBtn.onclick = async () => {
       const currentWin = await browser.windows.getCurrent();
-      const spawnLeft = Math.max(0, currentWin.left + currentWin.width - 400 - 30);
-      const spawnTop = currentWin.top + 60;
-
-      const newWin = await browser.windows.create({
-        url: browser.runtime.getURL("popup.html?mode=popout"),
-        type: "popup", 
-        width: 380,
-        height: 650,
-        left: spawnLeft,
-        top: spawnTop
-      });
-      setTimeout(() => browser.windows.update(newWin.id, { width: 380, height: 650 }).catch(()=>{}), 300);
-      window.close(); 
-    });
-
-    sidebarBtn.addEventListener('click', async () => {
-      try {
-        await browser.sidebarAction.open();
-        window.close();
-      } catch (e) { alert("Sidebar API blocked. Open via View > Sidebar in Firefox."); }
-    });
+      await browser.windows.create({ url: "popup.html?mode=popout", type: "popup", width: 380, height: 650, left: currentWin.left + currentWin.width - 430, top: currentWin.top + 60 });
+      window.close();
+    };
+    if (sidebarBtn) sidebarBtn.onclick = () => { browser.sidebarAction.open().catch(() => alert("Use View > Sidebar")); window.close(); };
   }
 
-  const { activeTheme, customThemes, uiTheme } = await browser.storage.local.get(["activeTheme", "customThemes", "uiTheme"]);
+  // --- Theme Engine ---
+  const { activeTheme, customThemes, uiTheme } = await browser.storage.sync.get(["activeTheme", "customThemes", "uiTheme"]);
   savedThemes = customThemes || {};
-  
-  if (!activeTheme && uiTheme) {
-      activeThemeId = uiTheme === 'light' ? 'default-light' : 'default-dark';
-  } else {
-      activeThemeId = activeTheme || 'default-dark';
-  }
-
+  activeThemeId = activeTheme || (uiTheme === 'light' ? 'default-light' : 'default-dark');
   applyTheme(activeThemeId);
   populateThemeDropdown();
 
-  themeBtn.addEventListener('click', async () => {
-    const newTheme = (activeThemeId === 'default-light' || activeThemeId !== 'default-dark') ? 'default-dark' : 'default-light';
-    await applyAndSaveTheme(newTheme);
-  });
-
-  THEME_VARS.forEach(v => {
-    const picker = document.getElementById(`color-${v}`);
-    if (picker) {
-      picker.addEventListener('input', (e) => {
-        document.body.style.setProperty(`--${v}`, e.target.value);
-      });
-    }
-  });
-
-  document.getElementById("theme-selector").addEventListener('change', async (e) => {
-    await applyAndSaveTheme(e.target.value);
-  });
-
-  document.getElementById("save-theme-btn").addEventListener('click', async () => {
-    let tName = document.getElementById("theme-name-input").value.trim();
-    if (!tName) tName = `Theme ${Object.keys(savedThemes).length + 1}`;
-    
-    if (tName === 'default-dark' || tName === 'default-light' || PRESET_THEMES[tName]) {
-        return alert("Cannot overwrite default or preset themes. Please choose a different name.");
-    }
-
+  if (themeBtn) themeBtn.onclick = () => applyAndSaveTheme(activeThemeId === 'default-light' ? 'default-dark' : 'default-light');
+  const themeSelector = document.getElementById("theme-selector");
+  if (themeSelector) themeSelector.onchange = (e) => applyAndSaveTheme(e.target.value);
+  const saveThemeBtn = document.getElementById("save-theme-btn");
+  if (saveThemeBtn) saveThemeBtn.onclick = async () => {
+    let tName = document.getElementById("theme-name-input").value.trim() || `Theme ${Object.keys(savedThemes).length + 1}`;
     const cTheme = {};
     THEME_VARS.forEach(v => {
-      cTheme[`--${v}`] = document.getElementById(`color-${v}`).value;
+      const p = document.getElementById(`color-${v}`);
+      if (p) cTheme[`--${v}`] = p.value;
     });
-    
     savedThemes[tName] = cTheme;
-    await browser.storage.local.set({ customThemes: savedThemes });
+    await browser.storage.sync.set({ customThemes: savedThemes });
     await applyAndSaveTheme(tName);
-    
-    document.getElementById("theme-name-input").value = "";
-    const btn = document.getElementById("save-theme-btn");
-    btn.textContent = "✅ Saved!";
-    setTimeout(() => { btn.textContent = "💾 Save"; }, 2000);
+  };
+
+  if (refreshBtn) {
+    refreshBtn.onclick = async () => {
+      refreshBtn.style.transform = "rotate(180deg)";
+      setTimeout(() => { refreshBtn.style.transform = "none"; }, 300);
+      const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+      if (tab) browser.tabs.reload(tab.id).catch(() => {});
+      initializeApp();
+    };
+  }
+
+  // --- Main Tab Navigation ---
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      const target = btn.getAttribute('data-tab');
+      const content = document.getElementById(`tab-${target}`);
+      if (content) content.classList.add('active');
+      if (target === 'logs') { if (isAutoRefreshDefault) toggleAutoRefresh(true); else loadNativeLogs(); }
+      else toggleAutoRefresh(false);
+      if (target === 'lists') loadManagerList();
+      if (target === 'toggles') loadToggles();
+      if (target === 'settings') loadSettings();
+    };
   });
 
-  document.getElementById("delete-theme-btn").addEventListener('click', async () => {
-    if (activeThemeId.startsWith('default-') || PRESET_THEMES[activeThemeId]) return;
-    if (confirm(`Are you sure you want to delete the theme "${activeThemeId}"?`)) {
-        delete savedThemes[activeThemeId];
-        await browser.storage.local.set({ customThemes: savedThemes });
-        await applyAndSaveTheme('default-dark');
-    }
-  });
-
-  refreshBtn.addEventListener('click', async () => {
-    refreshBtn.style.transform = "rotate(180deg)";
-    setTimeout(() => { refreshBtn.style.transform = "none"; }, 300);
-
-    const activeTab = document.querySelector('.tab-btn.active').getAttribute('data-tab');
-    if (activeTab === 'dashboard') { await syncLists(true); initializeApp(); }
-    else if (activeTab === 'logs') { await syncLists(true); loadNativeLogs(); }
-    else if (activeTab === 'lists') loadManagerList(true); 
-    else if (activeTab === 'toggles') loadToggles();
-    else if (activeTab === 'settings') loadSettings();
-    else if (activeTab === 'labs') loadSettings(); 
-  });
-
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('.tab-log-item')) {
-      const setDomain = e.target.closest('.tab-log-item').getAttribute('data-set-domain');
-      if (setDomain) {
-        const input = document.getElementById('domain-input');
-        input.value = setDomain;
-        input.style.borderColor = '#4facf7';
-        setTimeout(() => input.style.borderColor = 'var(--border-color)', 500);
+  // --- Settings Sub-tabs ---
+  const settingsSubNav = document.getElementById('settings-sub-nav');
+  if (settingsSubNav) {
+    settingsSubNav.onclick = (e) => {
+      const btn = e.target.closest('.sub-tab-btn');
+      if (btn) {
+        settingsSubNav.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.settings-sub-content').forEach(c => { c.classList.remove('active'); c.style.display = 'none'; });
+        btn.classList.add('active');
+        const target = btn.getAttribute('data-sub');
+        const content = document.getElementById(`settings-${target}`);
+        if (content) { content.classList.add('active'); content.style.display = 'block'; }
+        if (target === 'hostnames') renderAliases();
+        if (target === 'analytics') loadAnalytics();
       }
-    }
+    };
+  }
+
+  // --- Log Filters ---
+  const statusBtn = document.getElementById("status-filter-dropdown-btn");
+  if (statusBtn) statusBtn.onclick = (e) => { e.stopPropagation(); const c = document.getElementById("status-filter-content"); if (c) c.style.display = c.style.display === "none" ? "flex" : "none"; };
+  document.addEventListener("click", () => { const c = document.getElementById("status-filter-content"); if (c) c.style.display = "none"; });
+  const filterContent = document.getElementById("status-filter-content");
+  if (filterContent) { filterContent.onclick = (e) => e.stopPropagation(); filterContent.querySelectorAll('input').forEach(cb => cb.onchange = renderLogs); }
+  const devFilt = document.getElementById("log-device-filter");
+  if (devFilt) devFilt.onchange = renderLogs;
+  const typFilt = document.getElementById("log-type-filter");
+  if (typFilt) typFilt.onchange = renderLogs;
+  const logSearch = document.getElementById("log-search");
+  if (logSearch) logSearch.oninput = renderLogs;
+
+  const autoRefreshBtn = document.getElementById("auto-refresh-btn");
+  if (autoRefreshBtn) autoRefreshBtn.onclick = () => toggleAutoRefresh(autoRefreshInterval === null);
+
+  const fetchProfilesBtn = document.getElementById("setting-fetch-profiles");
+  if (fetchProfilesBtn) fetchProfilesBtn.onclick = fetchProfiles;
+
+  const saveSettingsBtn = document.getElementById("save-settings-btn");
+  if (saveSettingsBtn) saveSettingsBtn.onclick = saveSettings;
+
+  const downloadLogsBtn = document.getElementById("download-logs-btn");
+  if (downloadLogsBtn) downloadLogsBtn.onclick = downloadLogs;
+
+  const wipeLogsBtn = document.getElementById("wipe-logs-btn");
+  if (wipeLogsBtn) wipeLogsBtn.onclick = wipeLogs;
+
+  const listTypeSelect = document.getElementById("list-type-select");
+  if (listTypeSelect) listTypeSelect.onchange = () => { document.getElementById("list-search-input").value = ""; loadManagerList(); };
+  const listSearchInput = document.getElementById("list-search-input");
+  if (listSearchInput) listSearchInput.oninput = renderManagerList;
+  const listAddBtn = document.getElementById("list-add-btn");
+  if (listAddBtn) listAddBtn.onclick = addListItem;
+
+  document.getElementById("allow-btn").onclick = () => executeAction("allowlist");
+  document.getElementById("deny-btn").onclick = () => executeAction("denylist");
+  document.getElementById("snooze-btn").onclick = snoozeDomain;
+
+  document.addEventListener('click', async (e) => {
     if (e.target.closest('#logs-container')) {
       const btn = e.target.closest('button');
       if (btn) {
         if (btn.hasAttribute('data-log-action')) handleLogAction(btn.getAttribute('data-list'), btn.getAttribute('data-domain'), btn.getAttribute('data-log-action'), btn);
         else if (btn.hasAttribute('data-find')) findInLists(btn.getAttribute('data-find'));
-      } else if (e.target.classList.contains('domain-copy')) {
-        const dText = e.target.getAttribute('data-copy');
-        navigator.clipboard.writeText(dText);
-        alert('Copied: ' + dText);
       }
     }
     if (e.target.closest('#list-items-container')) {
       const btn = e.target.closest('button');
       if (btn && btn.hasAttribute('data-delete')) deleteListItem(btn.getAttribute('data-delete'));
     }
-    if (e.target.closest('#tab-toggles')) {
-      const btn = e.target.closest('button');
-      if (btn && btn.hasAttribute('data-toggle-cat')) toggleService(btn.getAttribute('data-toggle-cat'), btn.getAttribute('data-toggle-id'), btn);
+    if (e.target.closest('.api-toggle-btn')) toggleApiSetting(e.target.closest('.api-toggle-btn'));
+    
+    // Updated: Handle Blocks sub-nav clicks
+    if (e.target.closest('#blocks-sub-nav .sub-tab-btn')) {
+      const btn = e.target.closest('.sub-tab-btn');
+      document.querySelectorAll('#blocks-sub-nav .sub-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeBlocksSubTab = btn.getAttribute('data-sub');
+      const searchInput = document.getElementById("blocks-search-input");
+      if (searchInput) searchInput.value = "";
+      loadToggles();
     }
   });
 
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.onclick = () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      
-      btn.classList.add('active');
-      const targetTab = btn.getAttribute('data-tab');
-      document.getElementById(`tab-${targetTab}`).classList.add('active');
+  const blocksSearchInput = document.getElementById("blocks-search-input");
+  if (blocksSearchInput) blocksSearchInput.oninput = () => loadToggles();
 
-      if (targetTab !== 'logs') toggleAutoRefresh(false);
-      else {
-        if (isAutoRefreshDefault && autoRefreshInterval === null) toggleAutoRefresh(true);
-        else loadNativeLogs();
-      }
-
-      if (targetTab === 'lists') loadManagerList();
-      if (targetTab === 'toggles') loadToggles();
-      if (targetTab === 'settings' || targetTab === 'labs') loadSettings();
-    };
-  });
+  const blocksSortSelect = document.getElementById("blocks-sort-select");
+  if (blocksSortSelect) blocksSortSelect.onchange = (e) => { activeBlocksSort = e.target.value; loadToggles(); };
 
   initializeApp();
 });
 
-async function applyAndSaveTheme(themeId) {
-  activeThemeId = themeId;
-  applyTheme(themeId);
-  await browser.storage.local.set({ activeTheme: activeThemeId });
-  populateThemeDropdown();
-}
-
-function applyTheme(themeId) {
+async function applyAndSaveTheme(id) { activeThemeId = id; applyTheme(id); await browser.storage.sync.set({ activeTheme: id }); populateThemeDropdown(); }
+function applyTheme(id) {
   THEME_VARS.forEach(v => document.body.style.removeProperty(`--${v}`));
-  if (themeId === 'default-light') document.body.classList.add('light-mode');
-  else if (themeId === 'default-dark') document.body.classList.remove('light-mode');
-  else if (PRESET_THEMES[themeId]) {
-      document.body.classList.remove('light-mode');
-      Object.entries(PRESET_THEMES[themeId]).forEach(([k, v]) => document.body.style.setProperty(k, v));
-  } else if (savedThemes[themeId]) {
-      document.body.classList.remove('light-mode'); 
-      Object.entries(savedThemes[themeId]).forEach(([k, v]) => document.body.style.setProperty(k, v));
-  } else {
-      activeThemeId = 'default-dark';
-      document.body.classList.remove('light-mode');
+  if (id === 'default-light') document.body.classList.add('light-mode');
+  else {
+    document.body.classList.remove('light-mode');
+    const theme = PRESET_THEMES[id] || savedThemes[id];
+    if (theme) Object.entries(theme).forEach(([k, v]) => document.body.style.setProperty(k, v));
   }
   syncThemePickers();
 }
-
 function populateThemeDropdown() {
   const select = document.getElementById("theme-selector");
   if (!select) return;
   select.innerHTML = `<option value="default-dark">🌙 Default Dark</option><option value="default-light">☀️ Default Light</option>`;
-  Object.keys(PRESET_THEMES).forEach(tName => select.insertAdjacentHTML('beforeend', `<option value="${tName}">✨ ${tName}</option>`));
-  Object.keys(savedThemes).forEach(tName => select.insertAdjacentHTML('beforeend', `<option value="${tName}">🎨 ${tName}</option>`));
+  Object.keys(PRESET_THEMES).forEach(t => select.insertAdjacentHTML('beforeend', `<option value="${t}">✨ ${t}</option>`));
+  Object.keys(savedThemes).forEach(t => select.insertAdjacentHTML('beforeend', `<option value="${t}">🎨 ${t}</option>`));
   select.value = activeThemeId;
-  document.getElementById("delete-theme-btn").style.display = (activeThemeId.startsWith('default-') || PRESET_THEMES[activeThemeId]) ? 'none' : 'block';
 }
-
 function syncThemePickers() {
   const styles = getComputedStyle(document.body);
-  THEME_VARS.forEach(v => {
-    const picker = document.getElementById(`color-${v}`);
-    if (picker) picker.value = styles.getPropertyValue(`--${v}`).trim() || '#000000';
-  });
+  THEME_VARS.forEach(v => { const p = document.getElementById(`color-${v}`); if (p) p.value = styles.getPropertyValue(`--${v}`).trim() || '#000000'; });
 }
 
-// --- OPTIMIZED CACHING ENGINE ---
 async function syncLists(force = false) {
-  if (!activeProfile) return;
-  if (!force && listsSynced) return; 
-
-  const [allowRes, denyRes] = await Promise.all([
+  if (!activeProfile || (!force && listsSynced)) return;
+  const [a, d] = await Promise.all([
     browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: activeProfile, listType: "allowlist", action: "list" }),
     browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: activeProfile, listType: "denylist", action: "list" })
   ]).catch(() => [null, null]);
   
-  currentAllowlist = new Set((allowRes?.data || []).map(d => d.id));
-  currentDenylist = new Set((denyRes?.data || []).map(d => d.id));
+  // Robust mapping: filter out null/undefined items
+  currentAllowlist = new Set((a?.data || []).filter(i => i && i.id).map(i => i.id));
+  currentDenylist = new Set((d?.data || []).filter(i => i && i.id).map(i => i.id));
   listsSynced = true;
 }
 
-async function updateDashboardTabInfo() {
-  const domainInput = document.getElementById("domain-input");
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-  
-  if (tab && tab.url) {
-    if (document.activeElement !== domainInput) {
-        try { domainInput.value = new URL(tab.url).hostname; } catch (e) { domainInput.value = "Invalid URL"; }
-    }
-  } else if (document.activeElement !== domainInput) {
-    domainInput.value = "Invalid URL";
-  }
-
-  if (tab && tab.id) {
-    const tabStats = await browser.runtime.sendMessage({ type: "GET_TAB_STATS", tabId: tab.id }).catch(() => null);
-    const uDomains = tabStats?.domains?.length || 0;
-    const score = document.getElementById("privacy-score");
-    score.textContent = uDomains === 0 ? "-" : uDomains <= 5 ? "A+" : uDomains <= 15 ? "B" : uDomains <= 30 ? "C" : "F";
-    score.style.color = uDomains === 0 ? "var(--text-muted)" : uDomains <= 5 ? "#28a745" : uDomains <= 15 ? "#8db600" : uDomains <= 30 ? "#f39c12" : "#dc3545";
-
-    document.getElementById("tab-log").innerHTML = uDomains 
-      ? tabStats.domains.map(d => `<div style="padding: 6px 8px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background 0.2s;" class="tab-log-item" data-set-domain="${escapeHTML(d)}" title="Set as Target Domain">${escapeHTML(d)}</div>`).join('') 
-      : "<div style='padding: 10px; color: var(--text-muted); text-align: center;'>No requests intercepted yet.</div>";
-  }
-}
-
 async function initializeApp() {
-  const { apiKey, autoRefreshDefault } = await browser.storage.local.get(["apiKey", "autoRefreshDefault"]);
-  isAutoRefreshDefault = autoRefreshDefault || false;
+  const { apiKey, autoRefreshDefault, aliases } = await browser.storage.sync.get(["apiKey", "autoRefreshDefault", "aliases"]);
+  isAutoRefreshDefault = autoRefreshDefault !== false;
+  deviceAliases = aliases || {};
+  
+  // Load Metadata
+  try {
+    const response = await fetch(browser.runtime.getURL('data/blocks_meta.json'));
+    blocksMeta = await response.json();
+  } catch (e) { console.error("Failed to load blocks metadata", e); }
 
-  if (!apiKey) {
-    document.querySelector('.tab-btn[data-tab="settings"]').click();
-    return;
-  }
+  if (!apiKey) { document.querySelector('.tab-btn[data-tab="settings"]').click(); return; }
+  
+  let stored = await browser.storage.sync.get(["activeProfile", "activeProfileName"]);
+  if (!stored.activeProfile) {
+    const p = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
+    if (p) { activeProfile = p.id; stored.activeProfileName = p.name; }
+  } else activeProfile = stored.activeProfile;
 
-  const profileStatus = document.getElementById("profile-status");
-  let stored = await browser.storage.local.get(["activeProfile", "activeProfileName"]);
-  activeProfile = stored.activeProfile;
-
-  if (!activeProfile) {
-    profileStatus.textContent = "Profile: Detecting live...";
-    const pData = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
-    if (pData) { activeProfile = pData.id; stored.activeProfileName = pData.name; }
-  }
-
-  profileStatus.textContent = activeProfile ? `Active Profile: ${stored.activeProfileName || activeProfile}` : "Profile: Auto-detect failed. Set manually in Options.";
-
-  await syncLists(); 
-  await updateDashboardTabInfo(); 
-
-  const executeAction = async (listType) => {
-    const domainInput = document.getElementById("domain-input");
-    const domain = domainInput.value.trim();
-    if (!domain || !activeProfile) return alert("Domain or Profile missing.");
-    
-    if (listType === 'allowlist') currentAllowlist.add(domain);
-    else currentDenylist.add(domain);
-
-    const res = await browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: activeProfile, listType, domain, action: "add" });
-    if (res && res.success) {
-      domainInput.style.borderColor = listType === 'allowlist' ? "#28a745" : "#dc3545";
-      syncLists(true); 
-      if (document.getElementById('tab-logs').classList.contains('active')) renderLogs();
-    } else {
-      if (listType === 'allowlist') currentAllowlist.delete(domain);
-      else currentDenylist.delete(domain);
-      alert(res?.error || "Failed to submit domain.");
-    }
-  };
-
-  document.getElementById("allow-btn").onclick = () => executeAction("allowlist");
-  document.getElementById("deny-btn").onclick = () => executeAction("denylist");
-  document.getElementById("snooze-btn").onclick = async () => {
-    const domainInput = document.getElementById("domain-input");
-    const domain = domainInput.value.trim();
-    if (!domain || !activeProfile) return;
-    
-    currentAllowlist.add(domain); 
-    const res = await browser.runtime.sendMessage({ type: "TEMP_ALLOW", profileId: activeProfile, domain }).catch(() => ({success: false}));
-    if (res && res.success) {
-      domainInput.style.borderColor = "#f39c12";
-      syncLists(true); 
-    }
-  };
-
-  if (activeProfile) {
-    browser.runtime.sendMessage({ type: "GET_ANALYTICS", profileId: activeProfile }).then(s => {
-      document.getElementById("stat-total").textContent = (s?.data?.queries || 0).toLocaleString();
-      document.getElementById("stat-blocked").textContent = (s?.data?.blockedQueries || 0).toLocaleString();
-    }).catch(() => {});
-  }
+  const profStatus = document.getElementById("profile-status");
+  if (profStatus) profStatus.innerHTML = activeProfile ? `Profile: <span style="color:#4facf7;">${escapeHTML(stored.activeProfileName || activeProfile)}</span>` : "Profile: Not Found";
+  await syncLists(); updateDashboardTabInfo(); renderLogs();
 }
 
-document.getElementById("log-search").addEventListener("input", renderLogs);
-document.querySelectorAll('#log-filters input').forEach(cb => cb.addEventListener("change", renderLogs));
-
-document.getElementById("auto-refresh-btn").onclick = () => {
-  const isActive = autoRefreshInterval !== null;
-  toggleAutoRefresh(!isActive);
-};
-
-function toggleAutoRefresh(enable) {
+async function toggleAutoRefresh(enable) {
   const btn = document.getElementById("auto-refresh-btn");
+  if (!btn) return;
+  clearInterval(autoRefreshInterval); autoRefreshInterval = null;
   if (enable) {
-    btn.classList.replace("btn-dark", "btn-secondary");
-    btn.textContent = "▶️ Auto";
-    loadNativeLogs(); 
-    autoRefreshInterval = setInterval(loadNativeLogs, 5000); 
-  } else {
-    btn.classList.replace("btn-secondary", "btn-dark");
-    btn.textContent = "⏸️ Auto";
-    clearInterval(autoRefreshInterval);
-    autoRefreshInterval = null;
-  }
+    btn.classList.replace("btn-dark", "btn-secondary"); btn.textContent = "⏸️ Auto";
+    loadNativeLogs();
+    const { autoRefreshTime } = await browser.storage.sync.get("autoRefreshTime");
+    autoRefreshInterval = setInterval(loadNativeLogs, (parseInt(autoRefreshTime) || 5) * 1000);
+  } else { btn.classList.replace("btn-secondary", "btn-dark"); btn.textContent = "▶️ Auto"; }
 }
 
 async function loadNativeLogs() {
   if (!activeProfile) return;
-  const logs = await browser.runtime.sendMessage({ type: "GET_LOGS", profileId: activeProfile }).catch(() => null);
-  if (logs && logs.data) {
-    cachedLogs = logs.data;
-    renderLogs();
-  }
+  const res = await browser.runtime.sendMessage({ type: "GET_LOGS", profileId: activeProfile }).catch(() => null);
+  if (res) { cachedLogs = res.data || res.logs || res || []; renderLogs(); }
 }
 
-const getMatch = (domain, listSet) => {
-  if (listSet.has(domain)) return domain;
-  const parts = domain.split('.');
-  for (let i = 1; i < parts.length - 1; i++) {
-    const root = parts.slice(i).join('.');
-    if (listSet.has(root)) return root;
-  }
-  return null;
-};
-
-// PERFORMANCE: Optimized batch rendering with DocumentFragment
 function renderLogs() {
   const container = document.getElementById("logs-container");
-  if (cachedLogs.length === 0) {
-    container.innerHTML = "<div style='text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.9em;'>No logs found.</div>";
+  if (!container) return;
+  
+  if (!Array.isArray(cachedLogs) || cachedLogs.length === 0) {
+    container.innerHTML = "<div style='text-align:center; padding:20px; color:var(--text-muted); font-size:0.9em;'>No logs found.</div>";
     return;
   }
 
-  const textFilter = document.getElementById("log-search").value.toLowerCase();
-  const checkedFilters = Array.from(document.querySelectorAll('#log-filters input:checked')).map(cb => cb.value);
+  const textFilterInput = document.getElementById("log-search");
+  const textFilter = textFilterInput ? textFilterInput.value.toLowerCase() : "";
+  const devFilt = document.getElementById("log-device-filter");
+  const deviceFilter = devFilt ? devFilt.value : "";
+  const typFilt = document.getElementById("log-type-filter");
+  const typeFilter = typFilt ? typFilt.value : "";
+  const activeFilters = Array.from(document.querySelectorAll('#status-filter-content input:checked')).map(cb => cb.value);
 
-  const fragment = document.createDocumentFragment();
-  let matchCount = 0;
+  // Auto-populate device dropdown if needed
+  const deviceDropdown = document.getElementById("log-device-filter");
+  if (deviceDropdown && deviceDropdown.options.length === 1) {
+    const unique = [...new Set(cachedLogs.filter(l => l && (l.device || l.clientIp)).map(l => l.device?.id || l.clientIp).filter(Boolean))];
+    unique.forEach(id => {
+      const log = cachedLogs.find(l => l && (l.device?.id || l.clientIp) === id);
+      if (!log) return;
+      const name = deviceAliases[id] || log.device?.name || id;
+      deviceDropdown.insertAdjacentHTML('beforeend', `<option value="${id}">${escapeHTML(name)}</option>`);
+    });
+  }
 
-  cachedLogs.forEach(log => {
-    const reqDomain = log.domain || log.name || log.qname || log.url || '';
-    const deviceName = log.device?.name || log.device?.model || log.device?.localIp || log.device?.id || log.clientIp || '';
-    const searchable = `${reqDomain} ${deviceName} ${log.clientIp || ''}`.toLowerCase();
+  const filtered = cachedLogs.filter(log => {
+    if (!log) return false;
+    const domain = (log.name || log.domain || '').toLowerCase();
+    const id = log.device?.id || log.clientIp;
+    const type = (log.protocol || '').toLowerCase();
+    const status = (log.status === 'allowed' || log.status === 'whitelisted') ? 'status:allowed' : 'status:blocked';
     
-    if (textFilter && !searchable.includes(textFilter)) return;
+    const isWhite = log.status === 'whitelisted' || log.reasons?.some(r => r.name.toLowerCase().includes('allowlist'));
+    const isBlack = log.reasons?.some(r => r.name.toLowerCase().includes('denylist'));
 
-    const isLiveAllowlisted = getMatch(reqDomain, currentAllowlist) !== null;
-    const isLiveDenylisted = getMatch(reqDomain, currentDenylist) !== null;
-
-    const isGeneralAllowed = log.status === 'allowed' && !isLiveAllowlisted;
-    const isGeneralBlocked = log.status === 'blocked' && !isLiveDenylisted;
-
-    let show = false;
-    if (isGeneralAllowed && checkedFilters.includes('status:allowed')) show = true;
-    if (isGeneralBlocked && checkedFilters.includes('status:blocked')) show = true;
-    if (isLiveAllowlisted && checkedFilters.includes('reason:allowlist')) show = true;
-    if (isLiveDenylisted && checkedFilters.includes('reason:denylist')) show = true;
+    if (textFilter && !domain.includes(textFilter)) return false;
+    if (deviceFilter && id !== deviceFilter) return false;
+    if (typeFilter && !type.includes(typeFilter)) return false;
+    if (!activeFilters.includes(status)) return false;
     
-    if (!show) return;
-
-    matchCount++;
-    const row = document.createElement('div');
-    row.className = 'log-row';
-    
-    const allowedEntry = getMatch(reqDomain, currentAllowlist);
-    const blockedEntry = getMatch(reqDomain, currentDenylist);
-    let statusDisplay = log.status === 'blocked' ? 'BLOCKED' : 'ALLOWED';
-    if (blockedEntry !== null) statusDisplay = 'DENYLIST';
-    if (allowedEntry !== null) statusDisplay = 'ALLOWLIST';
-
-    const color = (statusDisplay === 'BLOCKED' || statusDisplay === 'DENYLIST') ? '#dc3545' : '#28a745';
-    row.style.color = color;
-
-    let timeString = '--:--:--';
-    if (log.timestamp) {
-       try { timeString = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); } catch(e){}
+    // Fix: OR logic for 'Only' filters
+    const reasonFilters = activeFilters.filter(f => f.startsWith('reason:'));
+    if (reasonFilters.length > 0) {
+      const matchAllow = reasonFilters.includes('reason:allowlist') && isWhite;
+      const matchDeny = reasonFilters.includes('reason:denylist') && isBlack;
+      if (!matchAllow && !matchDeny) return false;
     }
-
-    const protocol = log.protocol || '';
-    const client = log.client || '';
-    const os = log.os || '';
-    const metaString = [protocol, client, os].filter(Boolean).join(', ') || 'DNS';
     
-    const allowBtnHTML = allowedEntry !== null 
-      ? `<button style="color: #dc3545;" data-log-action="delete" data-list="allowlist" data-domain="${escapeHTML(allowedEntry)}">Remove Allow (${escapeHTML(allowedEntry)})</button>`
-      : `<button style="color: #28a745;" data-log-action="add" data-list="allowlist" data-domain="${escapeHTML(reqDomain)}">Allow</button>`;
-
-    const denyBtnHTML = blockedEntry !== null
-      ? `<button style="color: #4facf7;" data-log-action="delete" data-list="denylist" data-domain="${escapeHTML(blockedEntry)}">Remove Block (${escapeHTML(blockedEntry)})</button>`
-      : `<button style="color: #dc3545;" data-log-action="add" data-list="denylist" data-domain="${escapeHTML(reqDomain)}">Block</button>`;
-
-    row.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; width: 100%;">
-          <div style="font-size: 0.75em; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap;">
-            <span>🕒 ${timeString}</span>
-            <span>📱 ${escapeHTML(deviceName)}</span>
-            <span>⚙️ ${escapeHTML(metaString)}</span>
-          </div>
-          <div style="display: flex; align-items: center; white-space: nowrap; margin-left: auto; padding-left: 10px;">
-            <span style="font-size: 0.8em; font-weight: bold; text-transform: uppercase;">${statusDisplay}</span>
-            <div class="kebab-menu" title="Actions">
-              &#8942;
-              <div class="kebab-content">
-                <button style="color: var(--text-main);" data-find="${escapeHTML(reqDomain)}">🔍 Find Entry</button>
-                ${allowBtnHTML}
-                ${denyBtnHTML}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="domain-copy" data-copy="${escapeHTML(reqDomain)}" title="Copy to clipboard" style="font-weight: bold; font-size: 0.95em; word-break: break-all; margin-top: 2px;">
-          ${escapeHTML(reqDomain)}
-        </div>
-    `;
-    fragment.appendChild(row);
+    return true;
   });
 
-  container.innerHTML = "";
-  if (matchCount === 0) {
-    container.innerHTML = "<div style='text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.9em;'>No logs match current filters.</div>";
-  } else {
-    container.appendChild(fragment);
-  }
-}
-
-async function handleLogAction(listType, domain, action, btnEl) {
-  btnEl.textContent = "...";
-  
-  if (listType === 'allowlist') {
-    if (action === 'add') currentAllowlist.add(domain);
-    else currentAllowlist.delete(domain);
-  } else {
-    if (action === 'add') currentDenylist.add(domain);
-    else currentDenylist.delete(domain);
-  }
-  renderLogs(); 
-
-  const res = await browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: activeProfile, listType, domain, action });
-  if (res && res.success) {
-    syncLists(true); 
-  } else {
-    if (listType === 'allowlist') {
-      if (action === 'add') currentAllowlist.delete(domain);
-      else currentAllowlist.add(domain);
-    } else {
-      if (action === 'add') currentDenylist.delete(domain);
-      else currentDenylist.add(domain);
-    }
-    renderLogs();
-    btnEl.textContent = "Error";
-    setTimeout(() => renderLogs(), 1500); 
-  }
-}
-
-async function findInLists(searchDomain) {
-  document.querySelector('.tab-btn[data-tab="lists"]').click();
-  const container = document.getElementById("list-items-container");
-  container.innerHTML = "<div style='padding:15px; text-align:center; font-size: 0.9em; color: var(--text-muted);'>Searching cache...</div>";
-  const getRoot = (d) => { const p = d.split('.'); return p.length > 2 ? p.slice(-2).join('.') : d; };
-  const rootDomain = getRoot(searchDomain);
-  await syncLists(); 
-  let foundType = null; let foundTarget = null;
-  if (currentAllowlist.has(searchDomain)) { foundType = 'allowlist'; foundTarget = searchDomain; }
-  else if (currentDenylist.has(searchDomain)) { foundType = 'denylist'; foundTarget = searchDomain; }
-  else if (currentAllowlist.has(rootDomain)) { foundType = 'allowlist'; foundTarget = rootDomain; }
-  else if (currentDenylist.has(rootDomain)) { foundType = 'denylist'; foundTarget = rootDomain; }
-  if (foundType) {
-    document.getElementById("list-type-select").value = foundType;
-    document.getElementById("list-search-input").value = foundTarget;
-    loadManagerList();
-  } else {
-    document.getElementById("list-search-input").value = searchDomain;
-    loadManagerList();
-    alert(`No match found for ${searchDomain} or ${rootDomain} in either list.`);
-  }
-}
-
-document.getElementById("list-type-select").onchange = () => {
-  document.getElementById("list-search-input").value = ""; 
-  loadManagerList(); 
-};
-document.getElementById("list-search-input").addEventListener("input", renderManagerList);
-
-document.getElementById("list-add-btn").onclick = async () => {
-  const domain = document.getElementById("list-new-domain").value.trim();
-  const listType = document.getElementById("list-type-select").value;
-  if (domain && activeProfile) {
-    if (listType === 'allowlist') currentAllowlist.add(domain);
-    else currentDenylist.add(domain);
-    document.getElementById("list-new-domain").value = "";
-    loadManagerList(); 
-
-    const res = await browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: activeProfile, listType, domain, action: "add" });
-    if(res && res.success) syncLists(true);
-    else alert(res?.error || "Failed to save domain to API.");
-  }
-};
-
-async function loadManagerList(force = false) {
-  const listType = document.getElementById("list-type-select").value;
-  const container = document.getElementById("list-items-container");
-  
-  if (!activeProfile) return;
-
-  if (!force && listsSynced) {
-    const targetSet = listType === 'allowlist' ? currentAllowlist : currentDenylist;
-    cachedListItems = Array.from(targetSet).map(id => ({ id }));
-    renderManagerList();
+  if (filtered.length === 0) {
+    container.innerHTML = "<div style='text-align:center; padding:20px; color:var(--text-muted); font-size:0.9em;'>No logs match the current filters.</div>";
     return;
   }
 
-  container.innerHTML = "<div style='padding:15px; text-align:center; font-size: 0.9em; color: var(--text-muted);'>Loading API...</div>";
+  const fragment = document.createDocumentFragment();
+  filtered.forEach(log => {
+    try {
+      const row = document.createElement('div');
+      row.className = 'log-row';
+      const isBlocked = log.status === 'blocked';
+      row.style.color = isBlocked ? '#dc3545' : '#28a745';
+      const name = deviceAliases[log.device?.id || log.clientIp] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
+      
+      let timeStr = "---";
+      if (log.timestamp) {
+        const d = new Date(log.timestamp);
+        timeStr = isNaN(d.getTime()) ? "Invalid Time" : d.toLocaleTimeString();
+      }
+
+      row.innerHTML = `
+        <div style="display:flex; justify-content:space-between; font-size:0.75em; color:var(--text-muted);">
+          <span>🕒 ${timeStr} | 📱 ${escapeHTML(name)} | 🌐 ${log.protocol || 'DNS'}</span>
+          <span style="font-weight:bold;">${isBlocked ? 'BLOCKED' : 'ALLOWED'}</span>
+        </div>
+        <div style="font-weight:bold; margin-top:2px; word-break:break-all;">${escapeHTML(log.name || log.domain || 'Unknown Domain')}</div>
+      `;
+      fragment.appendChild(row);
+    } catch (e) {
+      console.error("Error rendering log row:", e, log);
+    }
+  });
   
-  const res = await browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: activeProfile, listType, action: "list" });
-  if (res && res.data) {
-    cachedListItems = res.data;
-    if (listType === 'allowlist') currentAllowlist = new Set(cachedListItems.map(d => d.id));
-    if (listType === 'denylist') currentDenylist = new Set(cachedListItems.map(d => d.id));
-    listsSynced = true;
-  } else {
-    cachedListItems = [];
+  container.innerHTML = "";
+  container.appendChild(fragment);
+}
+
+async function loadSettings() {
+  const s = await browser.storage.sync.get(["apiKey", "autoRefreshDefault", "blockNotif", "autoRefreshTime", "iconAction", "enableLabs", "overrideProfileId"]);
+  const apiKeyInput = document.getElementById("setting-api-key");
+  if (apiKeyInput) apiKeyInput.value = s.apiKey || "";
+  const autoRefreshInput = document.getElementById("setting-auto-refresh");
+  if (autoRefreshInput) autoRefreshInput.checked = s.autoRefreshDefault !== false;
+  const blockNotifInput = document.getElementById("setting-block-notif");
+  if (blockNotifInput) blockNotifInput.checked = !!s.blockNotif;
+  const refreshTimeInput = document.getElementById("setting-refresh-time");
+  if (refreshTimeInput) refreshTimeInput.value = s.autoRefreshTime || 5;
+  const iconActionInput = document.getElementById("setting-icon-action");
+  if (iconActionInput) iconActionInput.value = s.iconAction || "popup";
+  const enableLabsInput = document.getElementById("setting-enable-labs");
+  if (enableLabsInput) enableLabsInput.checked = !!s.enableLabs;
+  const labTab = document.getElementById("tab-btn-labs");
+  if (labTab) labTab.style.display = s.enableLabs ? 'block' : 'none';
+  if (s.apiKey) fetchProfiles();
+}
+
+async function fetchProfiles() {
+  const btn = document.getElementById("setting-fetch-profiles");
+  if (!btn) return;
+  btn.textContent = "⏳";
+  const select = document.getElementById("setting-profile-select");
+  const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
+  if (select) {
+    select.innerHTML = '<option value="">Auto-Detect (Default)</option>';
+    if (res?.data) {
+      res.data.forEach(p => select.insertAdjacentHTML('beforeend', `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`));
+      const { overrideProfileId } = await browser.storage.sync.get("overrideProfileId");
+      if (overrideProfileId) select.value = overrideProfileId;
+    }
   }
+  btn.textContent = "🔄";
+}
+
+async function saveSettings() {
+  const btn = document.getElementById("save-settings-btn");
+  await browser.storage.sync.set({
+    apiKey: document.getElementById("setting-api-key").value.trim(),
+    overrideProfileId: document.getElementById("setting-profile-select").value,
+    autoRefreshDefault: document.getElementById("setting-auto-refresh").checked,
+    blockNotif: document.getElementById("setting-block-notif").checked,
+    autoRefreshTime: document.getElementById("setting-refresh-time").value,
+    iconAction: document.getElementById("setting-icon-action").value,
+    enableLabs: document.getElementById("setting-enable-labs").checked
+  });
+  if (btn) { btn.textContent = "✅ Saved!"; setTimeout(() => { btn.textContent = "💾 Save Options"; }, 2000); }
+  initializeApp();
+}
+
+async function downloadLogs() {
+  const btn = document.getElementById("download-logs-btn");
+  if (btn) btn.textContent = "⏳...";
+  const csv = await browser.runtime.sendMessage({ type: "DOWNLOAD_LOGS_CSV", profileId: activeProfile });
+  if (csv) {
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    const a = document.createElement('a'); a.href = url; a.download = `logs_${activeProfile}.csv`; a.click();
+    if (btn) btn.textContent = "✅ Done";
+  } else if (btn) btn.textContent = "❌ Error";
+  if (btn) setTimeout(() => { btn.textContent = "📥 Download Logs (CSV)"; }, 3000);
+}
+
+async function wipeLogs() {
+  if (confirm("Clear all logs?")) {
+    await browser.runtime.sendMessage({ type: "CLEAR_LOGS", profileId: activeProfile });
+    cachedLogs = []; renderLogs();
+  }
+}
+
+async function loadAnalytics() {
+  const res = await browser.runtime.sendMessage({ type: "GET_ANALYTICS", profileId: activeProfile });
+  const container = document.getElementById("analytics-overview");
+  if (res?.data && container) {
+    container.innerHTML = `
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div class="panel-box">Queries: ${res.data.queries.toLocaleString()}</div>
+        <div class="panel-box">Blocked: ${res.data.blockedQueries.toLocaleString()}</div>
+      </div>`;
+  } else if (container) container.innerHTML = "No analytics data.";
+}
+
+function renderAliases() {
+  const container = document.getElementById("hostname-alias-list");
+  if (container) container.innerHTML = Object.entries(deviceAliases).map(([id, name]) => `
+    <div style="display:flex; justify-content:space-between; padding:5px; border-bottom:1px solid var(--border-color);">
+      <span><b>${escapeHTML(name)}</b> (${escapeHTML(id)})</span>
+      <button class="btn-deny" style="width:auto; padding:2px 8px;" onclick="deleteAlias('${id}')">Remove</button>
+    </div>
+  `).join('') || "No aliases.";
+}
+
+window.deleteAlias = async (id) => { delete deviceAliases[id]; await browser.storage.sync.set({ aliases: deviceAliases }); renderAliases(); };
+
+async function updateDashboardTabInfo() {
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.url) return;
+  const stats = await browser.runtime.sendMessage({ type: "GET_TAB_STATS", tabId: tab.id });
+  const requests = stats?.requests || {};
+  const domains = Object.keys(requests);
+  const header = document.getElementById("tab-log-header");
+  if (header) header.textContent = `Tab Requests: (${domains.length})`;
+  const container = document.getElementById("tab-log");
+  if (container) {
+    container.innerHTML = domains.map(d => {
+      const r = requests[d];
+      const color = r.status === 'blocked' ? '#dc3545' : (r.reason === 'Allow List' ? '#28a745' : 'inherit');
+      const reasonLabel = r.reason !== 'Default' ? `<span style="font-size: 0.8em; opacity: 0.7; margin-left: 5px;">[${r.reason}]</span>` : '';
+      return `<div style="padding:4px; color:${color}">${escapeHTML(d)}${reasonLabel}</div>`;
+    }).join('');
+  }
+  
+  const score = document.getElementById("privacy-score");
+  if (score) {
+    const blockedCount = stats?.blockedCount || 0;
+    const uDomains = domains.length;
+    let grade = "-";
+    if (uDomains > 0) {
+      const ratio = blockedCount / uDomains;
+      if (ratio > 0.5) grade = "A+"; else if (ratio > 0.3) grade = "A"; else if (ratio > 0.15) grade = "B"; else if (ratio > 0.05) grade = "C"; else grade = "D";
+    }
+    score.textContent = grade;
+  }
+}
+
+async function snoozeDomain() {
+  const input = document.getElementById("domain-input");
+  if (!input) return;
+  const d = input.value.trim();
+  if (d && activeProfile) {
+    await browser.runtime.sendMessage({ type: "TEMP_ALLOW", profileId: activeProfile, domain: d });
+    input.style.borderColor = "#f39c12";
+  }
+}
+
+async function executeAction(type) {
+  const input = document.getElementById("domain-input");
+  if (!input) return;
+  const d = input.value.trim();
+  if (d && activeProfile) {
+    await browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: activeProfile, listType: type, domain: d, action: "add" });
+    input.style.borderColor = type === 'allowlist' ? "#28a745" : "#dc3545";
+    syncLists(true);
+  }
+}
+
+async function loadManagerList(force = false) {
+  const listTypeSelect = document.getElementById("list-type-select");
+  if (!listTypeSelect) return;
+  const listType = listTypeSelect.value;
+  const res = await browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: activeProfile, listType, action: "list" });
+  cachedListItems = res?.data || [];
   renderManagerList();
 }
 
 function renderManagerList() {
+  const input = document.getElementById("list-search-input");
   const container = document.getElementById("list-items-container");
-  const query = document.getElementById("list-search-input").value.toLowerCase();
-  
-  if (cachedListItems.length === 0) {
-    container.innerHTML = "<div style='padding:15px; text-align:center; color: var(--text-muted); font-size: 0.9em;'>List is empty.</div>";
-    return;
-  }
-
-  const filtered = cachedListItems.filter(item => item.id.toLowerCase().includes(query));
-
-  if (filtered.length === 0) {
-    container.innerHTML = "<div style='padding:15px; text-align:center; color: var(--text-muted); font-size: 0.9em;'>No matches found.</div>";
-    return;
-  }
-
-  const RENDER_LIMIT = 100;
-  const itemsToRender = filtered.slice(0, RENDER_LIMIT);
-
-  let html = itemsToRender.map(item => `
+  if (!input || !container) return;
+  const query = input.value.toLowerCase();
+  const filtered = cachedListItems.filter(i => i.id.toLowerCase().includes(query));
+  container.innerHTML = filtered.map(i => `
     <div class="list-item">
-      <span style="word-break: break-all; margin-right: 10px;">${escapeHTML(item.id)}</span>
-      <button style="width: auto; padding: 4px 8px; font-size: 0.85em;" class="btn-deny" data-delete="${escapeHTML(item.id)}">❌</button>
-    </div>
-  `).join('');
+      <span>${escapeHTML(i.id)}</span>
+      <button class="btn-deny" style="width:auto;" data-delete="${escapeHTML(i.id)}">❌</button>
+    </div>`).join('') || "List is empty.";
+}
 
-  if (filtered.length > RENDER_LIMIT) {
-    html += `<div style="text-align:center; padding: 15px; color: var(--text-muted); font-size: 0.85em;">...and ${filtered.length - RENDER_LIMIT} more hidden.<br>Use search to filter specific domains.</div>`;
+async function deleteListItem(domain) {
+  const listTypeSelect = document.getElementById("list-type-select");
+  const listType = listTypeSelect ? listTypeSelect.value : 'denylist';
+  await browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: activeProfile, listType, domain, action: "delete" });
+  loadManagerList(true);
+}
+
+async function addListItem() {
+  const dInput = document.getElementById("list-new-domain");
+  const d = dInput ? dInput.value.trim() : "";
+  const listTypeSelect = document.getElementById("list-type-select");
+  const listType = listTypeSelect ? listTypeSelect.value : 'denylist';
+  if (d && activeProfile) {
+    await browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: activeProfile, listType, domain: d, action: "add" });
+    if (dInput) dInput.value = "";
+    loadManagerList(true);
+  }
+}
+
+let lastBlocksData = null;
+let activeBlocksSubTab = 'security';
+const SETTING_GROUPS = {
+  security: { 
+    items: [
+      { id: 'threatIntelligenceFeeds', label: 'Threat Intelligence Feeds' },
+      { id: 'aiThreatDetection', label: 'AI Threat Detection' },
+      { id: 'googleSafeBrowsing', label: 'Google Safe Browsing' },
+      { id: 'cryptojackingProtection', label: 'Cryptojacking Protection' },
+      { id: 'dnsRebindingProtection', label: 'DNS Rebinding Protection' },
+      { id: 'idnHomographAttackProtection', label: 'IDN Homograph Protection' },
+      { id: 'typosquattingProtection', label: 'Typosquatting Protection' },
+      { id: 'dga', label: 'Domain Generation Algorithms (DGAs) Protection' },
+      { id: 'nrd', label: 'Block Newly Registered Domains (NRDs)' },
+      { id: 'ddns', label: 'Block Dynamic DNS Hostnames' },
+      { id: 'parking', label: 'Block Parked Domains' },
+      { id: 'csam', label: 'Block Child Sexual Abuse Material' }
+    ]
+  },
+  privacy: { 
+    items: [
+      { id: 'disguisedTrackers', label: 'Block Disguised Trackers' },
+      { id: 'allowAffiliate', label: 'Allow Affiliate Links' }
+    ],
+    natives: [
+      { id: 'windows', label: 'Windows' },
+      { id: 'apple', label: 'Apple' },
+      { id: 'samsung', label: 'Samsung' },
+      { id: 'huawei', label: 'Huawei' },
+      { id: 'xiaomi', label: 'Xiaomi' },
+      { id: 'sonos', label: 'Sonos' },
+      { id: 'roku', label: 'Roku' },
+      { id: 'alexa', label: 'Alexa' }
+    ]
+  },
+  parental: { 
+    items: [
+      { id: 'safeSearch', label: 'SafeSearch' },
+      { id: 'youtubeRestrictedMode', label: 'YouTube Restricted Mode' }
+    ]
+  }
+};
+
+async function loadToggles(force = false) {
+  if (force) lastBlocksData = null;
+  if (!activeProfile) return;
+  if (!lastBlocksData) {
+    const res = await browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: activeProfile });
+    lastBlocksData = res?.data || {};
+  }
+  const container = document.getElementById("toggles-container");
+  const searchContainer = document.getElementById("blocks-search-container");
+  const searchInput = document.getElementById("blocks-search-input");
+  if (!container) return;
+
+  const query = searchInput ? searchInput.value.toLowerCase() : "";
+  const sortSelect = document.getElementById("blocks-sort-select");
+  
+  if (searchContainer) {
+    searchContainer.style.display = (activeBlocksSubTab === 'blocklists' || activeBlocksSubTab === 'parental' || activeBlocksSubTab === 'tlds') ? 'flex' : 'none';
+    if (sortSelect) sortSelect.style.display = (activeBlocksSubTab === 'blocklists') ? 'block' : 'none';
   }
 
+  let html = '';
+  if (activeBlocksSubTab === 'security') {
+    html += (SETTING_GROUPS.security.items || []).map(i => renderToggleRow(i, 'security', !!lastBlocksData.security?.[i.id], 'boolean')).join('');
+  } else if (activeBlocksSubTab === 'privacy') {
+    html += '<div style="font-weight:bold; margin:0 0 5px; font-size: 0.85em;">Tracking</div>';
+    html += (SETTING_GROUPS.privacy.items || []).map(i => renderToggleRow(i, 'privacy', !!lastBlocksData.privacy?.[i.id], 'boolean')).join('');
+    html += '<hr style="border-top:1px solid var(--border-color); border-bottom:0; margin:10px 0;"><div style="font-weight:bold; margin:0 0 5px; font-size: 0.85em;">Native Tracking</div>';
+    html += (SETTING_GROUPS.privacy.natives || []).map(i => {
+       const isActive = lastBlocksData.natives?.some(n => n.id === i.id && n.active);
+       return renderToggleRow(i, 'privacy/natives', isActive, 'list');
+    }).join('');
+  } else if (activeBlocksSubTab === 'blocklists') {
+    const activeIds = new Set((lastBlocksData.blocklists || []).map(l => l.id));
+    let filtered = blocksMeta.blocklists.filter(b => b.name.toLowerCase().includes(query) || b.description.toLowerCase().includes(query));
+    
+    // Sort logic
+    if (activeBlocksSort === 'name') filtered.sort((a, b) => a.name.localeCompare(b.name));
+    else if (activeBlocksSort === 'updated') filtered.sort((a, b) => b.updated_ts - a.updated_ts);
+    else if (activeBlocksSort === 'popularity') filtered.sort((a, b) => b.popularity - a.popularity);
+    else if (activeBlocksSort === 'entries') filtered.sort((a, b) => b.entries - a.entries);
+
+    html += filtered.map(b => {
+      const active = activeIds.has(b.id);
+      return `
+        <div style="padding: 10px; border-bottom: 1px solid var(--border-color); background: var(--bg-panel); margin-bottom: 5px; border-radius: 4px;">
+          <div style="display:flex; justify-content:space-between; align-items: flex-start;">
+            <div style="flex-grow: 1; padding-right: 10px;">
+              <div style="font-weight:bold; font-size: 0.9em;">${escapeHTML(b.name)}</div>
+              <div style="font-size: 0.8em; opacity: 0.7; margin: 4px 0;">${escapeHTML(b.description)}</div>
+              <div style="font-size: 0.75em; opacity: 0.5;">${escapeHTML(b.entries)} entries • Updated ${escapeHTML(b.updated)}</div>
+            </div>
+            <button class="api-toggle-btn ${active?'btn-deny':'btn-allow'}" data-cat="privacy/blocklists" data-id="${b.id}" data-type="list" data-active="${active}" style="width:auto; padding:4px 12px; font-size: 0.8em;">${active?'Remove':'Add'}</button>
+          </div>
+        </div>`;
+    }).join('') || '<div style="text-align:center; opacity:0.5; padding:20px;">No blocklists found.</div>';
+  } else if (activeBlocksSubTab === 'parental') {
+    html += '<div style="font-weight:bold; margin:0 0 5px; font-size: 0.85em;">Global Settings</div>';
+    html += (SETTING_GROUPS.parental?.items || [
+      { id: 'safeSearch', label: 'SafeSearch' },
+      { id: 'youtubeRestrictedMode', label: 'YouTube Restricted Mode' }
+    ]).map(i => renderToggleRow(i, 'parentalcontrol', !!lastBlocksData.parentalcontrol?.[i.id], 'boolean')).join('');
+    
+    html += '<hr style="border-top:1px solid var(--border-color); border-bottom:0; margin:10px 0;"><div style="font-weight:bold; margin:0 0 5px; font-size: 0.85em;">Categories</div>';
+    html += (blocksMeta.categories || []).map(c => {
+      const isActive = lastBlocksData.categories?.some(cat => cat.id === c.id && cat.active);
+      return renderToggleRow(c, 'parentalcontrol/categories', isActive, 'list');
+    }).join('');
+
+    html += '<hr style="border-top:1px solid var(--border-color); border-bottom:0; margin:10px 0;"><div style="font-weight:bold; margin:0 0 5px; font-size: 0.85em;">Services</div>';
+    const activeServices = new Set((lastBlocksData.services || []).map(s => s.id));
+    const filteredServices = blocksMeta.parental_services.filter(s => s.name.toLowerCase().includes(query));
+    html += filteredServices.map(s => {
+       const isActive = activeServices.has(s.id);
+       return renderToggleRow({ id: s.id, label: s.name }, 'parentalcontrol/services', isActive, 'list');
+    }).join('');
+  } else if (activeBlocksSubTab === 'tlds') {
+    const activeTlds = new Set((lastBlocksData.tlds || []).map(t => t.id));
+    const groups = {};
+    blocksMeta.tlds.forEach(tld => {
+      if (query && !tld.toLowerCase().includes(query)) return;
+      
+      const addToList = (letter) => {
+        letter = letter.toUpperCase();
+        if (!groups[letter]) groups[letter] = [];
+        groups[letter].push(tld);
+      };
+
+      const firstLetter = tld[0];
+      addToList(firstLetter);
+
+      // Handle 2-part TLDs like co.uk
+      if (tld.includes('.')) {
+        const parts = tld.split('.');
+        parts.forEach((p, idx) => {
+          if (idx > 0) addToList(p[0]);
+        });
+      }
+    });
+
+    const sortedLetters = Object.keys(groups).sort();
+    html += sortedLetters.map(letter => `
+      <div style="margin-top: 15px;">
+        <div style="font-weight:bold; border-bottom:1px solid var(--border-color); margin-bottom:5px; padding-bottom: 2px;">${letter}</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+          ${groups[letter].map(t => {
+            const active = activeTlds.has(t);
+            return `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding: 2px 0;">
+                <span style="font-size: 0.85em;">.${escapeHTML(t)}</span>
+                <button class="api-toggle-btn ${active?'btn-deny':'btn-allow'}" data-cat="security/tlds" data-id="${t}" data-type="list" data-active="${active}" style="width:auto; padding:1px 6px; font-size: 0.7em;">${active?'OFF':'ON'}</button>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `).join('') || '<div style="text-align:center; opacity:0.5; padding:20px;">No TLDs found.</div>';
+  }
   container.innerHTML = html;
 }
 
-// CRIT FIX: Fixed res.success reference
-async function deleteListItem(domain) {
-  const listType = document.getElementById("list-type-select").value;
+function renderToggleRow(item, cat, active, type) {
+  return `
+    <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items: center;">
+      <span style="font-size: 0.9em;">${escapeHTML(item.label || item.name)}</span>
+      <button class="api-toggle-btn ${active?'btn-allow':'btn-secondary'}" data-cat="${cat}" data-id="${item.id}" data-type="${type}" data-active="${active}" style="width:auto; padding:2px 8px; font-size: 0.8em;">${active?'ON':'OFF'}</button>
+    </div>`;
+}
+
+async function toggleApiSetting(btn) {
+  const cat = btn.getAttribute('data-cat');
+  const id = btn.getAttribute('data-id');
+  const type = btn.getAttribute('data-type');
+  const active = btn.getAttribute('data-active') === 'true';
   
-  if (listType === 'allowlist') currentAllowlist.delete(domain);
-  else currentDenylist.delete(domain);
-  loadManagerList(); 
-
-  const res = await browser.runtime.sendMessage({ 
-    type: "MANAGE_DOMAIN", 
-    profileId: activeProfile, 
-    listType, 
-    domain, 
-    action: "delete" 
-  });
-
-  if (res && res.success) {
-    syncLists(true);
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  
+  const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: activeProfile, category: cat, id, action: active ? "delete" : "add", settingType: type });
+  
+  if (res?.success) {
+    lastBlocksData = null; 
+    await loadToggles();
   } else {
-    // Revert UI on API failure
-    if (listType === 'allowlist') currentAllowlist.add(domain);
-    else currentDenylist.add(domain);
-    loadManagerList();
-    alert(res?.error || "Failed to delete from API.");
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    alert("Failed to update setting: " + (res?.error || "Unknown error"));
   }
 }
 
-const telemetryList = ["windows", "apple", "xiaomi", "sonos", "samsung", "roku", "alexa", "huawei"];
-const servicesList = ["tiktok", "facebook", "tinder", "instagram", "snapchat", "twitter", "youtube", "netflix", "discord", "reddit", "roblox"];
-
-function loadToggles() {
-  const renderList = (containerId, items, category) => {
-    document.getElementById(containerId).innerHTML = items.map(item => `
-      <div style="display:flex; justify-content:space-between; margin-bottom: 5px; font-size: 0.9em; align-items: center;">
-        <span style="text-transform:capitalize;">${item}</span>
-        <button style="width: auto; padding: 5px 10px; font-size: 0.85em;" class="btn-secondary" data-toggle-cat="${category}" data-toggle-id="${item}">Allow</button>
-      </div>
-    `).join('');
-  };
-  renderList("telemetry-list", telemetryList, "privacy/natives");
-  renderList("services-list", servicesList, "parentalcontrol/services");
+async function handleLogAction(list, domain, action, btn) {
+  await browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: activeProfile, listType: list, domain, action });
+  loadNativeLogs();
 }
 
-async function toggleService(category, id, btnEl) {
-  const isBlocked = btnEl.classList.contains("btn-deny");
-  const action = isBlocked ? "delete" : "add";
-  btnEl.textContent = "...";
-  const res = await browser.runtime.sendMessage({ type: "TOGGLE_SERVICE", profileId: activeProfile, category, id, action });
-  if (res && res.success) {
-    if (action === "add") { btnEl.classList.replace("btn-secondary", "btn-deny"); btnEl.textContent = "Blocked"; } 
-    else { btnEl.classList.replace("btn-deny", "btn-secondary"); btnEl.textContent = "Allow"; }
-  } else {
-    btnEl.textContent = "Err";
-  }
+async function findInLists(d) {
+  const btn = document.querySelector('.tab-btn[data-tab="lists"]');
+  if (btn) btn.click();
+  const input = document.getElementById("list-search-input");
+  if (input) input.value = d;
+  loadManagerList();
 }
-
-async function loadSettings() {
-  const { apiKey, overrideProfileId, autoRefreshDefault, iconAction, regexBlocklist, enableLabs } = await browser.storage.local.get(["apiKey", "overrideProfileId", "autoRefreshDefault", "iconAction", "regexBlocklist", "enableLabs"]);
-  
-  document.getElementById("setting-api-key").value = apiKey || "";
-  document.getElementById("setting-auto-refresh").checked = autoRefreshDefault || false;
-  document.getElementById("setting-icon-action").value = iconAction || "popup";
-  document.getElementById("setting-enable-labs").checked = enableLabs || false;
-  document.getElementById("setting-regex-rules").value = regexBlocklist || "";
-  
-  document.getElementById("tab-btn-labs").style.display = enableLabs ? 'block' : 'none';
-  
-  if (apiKey) document.getElementById("setting-fetch-profiles").click();
-  
-  populateThemeDropdown();
-}
-
-document.getElementById("setting-fetch-profiles").onclick = async () => {
-  const btn = document.getElementById("setting-fetch-profiles");
-  btn.textContent = "⏳";
-  const select = document.getElementById("setting-profile-select");
-  const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
-  
-  select.innerHTML = '<option value="">Auto-Detect (Default)</option>';
-  if (res && res.data) {
-    res.data.forEach(p => select.insertAdjacentHTML('beforeend', `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`));
-    const { overrideProfileId } = await browser.storage.local.get("overrideProfileId");
-    if (overrideProfileId) select.value = overrideProfileId;
-  }
-  btn.textContent = "🔄";
-};
-
-// Main Options Save
-document.getElementById("save-settings-btn").onclick = async () => {
-  const key = document.getElementById("setting-api-key").value.trim();
-  const override = document.getElementById("setting-profile-select").value;
-  const autoRef = document.getElementById("setting-auto-refresh").checked;
-  const icnAct = document.getElementById("setting-icon-action").value;
-  const isLabsEnabled = document.getElementById("setting-enable-labs").checked;
-  
-  await browser.storage.local.set({ 
-    apiKey: key, 
-    overrideProfileId: override, 
-    autoRefreshDefault: autoRef,
-    iconAction: icnAct,
-    enableLabs: isLabsEnabled
-  });
-  
-  isAutoRefreshDefault = autoRef; 
-  document.getElementById("tab-btn-labs").style.display = isLabsEnabled ? 'block' : 'none';
-  
-  document.getElementById("save-settings-btn").textContent = "✅ Saved Options!";
-  setTimeout(() => { document.getElementById("save-settings-btn").textContent = "💾 Save Options"; }, 2000);
-  initializeApp();
-};
-
-// Labs Tab Save with Regex Validation
-document.getElementById("save-labs-btn").onclick = async () => {
-  const regexRulesRaw = document.getElementById("setting-regex-rules").value.trim();
-  const rulesArray = regexRulesRaw.split('\n').filter(r => r.trim() !== '');
-  const btn = document.getElementById("save-labs-btn");
-
-  // --- Regex Validation Logic ---
-  for (const rule of rulesArray) {
-    try {
-      new RegExp(rule);
-    } catch (e) {
-      alert(`Invalid Regex Pattern detected: "${rule}"\n\nError: ${e.message}\n\nPlease fix this line before saving.`);
-      btn.textContent = "❌ Validation Failed";
-      btn.classList.replace("btn-allow", "btn-deny");
-      setTimeout(() => {
-        btn.textContent = "💾 Save Labs Settings";
-        btn.classList.replace("btn-deny", "btn-allow");
-      }, 3000);
-      return; 
-    }
-  }
-
-  await browser.storage.local.set({ regexBlocklist: regexRulesRaw });
-  
-  btn.textContent = "✅ Saved Labs!";
-  setTimeout(() => { btn.textContent = "💾 Save Labs Settings"; }, 2000);
-};
-
-document.getElementById("download-logs-btn").onclick = async () => {
-  if (!activeProfile) return alert("No active profile detected.");
-  const btn = document.getElementById("download-logs-btn");
-  btn.textContent = "⏳ Downloading...";
-  
-  const csvText = await browser.runtime.sendMessage({ type: "DOWNLOAD_LOGS_CSV", profileId: activeProfile });
-  
-  if (csvText) {
-    const blob = new Blob([csvText], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `nextdns_logs_${activeProfile}_${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    btn.textContent = "✅ Download Complete!";
-  } else {
-    btn.textContent = "❌ Download Failed";
-  }
-  setTimeout(() => { btn.textContent = "📥 Download Logs (CSV)"; }, 3000);
-};
-
-document.getElementById("wipe-logs-btn").onclick = async () => {
-  if (!activeProfile) return alert("No active profile detected.");
-  if (confirm("Are you absolutely sure you want to permanently delete all logs for this profile? This action cannot be undone.")) {
-    const btn = document.getElementById("wipe-logs-btn");
-    btn.textContent = "⏳ Wiping...";
-    await browser.runtime.sendMessage({ type: "CLEAR_LOGS", profileId: activeProfile });
-    cachedLogs = [];
-    renderLogs();
-    btn.textContent = "✅ Wiped!";
-    setTimeout(() => { btn.textContent = "🗑️ Wipe All Logs"; }, 3000);
-  }
-};

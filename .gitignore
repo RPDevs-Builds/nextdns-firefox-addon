@@ -3,3 +3,5 @@ dist/
 *.xpi
 *.zip
 .env
+.staging
+.source
