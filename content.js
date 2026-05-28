@@ -93,22 +93,25 @@ async function injectLogsSettingsControls() {
   // Outer group to match NextDNS spacing
   const group = document.createElement('div');
   group.id = 'nxm-logs-filter-group';
-  group.className = 'd-flex ms-md-4'; // Match the margin-start of other controls
+  group.className = 'd-flex align-items-center ms-md-4'; // Added align-items-center
 
   // Switch wrapper
   const switchWrapper = document.createElement('div');
   switchWrapper.className = 'd-flex align-items-center';
   switchWrapper.style.transform = 'scale(0.9)';
-  switchWrapper.style.marginTop = '-10px';
-  switchWrapper.style.marginBottom = '-10px';
+  // Adjusted margins to be less aggressive for the header bar
+  switchWrapper.style.marginTop = '-2px';
+  switchWrapper.style.marginBottom = '-2px';
 
   const formCheck = document.createElement('div');
   formCheck.className = 'form-check form-switch';
+  formCheck.style.paddingLeft = '2.5em'; // Ensure standard bootstrap switch padding
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
   checkbox.id = 'nxm-filtered-logs-toggle';
   checkbox.className = 'form-check-input';
+  checkbox.style.cursor = 'pointer';
   checkbox.checked = webGuiConfig.filter;
   checkbox.onchange = async (e) => {
     await browser.storage.sync.set({ webGuiFilter: e.target.checked });
@@ -117,6 +120,7 @@ async function injectLogsSettingsControls() {
   const label = document.createElement('label');
   label.htmlFor = 'nxm-filtered-logs-toggle';
   label.className = 'form-check-label';
+  label.style.cursor = 'pointer';
 
   formCheck.appendChild(checkbox);
   formCheck.appendChild(label);
@@ -127,8 +131,9 @@ async function injectLogsSettingsControls() {
   textWrapper.className = 'd-flex align-items-center';
   textWrapper.style.opacity = '0.7';
   textWrapper.style.whiteSpace = 'nowrap';
+  textWrapper.style.fontSize = '0.9em'; // Slightly larger to match standard small
   
-  const small = document.createElement('small');
+  const small = document.createElement('span'); // Changed small to span for more control
   small.textContent = 'Filtered Logs';
   small.style.cursor = 'pointer';
   small.onclick = () => checkbox.click();
@@ -139,8 +144,10 @@ async function injectLogsSettingsControls() {
   viewerBtn.style.border = 'none';
   viewerBtn.style.background = 'transparent';
   viewerBtn.style.cursor = 'pointer';
-  viewerBtn.style.fontSize = '1em';
+  viewerBtn.style.fontSize = '1.1em';
   viewerBtn.style.padding = '0 0 0 8px';
+  viewerBtn.style.display = 'flex';
+  viewerBtn.style.alignItems = 'center';
   viewerBtn.style.opacity = '0.8';
   viewerBtn.onclick = (e) => {
     e.preventDefault(); e.stopPropagation();
