@@ -1,6 +1,6 @@
 # 🛡️ DNS Forge (for NextDNS)
 
-This Firefox extension integrates natively with the [NextDNS API](https://nextdns.io) to provide advanced control over filtering rules, network logs, and local request interception.
+This Firefox extension integrates natively with the [NextDNS API](https://nextdns.io) to provide advanced control over filtering rules, network logs, local request interception, and comprehensive metadata management.
 
 ---
 
@@ -11,15 +11,22 @@ This Firefox extension integrates natively with the [NextDNS API](https://nextdn
 - **Active Profile Syncing:** Automatically detects your live profile from `test.nextdns.io` or uses manual overrides.
 - **Page Actions:** Instantly Allow, Deny, or Temp-Allow (5 min snooze) domains from the active tab.
 
-### 📡 Live Network Logs (v0.9.x Hardened)
+### ⚡ Advanced Blocks UI & Metadata Scraper
+- **Native In-Browser Scraper:** Passively extracts live metadata (entry counts, update dates, websites) for Blocklists, Services, and TLDs directly from the NextDNS dashboard DOM without relying on external servers or APIs.
+- **Rich Blocklist Library:** Manage 80+ blocklists with advanced sorting options (Popularity, Name, Entries, Updated Date).
+- **Alphabetized TLD Management:** Browse and toggle 1,300+ Top-Level Domains organized into intelligent A-Z groups, fully supporting multi-part TLDs (e.g., `.co.uk`).
+- **Parental Controls:** 1-Click blocking for over 40+ specific apps and high-level categories (Porn, Gambling, Piracy).
+- **Security Toggles:** Direct control over threat intelligence feeds, DGA, NRD, DDNS, Parked Domains, and CSAM protections.
+
+### 📡 Live Network Logs
 - **Advanced Filtering:** Multi-select status filters (Allowed/Blocked) and origin-based "Only" filters (Allowlist/Denylist) using robust **OR-logic**.
 - **Defensive Rendering:** Fault-tolerant rendering engine that handles malformed API data and invalid timestamps without UI crashes.
 - **Rich Metadata:** Real-time device identity, protocol labels, and localized timestamps.
 
-### 🗂️ Advanced List & Data Management
+### 🗂️ List & Data Management
+- **Meta Data Management:** Dedicated tools under `Options > Data` to Refresh, Save, Load, and Delete your local metadata database (`blocks_meta.json`).
 - **Instant Search:** Locally filter massive allowlists and denylists as you type.
 - **Bulk Management:** Batch-add domains via multiline input with sequential API synchronization.
-- **1-Click Blockers:** Native blocking for OS telemetry (Windows, Apple, etc.) and specific apps via normalized API categories.
 
 ### 🎨 Theme Engine
 - **Custom Themes:** Design and persist custom color schemes using CSS variables.
