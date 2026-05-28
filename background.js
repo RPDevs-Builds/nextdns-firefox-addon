@@ -370,6 +370,20 @@ const messageHandlers = {
       }
       return { success: r.ok };
     } catch(e) { return { success: false, error: e.message }; }
+  },
+  
+  SAVE_SCRAPED_META: async (msg) => {
+    try {
+      const { metaType, data } = msg.payload;
+      // Load current local meta
+      const storage = await browser.storage.local.get("scrapedMeta");
+      const scrapedMeta = storage.scrapedMeta || {};
+      scrapedMeta[metaType] = { data, lastUpdated: Date.now() };
+      await browser.storage.local.set({ scrapedMeta });
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
   }
 };
 

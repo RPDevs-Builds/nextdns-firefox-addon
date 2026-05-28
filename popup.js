@@ -293,6 +293,18 @@ async function syncLists(force = false) {
 
 async function loadMetaFile(file) {
   if (blocksMeta[file] && blocksMeta[file].length > 0) return blocksMeta[file];
+  
+  // 1. Try to load fresh metadata scraped natively by the content script
+  try {
+    const storage = await browser.storage.local.get("scrapedMeta");
+    const scraped = storage.scrapedMeta || {};
+    if (scraped[file] && scraped[file].data && scraped[file].data.length > 0) {
+      blocksMeta[file] = scraped[file].data;
+      return blocksMeta[file];
+    }
+  } catch (e) { console.warn("Local scraped meta check failed", e); }
+
+  // 2. Fallback to Remote GitHub / Bundled JSON
   try {
     const REMOTE_BASE = 'https://raw.githubusercontent.com/DNS-Forge/nextdns-addon-data/main/data/';
     const response = await fetch(`${REMOTE_BASE}${file}.json`).catch(() => fetch(browser.runtime.getURL(`data/${file}.json`)));

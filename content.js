@@ -8,14 +8,120 @@ const observer = new MutationObserver(() => {
     if (path.endsWith('/security')) {
       injectPageButtons();
       injectModalButtons();
+      scrapeTLDs();
+    } else if (path.endsWith('/privacy')) {
+      scrapeBlocklists();
+    } else if (path.endsWith('/parentalcontrol')) {
+      scrapeServices();
     }
-  }, 150);
+  }, 500);
 });
 observer.observe(document.body, { childList: true, subtree: true });
 
 function getProfileId() {
   const match = window.location.pathname.match(/\/([a-z0-9]+)\//);
   return match ? match[1] : null;
+}
+
+// --- Passive Scraper Logic ---
+
+function parseRelativeDate(dateStr) {
+  const now = Date.now() / 1000;
+  const match = dateStr.match(/(\d+)\s+(day|hour|month|year|minute|second)/);
+  if (!match) return now;
+  const val = parseInt(match[1]);
+  const unit = match[2];
+  const multipliers = { 'second': 1, 'minute': 60, 'hour': 3600, 'day': 86400, 'month': 2592000, 'year': 31536000 };
+  return now - (val * (multipliers[unit] || 0));
+}
+
+function scrapeBlocklists() {
+  // Look for list-group-items that look like blocklists
+  const items = Array.from(document.querySelectorAll('.list-group-item'));
+  const blocks = [];
+  const seen = new Set();
+  
+  items.forEach(item => {
+    const nameEl = item.querySelector('[style*="font-weight: 500"]');
+    if (!nameEl) return;
+    const name = nameEl.textContent.trim();
+    if (seen.has(name) || !name) return;
+    
+    // Quick heuristic: blocklists usually have an "entries" count
+    if (!item.textContent.includes('entries')) return;
+    
+    seen.add(name);
+    
+    const descEl = item.querySelector('[style*="font-size: 0.9em"]');
+    const description = descEl ? descEl.textContent.trim() : "";
+    
+    const linkEl = item.querySelector('a[target="_blank"]');
+    const website = linkEl ? linkEl.getAttribute('href') : "";
+    
+    const entriesMatch = item.textContent.match(/([\d,]+)\s+entries/);
+    const entriesText = entriesMatch ? `${entriesMatch[1].trim()} entries` : "0 entries";
+    const entriesCount = entriesMatch ? parseInt(entriesMatch[1].replace(/,/g, ''), 10) : 0;
+    
+    const updatedMatch = item.textContent.match(/Updated\s+(.*?ago)/);
+    const updatedText = updatedMatch ? `Updated ${updatedMatch[1].trim()}` : "Updated unknown";
+    const updatedTs = updatedMatch ? parseRelativeDate(updatedMatch[1]) : (Date.now() / 1000);
+    
+    let id = name.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-').replace(/\./g, '').replace(/'/g, '').replace(/\(/g, '').replace(/\)/g, '');
+    if (id.includes('nextdns-ads') && id.includes('trackers')) id = 'nextdns-recommended';
+    
+    blocks.push({
+      id, name, description, website, entries_text: entriesText, entries: entriesCount, updated_text: updatedText, updated_ts: updatedTs, popularity: 0
+    });
+  });
+  
+  if (blocks.length > 5) {
+    blocks.forEach((b, idx) => b.popularity = blocks.length - idx);
+    browser.runtime.sendMessage({ type: "SAVE_SCRAPED_META", payload: { metaType: 'blocklists', data: blocks } });
+  }
+}
+
+function scrapeServices() {
+  const items = Array.from(document.querySelectorAll('.list-group-item'));
+  const services = [];
+  const seen = new Set();
+  
+  items.forEach(item => {
+    const nameEl = item.querySelector('span[style*="font-weight: 500"]');
+    if (!nameEl) return;
+    const name = nameEl.textContent.trim();
+    if (seen.has(name) || !name) return;
+    
+    // Avoid scraping categories as services
+    if (['Porn', 'Gambling', 'Dating', 'Piracy', 'Social Networks', 'Online Gaming', 'Video Streaming'].includes(name)) return;
+    
+    seen.add(name);
+    let id = name.toLowerCase().replace(/ /g, '-');
+    const norm = {"Disney+": "disneyplus", "HBO Max": "hbomax", "Prime Video": "primevideo", "Xbox Live": "xboxlive", "PlayStation Network": "playstation-network", "YouTube": "youtube"};
+    id = norm[name] || id;
+    
+    services.push({ id, name });
+  });
+  
+  if (services.length > 10) {
+    browser.runtime.sendMessage({ type: "SAVE_SCRAPED_META", payload: { metaType: 'parental_services', data: services } });
+  }
+}
+
+function scrapeTLDs() {
+  const items = Array.from(document.querySelectorAll('.list-group-item'));
+  const tlds = [];
+  
+  items.forEach(item => {
+    const nameEl = item.querySelector('span[style*="font-weight: 500"]');
+    if (!nameEl || !nameEl.textContent.startsWith('.')) return;
+    const tld = nameEl.textContent.substring(1).trim();
+    if (/^[a-zA-Z0-9.-]+$/.test(tld)) tlds.push(tld);
+  });
+  
+  if (tlds.length > 50) {
+    const uniqueTlds = Array.from(new Set(tlds)).sort();
+    browser.runtime.sendMessage({ type: "SAVE_SCRAPED_META", payload: { metaType: 'tlds', data: uniqueTlds } });
+  }
 }
 
 // --- UI Injection ---
