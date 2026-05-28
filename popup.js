@@ -513,6 +513,47 @@ async function initializeApp() {
     };
   }
 
+  // --- Settings Portability ---
+  const exportBtn = document.getElementById("export-settings-btn");
+  if (exportBtn) {
+    exportBtn.onclick = async () => {
+      const allSettings = await browser.storage.sync.get(null);
+      // Remove sensitive data or transient state if needed, but for now we export everything
+      const jsonStr = JSON.stringify(allSettings, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      await browser.downloads.download({ url, filename: `dns-forge-settings-${timestamp}.json`, saveAs: true });
+      URL.revokeObjectURL(url);
+    };
+  }
+
+  const importBtn = document.getElementById("import-settings-btn");
+  const importFile = document.getElementById("import-settings-file");
+  if (importBtn && importFile) {
+    importBtn.onclick = () => importFile.click();
+    importFile.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (confirm("This will overwrite your current extension settings. Are you sure?")) {
+            await browser.storage.sync.clear();
+            await browser.storage.sync.set(data);
+            alert("Settings imported successfully! The extension will now reload.");
+            window.location.reload();
+          }
+        } catch (err) {
+          alert("Import failed: Invalid JSON file.");
+        }
+        e.target.value = "";
+      };
+      reader.readAsText(file);
+    };
+  }
+
   if (!apiKey) { document.querySelector('.tab-btn[data-tab="settings"]').click(); return; }
   
   let stored = await browser.storage.sync.get(["activeProfile", "activeProfileName"]);
