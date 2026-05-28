@@ -90,22 +90,18 @@ async function injectLogsSettingsControls() {
   const headerContainer = document.querySelector('.Logs .list-group-item.bg-2 .d-md-flex');
   if (!headerContainer) return;
 
-  // Outer group to match NextDNS spacing
+  // Outer group
   const group = document.createElement('div');
   group.id = 'nxm-logs-filter-group';
-  group.className = 'd-flex align-items-center ms-md-4'; // Added align-items-center
+  group.className = 'd-flex align-items-center ms-md-4';
 
-  // Switch wrapper
+  // Switch wrapper (exactly matching native structure)
   const switchWrapper = document.createElement('div');
   switchWrapper.className = 'd-flex align-items-center';
-  switchWrapper.style.transform = 'scale(0.9)';
-  // Adjusted margins to be less aggressive for the header bar
-  switchWrapper.style.marginTop = '-2px';
-  switchWrapper.style.marginBottom = '-2px';
 
   const formCheck = document.createElement('div');
   formCheck.className = 'form-check form-switch';
-  formCheck.style.paddingLeft = '2.5em'; // Ensure standard bootstrap switch padding
+  formCheck.style.margin = '0'; // Ensure no offset
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
@@ -120,20 +116,18 @@ async function injectLogsSettingsControls() {
   const label = document.createElement('label');
   label.htmlFor = 'nxm-filtered-logs-toggle';
   label.className = 'form-check-label';
-  label.style.cursor = 'pointer';
 
   formCheck.appendChild(checkbox);
   formCheck.appendChild(label);
   switchWrapper.appendChild(formCheck);
 
-  // Text wrapper
+  // Text wrapper (Exactly matching requested format)
   const textWrapper = document.createElement('div');
   textWrapper.className = 'd-flex align-items-center';
   textWrapper.style.opacity = '0.7';
   textWrapper.style.whiteSpace = 'nowrap';
-  textWrapper.style.fontSize = '0.9em'; // Slightly larger to match standard small
   
-  const small = document.createElement('span'); // Changed small to span for more control
+  const small = document.createElement('small');
   small.textContent = 'Filtered Logs';
   small.style.cursor = 'pointer';
   small.onclick = () => checkbox.click();
@@ -144,8 +138,8 @@ async function injectLogsSettingsControls() {
   viewerBtn.style.border = 'none';
   viewerBtn.style.background = 'transparent';
   viewerBtn.style.cursor = 'pointer';
-  viewerBtn.style.fontSize = '1.1em';
-  viewerBtn.style.padding = '0 0 0 8px';
+  viewerBtn.style.fontSize = '1em';
+  viewerBtn.style.padding = '0 0 0 5px';
   viewerBtn.style.display = 'flex';
   viewerBtn.style.alignItems = 'center';
   viewerBtn.style.opacity = '0.8';
@@ -160,7 +154,6 @@ async function injectLogsSettingsControls() {
   group.appendChild(switchWrapper);
   group.appendChild(textWrapper);
   
-  // Insert into header
   headerContainer.appendChild(group);
 }
 
