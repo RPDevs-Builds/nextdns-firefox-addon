@@ -12,9 +12,12 @@ const editModal = document.getElementById('edit-modal');
 const modalTitle = document.getElementById('modal-title');
 const labelKey = document.getElementById('label-key');
 const inputKey = document.getElementById('input-key');
+const selectProfile = document.getElementById('select-profile');
 const inputNote = document.getElementById('input-note');
 const saveBtn = document.getElementById('save-btn');
 const cancelBtn = document.getElementById('cancel-btn');
+
+let profilesList = [];
 
 // Initialize from URL params
 const params = new URLSearchParams(window.location.search);
@@ -22,6 +25,23 @@ if (params.get('tab') === 'profiles') activeTab = 'profiles';
 else if (params.get('tab') === 'filters') activeTab = 'filters';
 updateTabs();
 renderList();
+fetchProfiles();
+
+async function fetchProfiles() {
+  try {
+    const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
+    if (res && res.data) {
+      profilesList = res.data;
+      populateProfileSelect();
+    }
+  } catch (e) { console.error("Failed to fetch profiles", e); }
+}
+
+function populateProfileSelect() {
+  selectProfile.innerHTML = profilesList.map(p => 
+    `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`
+  ).join('');
+}
 
 tabDomains.onclick = () => { activeTab = 'domains'; updateTabs(); renderList(); };
 tabProfiles.onclick = () => { activeTab = 'profiles'; updateTabs(); renderList(); };
@@ -102,8 +122,12 @@ function escapeHTML(str) {
 function openEdit(key) {
   const val = currentData[key] || "";
   modalTitle.textContent = `Edit ${activeTab === 'domains' ? 'Domain Description' : (activeTab === 'profiles' ? 'Profile Note' : 'Log Filter')}`;
+  
   inputKey.value = key;
   inputKey.disabled = true;
+  inputKey.style.display = 'block';
+  selectProfile.style.display = 'none';
+
   inputNote.value = val;
   editModal.style.display = 'flex';
 }
@@ -111,8 +135,18 @@ function openEdit(key) {
 addBtn.onclick = () => {
   modalTitle.textContent = `Add ${activeTab === 'domains' ? 'Domain Description' : (activeTab === 'profiles' ? 'Profile Note' : 'Log Filter')}`;
   inputKey.value = '';
-  inputKey.disabled = false;
   inputNote.value = '';
+  
+  if (activeTab === 'profiles') {
+    inputKey.style.display = 'none';
+    selectProfile.style.display = 'block';
+    if (profilesList.length === 0) fetchProfiles();
+  } else {
+    inputKey.style.display = 'block';
+    inputKey.disabled = false;
+    selectProfile.style.display = 'none';
+  }
+  
   editModal.style.display = 'flex';
 };
 
@@ -121,9 +155,12 @@ cancelBtn.onclick = () => {
 };
 
 saveBtn.onclick = async () => {
-  const key = inputKey.value.trim();
+  const key = (activeTab === 'profiles' && selectProfile.style.display === 'block') 
+    ? selectProfile.value 
+    : inputKey.value.trim();
+    
   const note = inputNote.value.trim();
-  if (!key) return alert('Please enter a key.');
+  if (!key) return alert('Please enter or select a key.');
 
   let storageKey = 'domainDescriptions';
   if (activeTab === 'profiles') storageKey = 'profileNotes';
