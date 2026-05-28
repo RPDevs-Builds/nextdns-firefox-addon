@@ -67,7 +67,7 @@ async function renderList() {
         <div class="item-desc">${escapeHTML(val)}</div>
       </div>
       <div style="display:flex; gap:10px;">
-        <button class="btn btn-edit" onclick="openEdit('${key}', '${val.replace(/'/g, "\\'")}')">Edit</button>
+        <button class="btn btn-edit" onclick="openEdit('${key}', '${val.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">Edit</button>
         <button class="btn btn-delete" onclick="deleteEntry('${key}')">Delete</button>
       </div>
     </div>
