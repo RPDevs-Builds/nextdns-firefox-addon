@@ -1,7 +1,8 @@
-let activeTab = 'domains'; // 'domains' or 'profiles'
+let activeTab = 'domains'; // 'domains', 'profiles', or 'filters'
 
 const tabDomains = document.getElementById('tab-domains');
 const tabProfiles = document.getElementById('tab-profiles');
+const tabFilters = document.getElementById('tab-filters');
 const listContainer = document.getElementById('list-container');
 const searchInput = document.getElementById('search-input');
 const addBtn = document.getElementById('add-btn');
@@ -17,29 +18,49 @@ const cancelBtn = document.getElementById('cancel-btn');
 // Initialize from URL params
 const params = new URLSearchParams(window.location.search);
 if (params.get('tab') === 'profiles') activeTab = 'profiles';
+else if (params.get('tab') === 'filters') activeTab = 'filters';
 updateTabs();
 renderList();
 
 tabDomains.onclick = () => { activeTab = 'domains'; updateTabs(); renderList(); };
 tabProfiles.onclick = () => { activeTab = 'profiles'; updateTabs(); renderList(); };
+tabFilters.onclick = () => { activeTab = 'filters'; updateTabs(); renderList(); };
 searchInput.oninput = () => renderList();
 
 function updateTabs() {
   tabDomains.classList.toggle('active', activeTab === 'domains');
   tabProfiles.classList.toggle('active', activeTab === 'profiles');
-  labelKey.textContent = activeTab === 'domains' ? 'Domain' : 'Profile ID';
+  tabFilters.classList.toggle('active', activeTab === 'filters');
+  
+  if (activeTab === 'domains') labelKey.textContent = 'Domain';
+  else if (activeTab === 'profiles') labelKey.textContent = 'Profile ID';
+  else labelKey.textContent = 'Filter Pattern (e.g. **.google.com)';
 }
 
 async function renderList() {
   const query = searchInput.value.toLowerCase();
-  const storageKey = activeTab === 'domains' ? 'domainDescriptions' : 'profileNotes';
+  let storageKey = 'domainDescriptions';
+  if (activeTab === 'profiles') storageKey = 'profileNotes';
+  if (activeTab === 'filters') storageKey = 'logFilters';
+  
   const data = (await browser.storage.sync.get(storageKey))[storageKey] || {};
   
   const entries = Object.entries(data).filter(([key, val]) => {
     return key.toLowerCase().includes(query) || val.toLowerCase().includes(query);
   }).sort((a, b) => a[0].localeCompare(b[0]));
 
-  listContainer.innerHTML = entries.map(([key, val]) => `
+  let html = '';
+  if (activeTab === 'filters') {
+    html += `<div style="padding: 10px; font-size: 0.85em; color: var(--text-muted); background: var(--bg-main); border-radius: 4px; margin-bottom: 15px;">
+      <b>Wildcard Rules:</b><br>
+      - <code>domain.tld</code>: Exact match only.<br>
+      - <code>*.domain.tld</code>: 1 level of subdomains.<br>
+      - <code>*.*.domain.tld</code>: 2 levels of subdomains.<br>
+      - <code>**.domain.tld</code>: ALL subdomains recursively.
+    </div>`;
+  }
+
+  html += entries.map(([key, val]) => `
     <div class="list-item">
       <div class="item-info">
         <div class="item-title">${escapeHTML(key)}</div>
@@ -51,6 +72,8 @@ async function renderList() {
       </div>
     </div>
   `).join('') || `<div style="text-align:center; padding:40px; color:var(--text-muted);">No ${activeTab} found.</div>`;
+  
+  listContainer.innerHTML = html;
 }
 
 function escapeHTML(str) {
@@ -60,7 +83,7 @@ function escapeHTML(str) {
 }
 
 window.openEdit = (key, val) => {
-  modalTitle.textContent = `Edit ${activeTab === 'domains' ? 'Domain Description' : 'Profile Note'}`;
+  modalTitle.textContent = `Edit ${activeTab === 'domains' ? 'Domain Description' : (activeTab === 'profiles' ? 'Profile Note' : 'Log Filter')}`;
   inputKey.value = key;
   inputKey.disabled = true;
   inputNote.value = val;
@@ -68,7 +91,7 @@ window.openEdit = (key, val) => {
 };
 
 addBtn.onclick = () => {
-  modalTitle.textContent = `Add ${activeTab === 'domains' ? 'Domain Description' : 'Profile Note'}`;
+  modalTitle.textContent = `Add ${activeTab === 'domains' ? 'Domain Description' : (activeTab === 'profiles' ? 'Profile Note' : 'Log Filter')}`;
   inputKey.value = '';
   inputKey.disabled = false;
   inputNote.value = '';
@@ -84,12 +107,15 @@ saveBtn.onclick = async () => {
   const note = inputNote.value.trim();
   if (!key) return alert('Please enter a key.');
 
-  const storageKey = activeTab === 'domains' ? 'domainDescriptions' : 'profileNotes';
+  let storageKey = 'domainDescriptions';
+  if (activeTab === 'profiles') storageKey = 'profileNotes';
+  if (activeTab === 'filters') storageKey = 'logFilters';
+
   const storage = await browser.storage.sync.get(storageKey);
   const data = storage[storageKey] || {};
   
-  if (note) {
-    data[key] = note;
+  if (note || activeTab === 'filters') {
+    data[key] = note || "Hidden";
   } else {
     delete data[key];
   }
@@ -102,8 +128,11 @@ saveBtn.onclick = async () => {
 };
 
 window.deleteEntry = async (key) => {
-  if (!confirm(`Delete ${activeTab === 'domains' ? 'description' : 'note'} for ${key}?`)) return;
-  const storageKey = activeTab === 'domains' ? 'domainDescriptions' : 'profileNotes';
+  if (!confirm(`Delete ${activeTab === 'domains' ? 'description' : (activeTab === 'profiles' ? 'note' : 'filter')} for ${key}?`)) return;
+  let storageKey = 'domainDescriptions';
+  if (activeTab === 'profiles') storageKey = 'profileNotes';
+  if (activeTab === 'filters') storageKey = 'logFilters';
+
   const storage = await browser.storage.sync.get(storageKey);
   const data = storage[storageKey] || {};
   delete data[key];

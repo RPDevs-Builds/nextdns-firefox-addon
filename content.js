@@ -1,14 +1,15 @@
 const INTERNAL_API = "https://api.nextdns.io/profiles";
 
-let webGuiConfig = { master: true, tlds: true, logs: true, desc: true, notes: true };
+let webGuiConfig = { master: true, tlds: true, logs: true, desc: true, notes: true, filter: true };
 
 // Initialize config and listen for live changes
-browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes"]).then(res => {
+browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]).then(res => {
   if (res.webGuiMaster !== undefined) webGuiConfig.master = res.webGuiMaster;
   if (res.webGuiTlds !== undefined) webGuiConfig.tlds = res.webGuiTlds;
   if (res.webGuiLogActions !== undefined) webGuiConfig.logs = res.webGuiLogActions;
   if (res.webGuiDesc !== undefined) webGuiConfig.desc = res.webGuiDesc;
   if (res.webGuiProfileNotes !== undefined) webGuiConfig.notes = res.webGuiProfileNotes;
+  if (res.webGuiFilter !== undefined) webGuiConfig.filter = res.webGuiFilter;
 });
 
 browser.storage.onChanged.addListener((changes, area) => {
@@ -18,6 +19,7 @@ browser.storage.onChanged.addListener((changes, area) => {
     if (changes.webGuiLogActions) webGuiConfig.logs = changes.webGuiLogActions.newValue;
     if (changes.webGuiDesc) webGuiConfig.desc = changes.webGuiDesc.newValue;
     if (changes.webGuiProfileNotes) webGuiConfig.notes = changes.webGuiProfileNotes.newValue;
+    if (changes.webGuiFilter) webGuiConfig.filter = changes.webGuiFilter.newValue;
     
     // Force a UI re-evaluation if user toggles live
     if (!webGuiConfig.master || !webGuiConfig.tlds) {
@@ -33,6 +35,14 @@ browser.storage.onChanged.addListener((changes, area) => {
     }
     if (!webGuiConfig.master || !webGuiConfig.notes) {
       document.getElementById('nxm-profile-note')?.remove();
+    }
+    if (!webGuiConfig.master || !webGuiConfig.filter) {
+      document.querySelectorAll('.list-group-item[style*="display: none"]').forEach(el => {
+        if (el.dataset.nxmFiltered) {
+          el.style.display = "";
+          delete el.dataset.nxmFiltered;
+        }
+      });
     }
   }
 });
@@ -64,13 +74,70 @@ const observer = new MutationObserver(() => {
     } else if (path.endsWith('/parentalcontrol')) {
       scrapeServices();
     } else if (path.endsWith('/logs')) {
-      if (webGuiConfig.master && webGuiConfig.logs) {
-        injectLogActions();
+      if (webGuiConfig.master) {
+        if (webGuiConfig.logs) injectLogActions();
+        if (webGuiConfig.filter) applyLogFilters();
       }
     }
   }, 500);
 });
 observer.observe(document.body, { childList: true, subtree: true });
+
+async function applyLogFilters() {
+  const rows = Array.from(document.querySelectorAll('.list-group-item'));
+  const { logFilters = {} } = await browser.storage.sync.get("logFilters");
+  const filterKeys = Object.keys(logFilters);
+  if (filterKeys.length === 0) return;
+
+  rows.forEach(row => {
+    const domainEl = row.querySelector('.notranslate');
+    if (!domainEl) return;
+    const domain = domainEl.textContent.trim();
+    if (!domain) return;
+
+    let shouldHide = false;
+    for (const pattern of filterKeys) {
+      if (matchPattern(domain, pattern)) {
+        shouldHide = true;
+        break;
+      }
+    }
+
+    if (shouldHide) {
+      row.style.display = "none";
+      row.dataset.nxmFiltered = "true";
+    } else if (row.dataset.nxmFiltered) {
+      row.style.display = "";
+      delete row.dataset.nxmFiltered;
+    }
+  });
+}
+
+function matchPattern(domain, pattern) {
+  if (domain === pattern) return true; // Exact match
+
+  if (pattern.startsWith('**.')) {
+    // Recursive subdomains: **.example.com matches example.com and any.sub.example.com
+    const base = pattern.substring(3);
+    return domain === base || domain.endsWith('.' + base);
+  }
+
+  if (pattern.includes('*')) {
+    // Level-specific wildcard: *.example.com (1 level), *.*.example.com (2 levels)
+    const patternParts = pattern.split('.');
+    const domainParts = domain.split('.');
+    
+    if (patternParts.length !== domainParts.length) return false;
+    
+    for (let i = 0; i < patternParts.length; i++) {
+      if (patternParts[i] === '*') continue;
+      if (patternParts[i] !== domainParts[i]) return false;
+    }
+    return true;
+  }
+
+  return false;
+}
 
 async function injectDomainDescriptions() {
   const items = Array.from(document.querySelectorAll('.list-group-item'));

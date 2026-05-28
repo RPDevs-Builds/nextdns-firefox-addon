@@ -381,14 +381,20 @@
           </label>
 
           <div style="margin-top: 10px; border-top: 1px solid var(--border-color); pt: 8px;">
+            <div style="font-size:0.85em; font-weight:bold; margin-bottom:5px;">Logs Page</div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-              <span style="font-size:0.85em; font-weight:bold;">Logs Page</span>
+              <span style="font-size:0.75em; color:var(--text-muted);">External Link</span>
               <a id="web-gui-logs-link" href="#" target="_blank" style="font-size:0.75em; text-decoration:none; color:var(--text-accent, #4facf7);">Go to Logs ↗</a>
             </div>
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.85em; cursor:pointer;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.85em; margin-bottom:8px; cursor:pointer;">
               <input type="checkbox" id="web-gui-log-actions-toggle" style="margin: 0;">
               Allow/Deny Buttons
             </label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.85em; margin-bottom:8px; cursor:pointer;">
+              <input type="checkbox" id="web-gui-filter-toggle" style="margin: 0;">
+              Domain Filter
+            </label>
+            <button id="web-gui-filter-viewer-btn" class="btn-secondary" style="width:100%; padding: 4px; font-size: 0.8em;">📋 Filtered Domains (New Window)</button>
           </div>
 
           <div style="margin-top: 10px; border-top: 1px solid var(--border-color); pt: 8px;">

@@ -434,25 +434,28 @@ async function initializeApp() {
   await loadAllMetadata();
 
   // --- Web GUI Customization Toggles ---
-  const { webGuiMaster = true, webGuiTlds = true, webGuiLogActions = true, webGuiDesc = true, webGuiProfileNotes = true } = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes"]);
+  const { webGuiMaster = true, webGuiTlds = true, webGuiLogActions = true, webGuiDesc = true, webGuiProfileNotes = true, webGuiFilter = true } = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]);
   const masterToggle = document.getElementById("web-gui-master-toggle");
   const tldsToggle = document.getElementById("web-gui-tlds-toggle");
   const logActionsToggle = document.getElementById("web-gui-log-actions-toggle");
+  const filterToggle = document.getElementById("web-gui-filter-toggle");
   const descToggle = document.getElementById("web-gui-desc-toggle");
   const profileNotesToggle = document.getElementById("web-gui-profile-notes-toggle");
   const featuresDiv = document.getElementById("web-gui-features");
   const logsLink = document.getElementById("web-gui-logs-link");
 
-  if (masterToggle && tldsToggle && logActionsToggle && descToggle && profileNotesToggle && featuresDiv) {
+  if (masterToggle && tldsToggle && logActionsToggle && descToggle && profileNotesToggle && filterToggle && featuresDiv) {
     masterToggle.checked = webGuiMaster;
     tldsToggle.checked = webGuiTlds;
     logActionsToggle.checked = webGuiLogActions;
+    filterToggle.checked = webGuiFilter;
     descToggle.checked = webGuiDesc;
     profileNotesToggle.checked = webGuiProfileNotes;
     
     featuresDiv.style.opacity = webGuiMaster ? "1" : "0.5";
     tldsToggle.disabled = !webGuiMaster;
     logActionsToggle.disabled = !webGuiMaster;
+    filterToggle.disabled = !webGuiMaster;
     descToggle.disabled = !webGuiMaster;
     profileNotesToggle.disabled = !webGuiMaster;
 
@@ -461,6 +464,7 @@ async function initializeApp() {
       featuresDiv.style.opacity = checked ? "1" : "0.5";
       tldsToggle.disabled = !checked;
       logActionsToggle.disabled = !checked;
+      filterToggle.disabled = !checked;
       descToggle.disabled = !checked;
       profileNotesToggle.disabled = !checked;
       await browser.storage.sync.set({ webGuiMaster: checked });
@@ -472,6 +476,10 @@ async function initializeApp() {
 
     logActionsToggle.onchange = async (e) => {
       await browser.storage.sync.set({ webGuiLogActions: e.target.checked });
+    };
+
+    filterToggle.onchange = async (e) => {
+      await browser.storage.sync.set({ webGuiFilter: e.target.checked });
     };
 
     descToggle.onchange = async (e) => {
@@ -495,6 +503,13 @@ async function initializeApp() {
   if (profileNotesViewerBtn) {
     profileNotesViewerBtn.onclick = () => {
       browser.tabs.create({ url: "viewer.html?tab=profiles" });
+    };
+  }
+
+  const filterViewerBtn = document.getElementById("web-gui-filter-viewer-btn");
+  if (filterViewerBtn) {
+    filterViewerBtn.onclick = () => {
+      browser.tabs.create({ url: "viewer.html?tab=filters" });
     };
   }
 
