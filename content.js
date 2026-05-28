@@ -85,23 +85,31 @@ const observer = new MutationObserver(() => {
 observer.observe(document.body, { childList: true, subtree: true });
 
 async function injectLogsSettingsControls() {
-  if (document.getElementById('nxm-logs-filter-controls')) return;
+  if (document.getElementById('nxm-logs-filter-group')) return;
 
   const headerContainer = document.querySelector('.Logs .list-group-item.bg-2 .d-md-flex');
   if (!headerContainer) return;
 
-  // Container that matches NextDNS form-check groups
-  const controlGroup = document.createElement('div');
-  controlGroup.id = 'nxm-logs-filter-controls';
-  controlGroup.className = 'form-check mr-3 d-flex align-items-center';
-  controlGroup.style.gap = '5px';
+  // Outer group to match NextDNS spacing
+  const group = document.createElement('div');
+  group.id = 'nxm-logs-filter-group';
+  group.className = 'd-flex ms-md-4'; // Match the margin-start of other controls
+
+  // Switch wrapper
+  const switchWrapper = document.createElement('div');
+  switchWrapper.className = 'd-flex align-items-center';
+  switchWrapper.style.transform = 'scale(0.9)';
+  switchWrapper.style.marginTop = '-10px';
+  switchWrapper.style.marginBottom = '-10px';
+
+  const formCheck = document.createElement('div');
+  formCheck.className = 'form-check form-switch';
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
   checkbox.id = 'nxm-filtered-logs-toggle';
   checkbox.className = 'form-check-input';
   checkbox.checked = webGuiConfig.filter;
-  checkbox.style.marginTop = '0'; // NextDNS sometimes has offsets here
   checkbox.onchange = async (e) => {
     await browser.storage.sync.set({ webGuiFilter: e.target.checked });
   };
@@ -109,9 +117,21 @@ async function injectLogsSettingsControls() {
   const label = document.createElement('label');
   label.htmlFor = 'nxm-filtered-logs-toggle';
   label.className = 'form-check-label';
-  label.textContent = 'Filtered Logs';
-  label.style.cursor = 'pointer';
-  label.style.fontSize = '0.9em';
+
+  formCheck.appendChild(checkbox);
+  formCheck.appendChild(label);
+  switchWrapper.appendChild(formCheck);
+
+  // Text wrapper
+  const textWrapper = document.createElement('div');
+  textWrapper.className = 'd-flex align-items-center';
+  textWrapper.style.opacity = '0.7';
+  textWrapper.style.whiteSpace = 'nowrap';
+  
+  const small = document.createElement('small');
+  small.textContent = 'Filtered Logs';
+  small.style.cursor = 'pointer';
+  small.onclick = () => checkbox.click();
 
   const viewerBtn = document.createElement('button');
   viewerBtn.textContent = '📋';
@@ -120,21 +140,21 @@ async function injectLogsSettingsControls() {
   viewerBtn.style.background = 'transparent';
   viewerBtn.style.cursor = 'pointer';
   viewerBtn.style.fontSize = '1em';
-  viewerBtn.style.padding = '0 0 0 5px';
-  viewerBtn.style.display = 'flex';
-  viewerBtn.style.alignItems = 'center';
-  viewerBtn.style.opacity = '0.6';
+  viewerBtn.style.padding = '0 0 0 8px';
+  viewerBtn.style.opacity = '0.8';
   viewerBtn.onclick = (e) => {
     e.preventDefault(); e.stopPropagation();
     browser.runtime.sendMessage({ type: "OPEN_VIEWER", tab: "filters" });
   };
 
-  controlGroup.appendChild(checkbox);
-  controlGroup.appendChild(label);
-  controlGroup.appendChild(viewerBtn);
+  textWrapper.appendChild(small);
+  textWrapper.appendChild(viewerBtn);
+
+  group.appendChild(switchWrapper);
+  group.appendChild(textWrapper);
   
-  // Insert before the search box or at the end of the flex container
-  headerContainer.appendChild(controlGroup);
+  // Insert into header
+  headerContainer.appendChild(group);
 }
 
 async function applyLogFilters() {
