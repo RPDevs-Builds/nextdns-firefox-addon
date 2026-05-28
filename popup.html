@@ -337,11 +337,25 @@
 
     <!-- Data Sub-Tab -->
     <div id="settings-data" class="settings-sub-content" style="padding: 15px; display: none;">
-      <div style="background: var(--bg-panel); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color);">
+      <div style="background: var(--bg-panel); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color); margin-bottom: 15px;">
         <h4 style="margin: 0 0 10px 0; font-size: 0.9em; color: var(--text-muted);">Data Management</h4>
         <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 0; margin-bottom: 15px;">Export your logs to CSV or clear them from your NextDNS account.</p>
         <button id="download-logs-btn" class="btn-secondary" style="margin-bottom: 8px;">📥 Download Logs (CSV)</button>
         <button id="wipe-logs-btn" class="btn-deny">🗑️ Wipe All Logs</button>
+      </div>
+
+      <div style="background: var(--bg-panel); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color);">
+        <h4 style="margin: 0 0 10px 0; font-size: 0.9em; color: var(--text-muted);">Meta Data Management</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 0; margin-bottom: 10px;">Manage your blocklists, services, and TLDs metadata database.</p>
+        
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+          <button id="meta-refresh-btn" class="btn-primary" style="flex: 1; padding: 4px 8px; font-size: 0.85em;">🔄 Refresh</button>
+          <button id="meta-save-btn" class="btn-secondary" style="flex: 1; padding: 4px 8px; font-size: 0.85em;">💾 Save</button>
+          <button id="meta-load-btn" class="btn-secondary" style="flex: 1; padding: 4px 8px; font-size: 0.85em;">📂 Load</button>
+          <button id="meta-delete-btn" class="btn-deny" style="flex: 1; padding: 4px 8px; font-size: 0.85em;">🗑️ Delete</button>
+          <input type="file" id="meta-file-input" accept=".json" style="display: none;">
+        </div>
+        <div id="meta-status-text" style="font-size: 0.75em; color: var(--text-muted); text-align: center;">Waiting for metadata...</div>
       </div>
     </div>
 

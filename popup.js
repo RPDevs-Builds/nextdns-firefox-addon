@@ -196,6 +196,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   const autoRefreshBtn = document.getElementById("auto-refresh-btn");
   if (autoRefreshBtn) autoRefreshBtn.onclick = () => toggleAutoRefresh(autoRefreshInterval === null);
 
+  // --- Meta Data Management ---
+  const metaRefreshBtn = document.getElementById("meta-refresh-btn");
+  if (metaRefreshBtn) metaRefreshBtn.onclick = handleMetaRefresh;
+  
+  const metaDeleteBtn = document.getElementById("meta-delete-btn");
+  if (metaDeleteBtn) metaDeleteBtn.onclick = handleMetaDelete;
+  
+  const metaSaveBtn = document.getElementById("meta-save-btn");
+  if (metaSaveBtn) metaSaveBtn.onclick = handleMetaSave;
+  
+  const metaLoadBtn = document.getElementById("meta-load-btn");
+  const metaFileInput = document.getElementById("meta-file-input");
+  if (metaLoadBtn && metaFileInput) {
+    metaLoadBtn.onclick = () => metaFileInput.click();
+    metaFileInput.onchange = handleMetaLoad;
+  }
+
   const fetchProfilesBtn = document.getElementById("setting-fetch-profiles");
   if (fetchProfilesBtn) fetchProfilesBtn.onclick = fetchProfiles;
 
@@ -291,27 +308,90 @@ async function syncLists(force = false) {
   listsSynced = true;
 }
 
-async function loadMetaFile(file) {
-  if (blocksMeta[file] && blocksMeta[file].length > 0) return blocksMeta[file];
-  
-  // 1. Try to load fresh metadata scraped natively by the content script
+function updateMetaStatus(text) {
+  const statusEl = document.getElementById("meta-status-text");
+  if (statusEl) statusEl.textContent = text;
+}
+
+async function handleMetaRefresh() {
+  updateMetaStatus("Fetching remote metadata...");
+  try {
+    const REMOTE_BASE = 'https://raw.githubusercontent.com/DNS-Forge/nextdns-addon-data/main/data/blocks_meta.json';
+    const response = await fetch(REMOTE_BASE);
+    const data = await response.json();
+    await browser.storage.local.set({ scrapedMeta: data });
+    blocksMeta = data;
+    updateMetaStatus("Local metadata refreshed from remote.");
+    if (activeBlocksSubTab) loadToggles(true);
+  } catch (e) {
+    updateMetaStatus("Refresh failed: " + e.message);
+  }
+}
+
+async function handleMetaDelete() {
+  await browser.storage.local.remove("scrapedMeta");
+  blocksMeta = { blocklists: [], parental_services: [], tlds: [], categories: [] };
+  updateMetaStatus("Local cache deleted. Will use bundled fallback.");
+  loadAllMetadata();
+  if (activeBlocksSubTab) loadToggles(true);
+}
+
+async function handleMetaSave() {
+  try {
+    const jsonStr = JSON.stringify(blocksMeta, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    await browser.downloads.download({ url, filename: "blocks_meta.json", saveAs: true });
+    URL.revokeObjectURL(url);
+    updateMetaStatus("Metadata saved successfully.");
+  } catch (e) { updateMetaStatus("Save failed: " + e.message); }
+}
+
+async function handleMetaLoad(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  updateMetaStatus("Loading file...");
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.blocklists && data.tlds) {
+        await browser.storage.local.set({ scrapedMeta: data });
+        blocksMeta = data;
+        updateMetaStatus("Metadata loaded from file.");
+        if (activeBlocksSubTab) loadToggles(true);
+      } else { updateMetaStatus("Invalid JSON structure."); }
+    } catch (err) { updateMetaStatus("Parse error: " + err.message); }
+    e.target.value = ""; 
+  };
+  reader.readAsText(file);
+}
+
+async function loadAllMetadata() {
+  // 1. Try to load fresh metadata natively scraped or imported by user
   try {
     const storage = await browser.storage.local.get("scrapedMeta");
-    const scraped = storage.scrapedMeta || {};
-    if (scraped[file] && scraped[file].data && scraped[file].data.length > 0) {
-      blocksMeta[file] = scraped[file].data;
-      return blocksMeta[file];
+    const scraped = storage.scrapedMeta;
+    if (scraped && scraped.blocklists && scraped.tlds) {
+      blocksMeta = scraped;
+      updateMetaStatus("Using fully cached/scraped metadata.");
+      return blocksMeta;
     }
   } catch (e) { console.warn("Local scraped meta check failed", e); }
 
-  // 2. Fallback to Remote GitHub / Bundled JSON
+  // 2. Fallback to Remote GitHub Single JSON
   try {
-    const REMOTE_BASE = 'https://raw.githubusercontent.com/DNS-Forge/nextdns-addon-data/main/data/';
-    const response = await fetch(`${REMOTE_BASE}${file}.json`).catch(() => fetch(browser.runtime.getURL(`data/${file}.json`)));
+    updateMetaStatus("Using remote fallback data.");
+    const REMOTE_BASE = 'https://raw.githubusercontent.com/DNS-Forge/nextdns-addon-data/main/data/blocks_meta.json';
+    const response = await fetch(REMOTE_BASE).catch(() => fetch(browser.runtime.getURL(`data/blocks_meta.json`)));
     const data = await response.json();
-    blocksMeta[file] = data;
+    blocksMeta = data;
     return data;
-  } catch (e) { console.error(`Failed to load ${file} metadata`, e); return []; }
+  } catch (e) { 
+    console.error(`Failed to load metadata`, e); 
+    updateMetaStatus("Failed to load metadata.");
+    return blocksMeta; 
+  }
 }
 
 async function initializeApp() {
@@ -319,8 +399,8 @@ async function initializeApp() {
   isAutoRefreshDefault = autoRefreshDefault !== false;
   deviceAliases = aliases || {};
   
-  // Load initial index and core categories
-  await loadMetaFile('categories');
+  // Load monolithic metadata
+  await loadAllMetadata();
 
   if (!apiKey) { document.querySelector('.tab-btn[data-tab="settings"]').click(); return; }
   
@@ -682,11 +762,6 @@ async function loadToggles(force = false) {
     const res = await browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: activeProfile });
     lastBlocksData = res?.data || {};
   }
-  
-  // Lazy load metadata based on sub-tab
-  if (activeBlocksSubTab === 'blocklists') await loadMetaFile('blocklists');
-  else if (activeBlocksSubTab === 'parental') await loadMetaFile('parental_services');
-  else if (activeBlocksSubTab === 'tlds') await loadMetaFile('tlds');
 
   const container = document.getElementById("toggles-container");
   const searchContainer = document.getElementById("blocks-search-container");
