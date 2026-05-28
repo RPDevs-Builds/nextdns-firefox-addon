@@ -863,9 +863,17 @@ async function loadToggles(force = false) {
     });
 
     const sortedLetters = Object.keys(groups).sort();
+    
+    html += `<div id="tlds-top" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom: 15px; justify-content:center;">
+      ${sortedLetters.map(l => `<a href="#tld-group-${l}" style="text-decoration:none; padding: 2px 6px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:3px; font-size:0.8em; color:var(--text-main);">${l}</a>`).join('')}
+    </div>`;
+
     html += sortedLetters.map(letter => `
-      <div style="margin-top: 15px;">
-        <div style="font-weight:bold; border-bottom:1px solid var(--border-color); margin-bottom:5px; padding-bottom: 2px;">${letter}</div>
+      <div id="tld-group-${letter}" style="margin-top: 15px; scroll-margin-top: 10px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1px solid var(--border-color); margin-bottom:5px; padding-bottom: 2px;">
+          <div style="font-weight:bold;">${letter}</div>
+          <a href="#tlds-top" style="font-size:0.75em; text-decoration:none; color:var(--text-muted);">↑ Top</a>
+        </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
           ${groups[letter].map(t => {
             const active = activeTlds.has(t);
