@@ -313,6 +313,25 @@ function updateMetaStatus(text) {
   if (statusEl) statusEl.textContent = text;
 }
 
+function updateLastRefreshUI() {
+  const refreshEl = document.getElementById("meta-last-refresh");
+  if (!refreshEl) return;
+  
+  if (blocksMeta && blocksMeta.last_updated) {
+    try {
+      const date = new Date(blocksMeta.last_updated);
+      const formatted = date.toLocaleString(undefined, { 
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+      });
+      refreshEl.textContent = `Last Refresh: ${formatted}`;
+    } catch (e) {
+      refreshEl.textContent = "Last Refresh: Unknown Format";
+    }
+  } else {
+    refreshEl.textContent = "Last Refresh: Unknown";
+  }
+}
+
 async function handleMetaRefresh() {
   updateMetaStatus("Fetching remote metadata...");
   try {
@@ -323,6 +342,7 @@ async function handleMetaRefresh() {
     await browser.storage.local.set({ scrapedMeta: data });
     blocksMeta = data;
     updateMetaStatus("Local metadata refreshed from remote.");
+    updateLastRefreshUI();
     if (activeBlocksSubTab) loadToggles(true);
   } catch (e) {
     updateMetaStatus("Refresh failed: " + e.message);
@@ -360,6 +380,7 @@ async function handleMetaLoad(e) {
         await browser.storage.local.set({ scrapedMeta: data });
         blocksMeta = data;
         updateMetaStatus("Metadata loaded from file.");
+        updateLastRefreshUI();
         if (activeBlocksSubTab) loadToggles(true);
       } else { updateMetaStatus("Invalid JSON structure."); }
     } catch (err) { updateMetaStatus("Parse error: " + err.message); }
@@ -376,6 +397,7 @@ async function loadAllMetadata() {
     if (scraped && scraped.blocklists && scraped.tlds && scraped.blocklists.length > 0) {
       blocksMeta = scraped;
       updateMetaStatus("Using fully cached/scraped metadata.");
+      updateLastRefreshUI();
       return blocksMeta;
     }
   } catch (e) { console.warn("Local scraped meta check failed", e); }
@@ -393,10 +415,12 @@ async function loadAllMetadata() {
     
     const data = await response.json();
     blocksMeta = data;
+    updateLastRefreshUI();
     return data;
   } catch (e) { 
     console.error(`Failed to load metadata`, e); 
     updateMetaStatus("Failed to load metadata.");
+    updateLastRefreshUI();
     return blocksMeta; 
   }
 }
