@@ -434,26 +434,35 @@ async function initializeApp() {
   await loadAllMetadata();
 
   // --- Web GUI Customization Toggles ---
-  const { webGuiMaster = true, webGuiTlds = true } = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds"]);
+  const { webGuiMaster = true, webGuiTlds = true, webGuiLogActions = true } = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions"]);
   const masterToggle = document.getElementById("web-gui-master-toggle");
   const tldsToggle = document.getElementById("web-gui-tlds-toggle");
+  const logActionsToggle = document.getElementById("web-gui-log-actions-toggle");
   const featuresDiv = document.getElementById("web-gui-features");
+  const logsLink = document.getElementById("web-gui-logs-link");
 
-  if (masterToggle && tldsToggle && featuresDiv) {
+  if (masterToggle && tldsToggle && logActionsToggle && featuresDiv) {
     masterToggle.checked = webGuiMaster;
     tldsToggle.checked = webGuiTlds;
+    logActionsToggle.checked = webGuiLogActions;
     featuresDiv.style.opacity = webGuiMaster ? "1" : "0.5";
     tldsToggle.disabled = !webGuiMaster;
+    logActionsToggle.disabled = !webGuiMaster;
 
     masterToggle.onchange = async (e) => {
       const checked = e.target.checked;
       featuresDiv.style.opacity = checked ? "1" : "0.5";
       tldsToggle.disabled = !checked;
+      logActionsToggle.disabled = !checked;
       await browser.storage.sync.set({ webGuiMaster: checked });
     };
 
     tldsToggle.onchange = async (e) => {
       await browser.storage.sync.set({ webGuiTlds: e.target.checked });
+    };
+
+    logActionsToggle.onchange = async (e) => {
+      await browser.storage.sync.set({ webGuiLogActions: e.target.checked });
     };
   }
 
@@ -464,6 +473,10 @@ async function initializeApp() {
     const p = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
     if (p) { activeProfile = p.id; stored.activeProfileName = p.name; }
   } else activeProfile = stored.activeProfile;
+
+  if (logsLink && activeProfile) {
+    logsLink.href = `https://my.nextdns.io/${activeProfile}/logs`;
+  }
 
   const profStatus = document.getElementById("profile-status");
   if (profStatus) profStatus.innerHTML = activeProfile ? `Profile: <span style="color:#4facf7;">${escapeHTML(stored.activeProfileName || activeProfile)}</span>` : "Profile: Not Found";

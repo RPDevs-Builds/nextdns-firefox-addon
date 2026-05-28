@@ -1,23 +1,28 @@
 const INTERNAL_API = "https://api.nextdns.io/profiles";
 
-let webGuiConfig = { master: true, tlds: true };
+let webGuiConfig = { master: true, tlds: true, logs: true };
 
 // Initialize config and listen for live changes
-browser.storage.sync.get(["webGuiMaster", "webGuiTlds"]).then(res => {
+browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions"]).then(res => {
   if (res.webGuiMaster !== undefined) webGuiConfig.master = res.webGuiMaster;
   if (res.webGuiTlds !== undefined) webGuiConfig.tlds = res.webGuiTlds;
+  if (res.webGuiLogActions !== undefined) webGuiConfig.logs = res.webGuiLogActions;
 });
 
 browser.storage.onChanged.addListener((changes, area) => {
   if (area === "sync") {
     if (changes.webGuiMaster) webGuiConfig.master = changes.webGuiMaster.newValue;
     if (changes.webGuiTlds) webGuiConfig.tlds = changes.webGuiTlds.newValue;
+    if (changes.webGuiLogActions) webGuiConfig.logs = changes.webGuiLogActions.newValue;
     
     // Force a UI re-evaluation if user toggles live
     if (!webGuiConfig.master || !webGuiConfig.tlds) {
       document.getElementById('nxm-tld-controls')?.remove();
       document.getElementById('nxm-modal-enable-all')?.remove();
       document.getElementById('nxm-modal-disable-all')?.remove();
+    }
+    if (!webGuiConfig.master || !webGuiConfig.logs) {
+      document.querySelectorAll('.nxm-log-actions').forEach(el => el.remove());
     }
   }
 });
@@ -39,10 +44,81 @@ const observer = new MutationObserver(() => {
       scrapeBlocklists();
     } else if (path.endsWith('/parentalcontrol')) {
       scrapeServices();
+    } else if (path.endsWith('/logs')) {
+      if (webGuiConfig.master && webGuiConfig.logs) {
+        injectLogActions();
+      }
     }
   }, 500);
 });
 observer.observe(document.body, { childList: true, subtree: true });
+
+function injectLogActions() {
+  const rows = Array.from(document.querySelectorAll('.list-group-item'));
+  rows.forEach(row => {
+    if (row.querySelector('.nxm-log-actions')) return;
+    
+    const domainEl = row.querySelector('.notranslate');
+    if (!domainEl) return;
+    
+    const domain = domainEl.textContent.trim();
+    if (!domain || domain.includes(' ')) return;
+
+    const actionContainer = document.createElement('div');
+    actionContainer.className = 'nxm-log-actions';
+    actionContainer.style.display = 'inline-flex';
+    actionContainer.style.gap = '5px';
+    actionContainer.style.marginLeft = '10px';
+    actionContainer.style.verticalAlign = 'middle';
+
+    const allowBtn = document.createElement('button');
+    allowBtn.textContent = '✅';
+    allowBtn.title = `Allow ${domain}`;
+    allowBtn.style.border = 'none';
+    allowBtn.style.background = 'transparent';
+    allowBtn.style.cursor = 'pointer';
+    allowBtn.style.fontSize = '0.9em';
+    allowBtn.onclick = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      handleLogAction(domain, 'allowlist');
+    };
+
+    const denyBtn = document.createElement('button');
+    denyBtn.textContent = '🚫';
+    denyBtn.title = `Deny ${domain}`;
+    denyBtn.style.border = 'none';
+    denyBtn.style.background = 'transparent';
+    denyBtn.style.cursor = 'pointer';
+    denyBtn.style.fontSize = '0.9em';
+    denyBtn.onclick = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      handleLogAction(domain, 'denylist');
+    };
+
+    actionContainer.appendChild(allowBtn);
+    actionContainer.appendChild(denyBtn);
+    domainEl.parentElement.appendChild(actionContainer);
+  });
+}
+
+async function handleLogAction(domain, listType) {
+  const profileId = getProfileId();
+  if (!profileId) return;
+
+  const confirmAction = confirm(`Add ${domain} to ${listType}?`);
+  if (!confirmAction) return;
+
+  browser.runtime.sendMessage({
+    type: "MANAGE_DOMAIN",
+    profileId: profileId,
+    listType: listType,
+    action: "add",
+    domain: domain
+  }).then(res => {
+    if (res.success) alert(`Added ${domain} to ${listType}`);
+    else alert(`Error: ${res.error || 'Failed to add domain'}`);
+  });
+}
 
 function getProfileId() {
   const match = window.location.pathname.match(/\/([a-z0-9]+)\//);
