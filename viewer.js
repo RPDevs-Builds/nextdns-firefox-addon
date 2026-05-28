@@ -1,4 +1,5 @@
 let activeTab = 'domains'; // 'domains', 'profiles', or 'filters'
+let currentData = {}; // Cache for currently displayed tab
 
 const tabDomains = document.getElementById('tab-domains');
 const tabProfiles = document.getElementById('tab-profiles');
@@ -43,9 +44,10 @@ async function renderList() {
   if (activeTab === 'profiles') storageKey = 'profileNotes';
   if (activeTab === 'filters') storageKey = 'logFilters';
   
-  const data = (await browser.storage.sync.get(storageKey))[storageKey] || {};
+  const storage = await browser.storage.sync.get(storageKey);
+  currentData = storage[storageKey] || {};
   
-  const entries = Object.entries(data).filter(([key, val]) => {
+  const entries = Object.entries(currentData).filter(([key, val]) => {
     return key.toLowerCase().includes(query) || val.toLowerCase().includes(query);
   }).sort((a, b) => a[0].localeCompare(b[0]));
 
@@ -67,8 +69,8 @@ async function renderList() {
         <div class="item-desc">${escapeHTML(val)}</div>
       </div>
       <div style="display:flex; gap:10px;">
-        <button class="btn btn-edit" onclick="openEdit('${key}', '${val.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">Edit</button>
-        <button class="btn btn-delete" onclick="deleteEntry('${key}')">Delete</button>
+        <button class="btn btn-edit" data-key="${escapeHTML(key)}">Edit</button>
+        <button class="btn btn-delete" data-key="${escapeHTML(key)}">Delete</button>
       </div>
     </div>
   `).join('') || `<div style="text-align:center; padding:40px; color:var(--text-muted);">No ${activeTab} found.</div>`;
@@ -76,19 +78,35 @@ async function renderList() {
   listContainer.innerHTML = html;
 }
 
+// Event Delegation for Edit/Delete
+listContainer.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+
+  const key = btn.getAttribute('data-key');
+  if (!key) return;
+
+  if (btn.classList.contains('btn-edit')) {
+    openEdit(key);
+  } else if (btn.classList.contains('btn-delete')) {
+    deleteEntry(key);
+  }
+});
+
 function escapeHTML(str) {
   const p = document.createElement('p');
   p.textContent = str;
-  return p.innerHTML;
+  return p.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-window.openEdit = (key, val) => {
+function openEdit(key) {
+  const val = currentData[key] || "";
   modalTitle.textContent = `Edit ${activeTab === 'domains' ? 'Domain Description' : (activeTab === 'profiles' ? 'Profile Note' : 'Log Filter')}`;
   inputKey.value = key;
   inputKey.disabled = true;
   inputNote.value = val;
   editModal.style.display = 'flex';
-};
+}
 
 addBtn.onclick = () => {
   modalTitle.textContent = `Add ${activeTab === 'domains' ? 'Domain Description' : (activeTab === 'profiles' ? 'Profile Note' : 'Log Filter')}`;
@@ -127,7 +145,7 @@ saveBtn.onclick = async () => {
   renderList();
 };
 
-window.deleteEntry = async (key) => {
+async function deleteEntry(key) {
   if (!confirm(`Delete ${activeTab === 'domains' ? 'description' : (activeTab === 'profiles' ? 'note' : 'filter')} for ${key}?`)) return;
   let storageKey = 'domainDescriptions';
   if (activeTab === 'profiles') storageKey = 'profileNotes';
@@ -140,4 +158,4 @@ window.deleteEntry = async (key) => {
   saveObj[storageKey] = data;
   await browser.storage.sync.set(saveObj);
   renderList();
-};
+}
