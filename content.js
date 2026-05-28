@@ -90,18 +90,22 @@ async function injectLogsSettingsControls() {
   const headerContainer = document.querySelector('.Logs .list-group-item.bg-2 .d-md-flex');
   if (!headerContainer) return;
 
-  // Outer group
+  // Outer group matching exact native snippet: <div class="d-flex mt-3 ms-md-5">
+  // Note: We use ms-md-4 to not push it too far right if there are many controls, 
+  // but keeping mt-3 as per snippet.
   const group = document.createElement('div');
   group.id = 'nxm-logs-filter-group';
-  group.className = 'd-flex align-items-center ms-md-4';
+  group.className = 'd-flex ms-md-4'; 
 
-  // Switch wrapper (exactly matching native structure)
+  // Switch wrapper: <div class="d-flex align-items-center" style="transform: scale(0.9); margin-top: -10px; margin-bottom: -10px;">
   const switchWrapper = document.createElement('div');
   switchWrapper.className = 'd-flex align-items-center';
+  switchWrapper.style.transform = 'scale(0.9)';
+  switchWrapper.style.marginTop = '-10px';
+  switchWrapper.style.marginBottom = '-10px';
 
   const formCheck = document.createElement('div');
   formCheck.className = 'form-check form-switch';
-  formCheck.style.margin = '0'; // Ensure no offset
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
@@ -121,7 +125,7 @@ async function injectLogsSettingsControls() {
   formCheck.appendChild(label);
   switchWrapper.appendChild(formCheck);
 
-  // Text wrapper (Exactly matching requested format)
+  // Text wrapper: <div class="d-flex align-items-center" style="opacity: 0.7; white-space: nowrap;">
   const textWrapper = document.createElement('div');
   textWrapper.className = 'd-flex align-items-center';
   textWrapper.style.opacity = '0.7';
