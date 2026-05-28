@@ -87,25 +87,22 @@ observer.observe(document.body, { childList: true, subtree: true });
 async function injectLogsSettingsControls() {
   if (document.getElementById('nxm-logs-filter-controls')) return;
 
-  // Try to find the settings/options container in the logs header
-  const searchInput = document.querySelector('input[type="search"]') || document.querySelector('input[placeholder*="Search"]');
-  const settingsBtn = document.querySelector('button[aria-label="Settings"]') || document.querySelector('button[title="Settings"]');
-  
-  // We want to inject near the search bar or clear button
-  const anchor = settingsBtn ? settingsBtn.parentElement : (searchInput ? searchInput.parentElement : null);
-  if (!anchor) return;
+  // Specific target based on user request: div.px-3.bg-2.list-group-item div.d-md-flex
+  // This is typically the logs header containing search and settings.
+  const headerContainer = document.querySelector('.Logs .list-group-item.bg-2 .d-md-flex');
+  if (!headerContainer) return;
 
   const controlGroup = document.createElement('div');
   controlGroup.id = 'nxm-logs-filter-controls';
   controlGroup.style.display = 'inline-flex';
   controlGroup.style.alignItems = 'center';
   controlGroup.style.gap = '8px';
-  controlGroup.style.marginLeft = '10px';
-  controlGroup.style.padding = '4px 10px';
-  controlGroup.style.background = 'rgba(255,255,255,0.05)';
-  controlGroup.style.border = '1px solid rgba(255,255,255,0.1)';
+  controlGroup.style.marginLeft = '12px';
+  controlGroup.style.padding = '2px 8px';
+  controlGroup.style.background = 'rgba(255,255,255,0.03)';
+  controlGroup.style.border = '1px solid rgba(255,255,255,0.08)';
   controlGroup.style.borderRadius = '4px';
-  controlGroup.style.fontSize = '0.85em';
+  controlGroup.style.fontSize = '0.8em';
 
   const label = document.createElement('label');
   label.style.display = 'flex';
@@ -114,25 +111,29 @@ async function injectLogsSettingsControls() {
   label.style.cursor = 'pointer';
   label.style.margin = '0';
   label.style.whiteSpace = 'nowrap';
+  label.style.color = 'inherit';
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
   checkbox.checked = webGuiConfig.filter;
+  checkbox.style.margin = '0';
   checkbox.onchange = async (e) => {
     await browser.storage.sync.set({ webGuiFilter: e.target.checked });
   };
 
   label.appendChild(checkbox);
-  label.appendChild(document.createTextNode('Filter'));
+  label.appendChild(document.createTextNode('Filter Logs'));
 
   const viewerBtn = document.createElement('button');
   viewerBtn.textContent = '📋';
-  viewerBtn.title = 'Filtered Domains';
+  viewerBtn.title = 'Filtered Domains Viewer';
   viewerBtn.style.border = 'none';
   viewerBtn.style.background = 'transparent';
   viewerBtn.style.cursor = 'pointer';
-  viewerBtn.style.fontSize = '1.1em';
+  viewerBtn.style.fontSize = '1em';
   viewerBtn.style.padding = '0';
+  viewerBtn.style.display = 'flex';
+  viewerBtn.style.alignItems = 'center';
   viewerBtn.onclick = (e) => {
     e.preventDefault(); e.stopPropagation();
     browser.runtime.sendMessage({ type: "OPEN_VIEWER", tab: "filters" });
@@ -141,8 +142,7 @@ async function injectLogsSettingsControls() {
   controlGroup.appendChild(label);
   controlGroup.appendChild(viewerBtn);
   
-  // Append to the header area
-  anchor.appendChild(controlGroup);
+  headerContainer.appendChild(controlGroup);
 }
 
 async function applyLogFilters() {
