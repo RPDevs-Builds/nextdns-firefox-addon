@@ -91,11 +91,9 @@ async function injectLogsSettingsControls() {
   if (!headerContainer) return;
 
   // Outer group matching exact native snippet: <div class="d-flex mt-3 ms-md-5">
-  // Note: We use ms-md-4 to not push it too far right if there are many controls, 
-  // but keeping mt-3 as per snippet.
   const group = document.createElement('div');
   group.id = 'nxm-logs-filter-group';
-  group.className = 'd-flex ms-md-4'; 
+  group.className = 'd-flex mt-3 ms-md-5'; 
 
   // Switch wrapper: <div class="d-flex align-items-center" style="transform: scale(0.9); margin-top: -10px; margin-bottom: -10px;">
   const switchWrapper = document.createElement('div');
