@@ -70,6 +70,13 @@ async function initializeBackground() {
 // Ensure initialization runs on every script load (handles reloads/updates)
 initializeBackground();
 
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === "sync" && (changes.iconAction || changes.apiKey)) {
+    applyIconAction();
+    if (changes.apiKey) updateProfileCache();
+  }
+});
+
 // For Testing
 if (typeof module !== 'undefined') {
   module.exports = { initializeBackground, requestListener };
