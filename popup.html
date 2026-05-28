@@ -261,17 +261,19 @@
   </div>
 
   <div id="tab-logs" class="tab-content">
-    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
       <input type="text" id="log-search" placeholder="Search logs..." style="margin-bottom: 0; flex-grow: 1;">
-      <button id="status-filter-dropdown-btn" class="btn-secondary" style="width: 42px;" title="Filter Status">🎯</button>
-      <div id="status-filter-content" style="display: none; position: absolute; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; z-index: 10; margin-top: 45px; right: 15px; flex-direction: column; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.6);">
-         <label class="checkbox-label"><input type="checkbox" value="status:allowed" checked> Allowed</label>
-         <label class="checkbox-label"><input type="checkbox" value="status:blocked" checked> Blocked</label>
-         <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 4px 0;">
-         <label class="checkbox-label"><input type="checkbox" value="reason:allowlist"> Allowlist Only</label>
-         <label class="checkbox-label"><input type="checkbox" value="reason:denylist"> Denylist Only</label>
-      </div>
+      <button id="auto-refresh-btn" class="btn-secondary" style="width: auto; padding: 0 12px;" title="Toggle Auto-Refresh">⏸️ Auto</button>
     </div>
+    
+    <div id="status-filter-content" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; font-size: 0.85em; background: var(--bg-panel); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+       <label class="checkbox-label" style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" value="status:allowed" checked> Allowed</label>
+       <label class="checkbox-label" style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" value="status:blocked" checked> Blocked</label>
+       <div style="width: 1px; background: var(--border-color); margin: 0 4px;"></div>
+       <label class="checkbox-label" style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" value="reason:allowlist" checked> Allowlist</label>
+       <label class="checkbox-label" style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" value="reason:denylist" checked> Denylist</label>
+    </div>
+
     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
       <select id="log-device-filter" style="margin-bottom: 0;">
         <option value="">All Devices</option>
@@ -281,7 +283,6 @@
         <option value="doh">DoH</option>
         <option value="dns">DNS</option>
       </select>
-      <button id="auto-refresh-btn" class="btn-secondary" style="width: 42px;" title="Auto Refresh">🔁</button>
     </div>
     <div id="logs-container" class="dashboard-panel"></div>
   </div>

@@ -184,9 +184,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // --- Log Filters ---
-  const statusBtn = document.getElementById("status-filter-dropdown-btn");
-  if (statusBtn) statusBtn.onclick = (e) => { e.stopPropagation(); const c = document.getElementById("status-filter-content"); if (c) c.style.display = c.style.display === "none" ? "flex" : "none"; };
-  document.addEventListener("click", () => { const c = document.getElementById("status-filter-content"); if (c) c.style.display = "none"; });
   const filterContent = document.getElementById("status-filter-content");
   if (filterContent) { filterContent.onclick = (e) => e.stopPropagation(); filterContent.querySelectorAll('input').forEach(cb => cb.onchange = renderLogs); }
   const devFilt = document.getElementById("log-device-filter");
