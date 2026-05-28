@@ -53,8 +53,12 @@ browser.menus.onClicked.addListener(async (info, tab) => {
 
 async function applyIconAction() {
   const { iconAction } = await browser.storage.sync.get("iconAction");
-  if (iconAction === "sidebar") await browser.action.setPopup({ popup: "" });
-  else await browser.action.setPopup({ popup: "popup.html" });
+  console.log("Applying icon action:", iconAction);
+  if (iconAction === "sidebar") {
+    await browser.action.setPopup({ popup: "" });
+  } else {
+    await browser.action.setPopup({ popup: "popup.html" });
+  }
 }
 
 async function initializeBackground() {
@@ -67,38 +71,31 @@ async function initializeBackground() {
   console.log("DNS Forge Background Initialized.");
 }
 
-// Ensure initialization runs on every script load (handles reloads/updates)
+// Ensure initialization runs on every script load
 initializeBackground();
 
 browser.storage.onChanged.addListener((changes, area) => {
-  if (area === "sync" && (changes.iconAction || changes.apiKey)) {
-    applyIconAction();
-    if (changes.apiKey) updateProfileCache();
+  if (area === "sync") {
+    if (changes.iconAction) {
+      applyIconAction();
+    }
+    if (changes.apiKey) {
+      updateProfileCache();
+    }
   }
 });
 
-// For Testing
-if (typeof module !== 'undefined') {
-  module.exports = { initializeBackground, requestListener };
-}
-
-browser.runtime.onInstalled.addListener((details) => {
-  if (details.reason === "install") browser.runtime.openOptionsPage();
-  browser.alarms.create("refreshProfile", { periodInMinutes: 15 });
-  browser.alarms.create("syncCache", { periodInMinutes: 5 });
-});
-
-browser.runtime.onStartup.addListener(() => {
-  // initializeBackground already runs at top level
-});
-
-browser.action.onClicked.addListener(async () => {
+browser.action.onClicked.addListener(async (tab) => {
   const { iconAction } = await browser.storage.sync.get("iconAction");
   if (iconAction === "sidebar") {
+    console.log("Toolbar icon clicked, opening sidebar...");
     try {
       await browser.sidebarAction.open();
     } catch (e) {
-      console.error("Failed to open sidebar:", e);
+      console.error("Failed to open sidebar via action:", e);
+      // Fallback: if we can't open sidebar, maybe show popup?
+      await browser.action.setPopup({ popup: "popup.html" });
+      await browser.action.openPopup();
     }
   }
 });

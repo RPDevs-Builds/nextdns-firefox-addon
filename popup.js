@@ -37,6 +37,9 @@ function escapeHTML(str) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  if (isPopoutMode) document.body.classList.add('mode-popout');
+  if (isSidebarMode) document.body.classList.add('mode-sidebar');
+
   const popoutBtn = document.getElementById('popout-ui-btn');
   const pinBtn = document.getElementById('pin-ui-btn');
   const sidebarBtn = document.getElementById('sidebar-ui-btn');

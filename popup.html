@@ -12,56 +12,194 @@
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
       --accent: #4facf7;
+      --success: #28a745;
+      --danger: #dc3545;
+      --warning: #f39c12;
     }
-    * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg-main); color: var(--text-main); margin: 0; padding: 0; width: 400px; height: 600px; display: flex; flex-direction: column; overflow: hidden; }
     
-    .header-container { padding: 10px 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--bg-main); z-index: 10; flex-shrink: 0; }
-    .header-container h3 { margin: 0; font-size: 1.1em; color: var(--text-main); }
-    .header-controls { display: flex; gap: 8px; }
-    .header-btn { background: transparent; border: none; font-size: 1.1em; cursor: pointer; padding: 4px; border-radius: 4px; transition: 0.2s; color: var(--text-muted); }
-    .header-btn:hover { background: var(--hover-bg); color: var(--text-main); }
+    * { box-sizing: border-box; }
+    
+    html, body { 
+      margin: 0; 
+      padding: 0; 
+      background: var(--bg-main); 
+      color: var(--text-main); 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+    }
 
-    .tab-bar { display: flex; background: var(--bg-panel); border-bottom: 1px solid var(--border-color); flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
+    /* Fixed size only when NOT in sidebar or popout mode */
+    body:not(.mode-sidebar):not(.mode-popout) {
+      width: 400px;
+      height: 600px;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    /* Header */
+    .header-container { 
+      padding: 10px 15px; 
+      border-bottom: 1px solid var(--border-color); 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      background: var(--bg-main); 
+      z-index: 10; 
+      flex-shrink: 0; 
+    }
+    .header-container h3 { margin: 0; font-size: 1.1em; font-weight: 700; color: var(--text-main); }
+    .header-controls { display: flex; gap: 6px; }
+    .header-btn { 
+      background: transparent; 
+      border: none; 
+      font-size: 1.1em; 
+      cursor: pointer; 
+      padding: 6px; 
+      border-radius: 6px; 
+      transition: all 0.2s; 
+      color: var(--text-muted); 
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .header-btn:hover { background: var(--hover-bg); color: var(--text-main); transform: translateY(-1px); }
+
+    /* Navigation */
+    .tab-bar { 
+      display: flex; 
+      background: var(--bg-panel); 
+      border-bottom: 1px solid var(--border-color); 
+      flex-shrink: 0; 
+      overflow-x: auto; 
+      scrollbar-width: none; 
+    }
     .tab-bar::-webkit-scrollbar { display: none; }
-    .tab-btn { flex: 1; min-width: 60px; background: transparent; border: none; padding: 12px 2px; font-size: 0.8em; color: var(--text-muted); cursor: pointer; transition: 0.2s; border-bottom: 2px solid transparent; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
-    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: bold; background: rgba(79, 172, 247, 0.05); }
+    .tab-btn { 
+      flex: 1; 
+      min-width: 65px; 
+      background: transparent; 
+      border: none; 
+      padding: 12px 2px; 
+      font-size: 0.75em; 
+      color: var(--text-muted); 
+      cursor: pointer; 
+      transition: all 0.2s; 
+      border-bottom: 2px solid transparent; 
+      text-transform: uppercase; 
+      letter-spacing: 0.8px; 
+      white-space: nowrap; 
+      font-weight: 600;
+    }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: rgba(79, 172, 247, 0.08); }
     .tab-btn:hover:not(.active) { color: var(--text-main); background: var(--hover-bg); }
 
+    .sub-nav { 
+      display: flex; 
+      background: var(--bg-panel); 
+      border-bottom: 1px solid var(--border-color); 
+      overflow-x: auto; 
+      white-space: nowrap; 
+      flex-shrink: 0; 
+      scrollbar-width: none; 
+    }
+    .sub-nav::-webkit-scrollbar { display: none; }
+    .sub-tab-btn { 
+      background: transparent; 
+      border: none; 
+      padding: 10px 15px; 
+      color: var(--text-muted); 
+      font-size: 0.85em; 
+      cursor: pointer; 
+      border-bottom: 2px solid transparent; 
+      flex-shrink: 0; 
+      transition: all 0.2s;
+    }
+    .sub-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: bold; }
+    .sub-tab-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.02); }
+
+    /* Content Area */
     .tab-content { display: none; flex-grow: 1; overflow-y: auto; padding: 15px; }
     .tab-content.active { display: block; }
-    
-    .sub-nav { display: flex; background: var(--bg-panel); border-bottom: 1px solid var(--border-color); overflow-x: auto; white-space: nowrap; flex-shrink: 0; scrollbar-width: none; }
-    .sub-nav::-webkit-scrollbar { display: none; }
-    .sub-tab-btn { background: transparent; border: none; padding: 10px 15px; color: var(--text-muted); font-size: 0.85em; cursor: pointer; border-bottom: 2px solid transparent; flex-shrink: 0; }
-    .sub-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: bold; }
-    .sub-tab-btn:hover { color: var(--text-main); }
-
     .settings-sub-content { display: none; }
     .settings-sub-content.active { display: block; }
 
-    input, select, textarea { width: 100%; padding: 8px 12px; margin-bottom: 12px; background: var(--bg-main); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; box-sizing: border-box; font-size: 0.9em; transition: border-color 0.2s; }
-    input:focus, select:focus { border-color: var(--accent); outline: none; }
+    /* UI Components */
+    input, select, textarea { 
+      width: 100%; 
+      padding: 10px 12px; 
+      margin-bottom: 12px; 
+      background: rgba(0,0,0,0.2); 
+      border: 1px solid var(--border-color); 
+      color: var(--text-main); 
+      border-radius: 6px; 
+      box-sizing: border-box; 
+      font-size: 0.9em; 
+      transition: border-color 0.2s, background 0.2s; 
+    }
+    input:focus, select:focus { border-color: var(--accent); outline: none; background: rgba(0,0,0,0.3); }
     
-    .btn-allow { background-color: #28a745; color: white; border: none; padding: 10px; width: 100%; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: 0.2s; }
-    .btn-allow:hover { opacity: 0.9; transform: translateY(-1px); }
-    .btn-deny { background-color: #dc3545; color: white; border: none; padding: 10px; width: 100%; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: 0.2s; }
-    .btn-deny:hover { opacity: 0.9; transform: translateY(-1px); }
-    .btn-secondary { background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px; width: 100%; border-radius: 4px; cursor: pointer; font-size: 0.9em; transition: 0.2s; }
+    .btn-allow { background-color: var(--success); color: white; border: none; padding: 10px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: all 0.2s; }
+    .btn-allow:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3); }
+    
+    .btn-deny { background-color: var(--danger); color: white; border: none; padding: 10px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: all 0.2s; }
+    .btn-deny:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3); }
+    
+    .btn-secondary { background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px; width: 100%; border-radius: 6px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; }
     .btn-secondary:hover { background: var(--hover-bg); border-color: var(--text-muted); }
 
-    .dashboard-panel { display: flex; flex-direction: column; gap: 10px; }
-    .panel-box { background: var(--bg-panel); border: 1px solid var(--border-color); padding: 15px; border-radius: 6px; }
-    .panel-box h4 { margin: 0 0 10px 0; font-size: 0.9em; color: var(--text-muted); }
-    .panel-box p { font-size: 0.8em; color: var(--text-muted); margin-top: 0; margin-bottom: 15px; line-height: 1.4; }
+    .panel-box { 
+      background: var(--bg-panel); 
+      border: 1px solid var(--border-color); 
+      padding: 15px; 
+      border-radius: 8px; 
+      margin-bottom: 15px; 
+      transition: border-color 0.2s;
+    }
+    .panel-box:hover { border-color: rgba(79, 172, 247, 0.3); }
+    .panel-box h4 { margin: 0 0 10px 0; font-size: 0.95em; color: var(--accent); font-weight: 600; }
+    .panel-box p { font-size: 0.85em; color: var(--text-muted); margin-top: 0; margin-bottom: 15px; line-height: 1.5; }
 
-    .log-row { padding: 8px 10px; border-bottom: 1px solid var(--border-color); font-family: monospace; font-size: 0.85em; transition: 0.2s; }
+    .log-row { 
+      padding: 12px; 
+      border-bottom: 1px solid var(--border-color); 
+      font-family: 'JetBrains Mono', monospace, 'Courier New'; 
+      font-size: 0.85em; 
+      transition: background 0.2s; 
+      border-radius: 4px;
+      margin-bottom: 2px;
+    }
     .log-row:hover { background: var(--hover-bg); }
     
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    input[type="color"] { -webkit-appearance: none; border: none; width: 28px; height: 28px; padding: 0; border-radius: 4px; cursor: pointer; background: transparent; }
+    .dashboard-panel { display: flex; flex-direction: column; gap: 12px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    
+    /* Status Badges */
+    .status-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: 800; margin-left: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .badge-allow { background: rgba(40, 167, 69, 0.15); color: #2ecc71; border: 1px solid rgba(40, 167, 69, 0.3); }
+    .badge-deny { background: rgba(220, 53, 69, 0.15); color: #e74c3c; border: 1px solid rgba(220, 53, 69, 0.3); }
+
+    /* Toggles & Checkboxes */
+    .checkbox-label { display: flex; align-items: center; gap: 10px; font-size: 0.9em; margin-bottom: 12px; cursor: pointer; color: var(--text-main); }
+    .checkbox-label input { width: auto; margin: 0; cursor: pointer; }
+
+    /* Color Pickers */
+    input[type="color"] { -webkit-appearance: none; border: none; width: 32px; height: 32px; padding: 0; border-radius: 6px; cursor: pointer; background: transparent; margin-bottom: 0; }
     input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-    input[type="color"]::-webkit-color-swatch { border: 1px solid var(--border-color); border-radius: 4px; }
+    input[type="color"]::-webkit-color-swatch { border: 1px solid var(--border-color); border-radius: 6px; }
+
+    /* Helper styles for specific items */
+    .flex-center { display: flex; align-items: center; justify-content: center; }
+    .flex-between { display: flex; align-items: center; justify-content: space-between; }
   </style>
 </head>
 <body>
@@ -87,85 +225,88 @@
   </div>
 
   <div id="tab-dashboard" class="tab-content active">
-    <div style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 10px;" id="profile-status">Profile: Detecting...</div>
+    <div style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;" id="profile-status">
+      <span style="display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; box-shadow: 0 0 6px var(--accent);"></span>
+      Profile: Detecting...
+    </div>
     
-    <label for="domain-input" style="font-size: 0.9em; margin-bottom: 4px; display: block;">Target Domain:</label>
-    <input type="text" id="domain-input" placeholder="Loading...">
+    <label for="domain-input" style="font-size: 0.85em; margin-bottom: 6px; display: block; font-weight: 600; color: var(--text-muted);">TARGET DOMAIN</label>
+    <input type="text" id="domain-input" placeholder="Loading current domain...">
     
-    <div style="display: flex; gap: 5px; margin-bottom: 8px;">
+    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
       <button id="allow-btn" class="btn-allow">Allow</button>
       <button id="deny-btn" class="btn-deny">Deny</button>
     </div>
-    <button id="snooze-btn" class="btn-allow" style="background-color: #f39c12;">⏳ Temp Allow (5m)</button>
+    <button id="snooze-btn" class="btn-allow" style="background-color: var(--warning);">⏳ Temp Allow (5m)</button>
     
     <div class="grid" style="margin-top: 15px;">
-      <div class="panel-box" style="text-align: center;">
-        <div style="font-size: 0.7em; color: var(--text-muted); text-transform: uppercase;">Page Grade</div>
-        <div id="privacy-score" style="font-size: 2em; font-weight: bold; margin-top: 2px;">-</div>
+      <div class="panel-box" style="text-align: center; margin-bottom: 0;">
+        <div style="font-size: 0.7em; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Page Grade</div>
+        <div id="privacy-score" style="font-size: 2.2em; font-weight: 800; margin-top: 2px; color: var(--accent);">-</div>
       </div>
-      <div class="panel-box">
-        <div style="font-size: 0.7em; color: var(--text-muted); text-transform: uppercase;">24h Queries</div>
-        <div id="stat-total" style="font-size: 1.1em; margin-top: 5px; font-weight: bold;">...</div>
-        <div style="font-size: 0.8em; color: #dc3545;">Block: <span id="stat-blocked">...</span></div>
+      <div class="panel-box" style="margin-bottom: 0;">
+        <div style="font-size: 0.7em; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">24h Queries</div>
+        <div id="stat-total" style="font-size: 1.2em; margin-top: 5px; font-weight: 700;">...</div>
+        <div style="font-size: 0.85em; color: var(--danger); font-weight: 600;">Block: <span id="stat-blocked">...</span></div>
       </div>
     </div>
     
-    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin: 15px 0 5px;">
-      <div id="tab-log-header" style="font-size: 0.9em; font-weight: bold;">Tab Requests:</div>
-      <button id="toggle-tab-tracking-btn" class="btn-secondary" style="width: auto; padding: 2px 8px; font-size: 0.8em;">⏸️ Live</button>
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin: 15px 0 8px;">
+      <div id="tab-log-header" style="font-size: 0.9em; font-weight: 700; color: var(--text-muted);">TAB REQUESTS</div>
+      <button id="toggle-tab-tracking-btn" class="btn-secondary" style="width: auto; padding: 4px 10px; font-size: 0.75em; font-weight: 700;">⏸️ LIVE</button>
     </div>
-    <div id="tab-log" style="background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; max-height: 150px; overflow-y: auto; font-size: 0.85em;">
+    <div id="tab-log" style="background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; max-height: 150px; overflow-y: auto; font-size: 0.85em; font-family: monospace;">
       Loading tab requests...
     </div>
   </div>
 
   <div id="tab-logs" class="tab-content">
-    <div style="display: flex; gap: 5px; margin-bottom: 10px;">
-      <input type="text" id="log-search" placeholder="Filter logs..." style="margin-bottom: 0;">
-      <button id="status-filter-dropdown-btn" class="btn-secondary" style="width: auto;" title="Filter Status">🎯</button>
-      <div id="status-filter-content" style="display: none; position: absolute; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; z-index: 10; margin-top: 35px; right: 15px; flex-direction: column; gap: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
-         <label><input type="checkbox" value="status:allowed" checked> Allowed</label>
-         <label><input type="checkbox" value="status:blocked" checked> Blocked</label>
-         <hr style="border: 0.5px solid var(--border-color); width: 100%;">
-         <label><input type="checkbox" value="reason:allowlist"> Allowlist Only</label>
-         <label><input type="checkbox" value="reason:denylist"> Denylist Only</label>
+    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+      <input type="text" id="log-search" placeholder="Search logs..." style="margin-bottom: 0; flex-grow: 1;">
+      <button id="status-filter-dropdown-btn" class="btn-secondary" style="width: 42px;" title="Filter Status">🎯</button>
+      <div id="status-filter-content" style="display: none; position: absolute; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; z-index: 10; margin-top: 45px; right: 15px; flex-direction: column; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.6);">
+         <label class="checkbox-label"><input type="checkbox" value="status:allowed" checked> Allowed</label>
+         <label class="checkbox-label"><input type="checkbox" value="status:blocked" checked> Blocked</label>
+         <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 4px 0;">
+         <label class="checkbox-label"><input type="checkbox" value="reason:allowlist"> Allowlist Only</label>
+         <label class="checkbox-label"><input type="checkbox" value="reason:denylist"> Denylist Only</label>
       </div>
     </div>
-    <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
       <select id="log-device-filter" style="margin-bottom: 0;">
         <option value="">All Devices</option>
       </select>
-      <select id="log-type-filter" style="margin-bottom: 0;">
-        <option value="">All Protocols</option>
+      <select id="log-type-filter" style="margin-bottom: 0; width: 120px;">
+        <option value="">Protocols</option>
         <option value="doh">DoH</option>
         <option value="dns">DNS</option>
       </select>
-      <button id="auto-refresh-btn" class="btn-secondary" style="width: auto;" title="Auto Refresh">🔁</button>
+      <button id="auto-refresh-btn" class="btn-secondary" style="width: 42px;" title="Auto Refresh">🔁</button>
     </div>
     <div id="logs-container" class="dashboard-panel"></div>
   </div>
 
   <div id="tab-lists" class="tab-content">
-    <div style="display: flex; gap: 5px; margin-bottom: 10px;">
-      <select id="list-type-select" style="margin-bottom: 0; width: 60%;">
+    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+      <select id="list-type-select" style="margin-bottom: 0; flex-grow: 1;">
         <option value="denylist">Denylist (Blocked)</option>
         <option value="allowlist">Allowlist (Allowed)</option>
       </select>
-      <button id="list-bulk-toggle-btn" class="btn-secondary" style="width: auto;">Bulk</button>
+      <button id="list-bulk-toggle-btn" class="btn-secondary" style="width: auto; padding: 0 15px;">Bulk</button>
     </div>
-    <input type="text" id="list-search-input" placeholder="Search list..." style="margin-bottom: 10px;">
+    <input type="text" id="list-search-input" placeholder="Filter list..." style="margin-bottom: 12px;">
     
-    <div id="list-bulk-container" style="display: none; flex-direction: column; gap: 8px; margin-bottom: 15px; background: var(--bg-panel); padding: 10px; border-radius: 4px; border: 1px solid var(--border-color);">
-      <textarea id="list-bulk-domains" rows="5" placeholder="Enter domains (one per line)..." style="margin-bottom: 0; font-family: monospace;"></textarea>
-      <div style="display: flex; gap: 5px;">
-        <button id="list-bulk-submit-btn" class="btn-allow">Submit Bulk Add</button>
-        <button id="list-bulk-cancel-btn" class="btn-deny">Cancel</button>
+    <div id="list-bulk-container" style="display: none; flex-direction: column; gap: 10px; margin-bottom: 15px; background: var(--bg-panel); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+      <textarea id="list-bulk-domains" rows="6" placeholder="domain.com&#10;another.com" style="margin-bottom: 0; font-family: monospace;"></textarea>
+      <div style="display: flex; gap: 8px;">
+        <button id="list-bulk-submit-btn" class="btn-allow">Bulk Add</button>
+        <button id="list-bulk-cancel-btn" class="btn-secondary">Cancel</button>
       </div>
     </div>
 
-    <div style="display: flex; gap: 5px; margin-bottom: 15px;">
-      <input type="text" id="list-new-domain" placeholder="Add new domain..." style="margin-bottom: 0;">
-      <button id="list-add-btn" class="btn-allow" style="width: auto; padding: 0 15px;">Add</button>
+    <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+      <input type="text" id="list-new-domain" placeholder="Add domain.com..." style="margin-bottom: 0;">
+      <button id="list-add-btn" class="btn-allow" style="width: auto; padding: 0 20px;">Add</button>
     </div>
     <div id="list-items-container" class="dashboard-panel"></div>
   </div>
@@ -178,13 +319,13 @@
       <button class="sub-tab-btn" data-sub="parental">Parental</button>
       <button class="sub-tab-btn" data-sub="tlds">TLDs</button>
     </div>
-    <div id="blocks-search-container" style="padding: 10px 15px 5px; display: none; gap: 5px;">
+    <div id="blocks-search-container" style="padding: 12px 15px 5px; display: none; gap: 8px;">
        <input type="text" id="blocks-search-input" placeholder="Search entries..." style="margin-bottom: 0;">
-       <select id="blocks-sort-select" style="margin-bottom: 0; width: auto; font-size: 0.8em; display: none;">
+       <select id="blocks-sort-select" style="margin-bottom: 0; width: 130px; font-size: 0.85em; display: none;">
           <option value="popularity">Popularity</option>
           <option value="name">Name</option>
-          <option value="updated">Recently Updated</option>
-          <option value="entries">Total Entries</option>
+          <option value="updated">Updated</option>
+          <option value="entries">Entries</option>
        </select>
     </div>
     <div id="toggles-container" class="dashboard-panel" style="padding: 15px;"></div>
@@ -192,9 +333,9 @@
 
   <div id="tab-labs" class="tab-content">
     <div class="panel-box">
-      <h4>Labs (Experimental)</h4>
-      <p>Advanced feature previews will appear here.</p>
-      <button class="btn-secondary" style="opacity: 0.5; cursor: not-allowed;" disabled>Feature Not Available</button>
+      <h4>Experimental Labs</h4>
+      <p>Try out upcoming features before they hit the main release.</p>
+      <button class="btn-secondary" style="opacity: 0.5; cursor: not-allowed;" disabled>No active experiments</button>
     </div>
   </div>
 
@@ -209,39 +350,32 @@
     <!-- Setup Sub-Tab -->
     <div id="settings-setup" class="settings-sub-content active" style="padding: 15px;">
       <div class="panel-box">
-        <label style="display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em;">API Key</label>
-        <input type="text" id="setting-api-key" placeholder="Enter NextDNS API Key">
+        <h4>Connection Setup</h4>
+        <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85em; color: var(--text-muted);">API KEY</label>
+        <input type="text" id="setting-api-key" placeholder="Paste your API key here">
         
-        <label style="display: block; margin-top: 15px; margin-bottom: 2px; font-weight: bold; font-size: 0.9em;">Profile Override</label>
-        <div style="display: flex; gap: 5px; align-items: center;">
+        <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85em; color: var(--text-muted);">PROFILE OVERRIDE</label>
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
           <select id="setting-profile-select" style="margin-bottom: 0;">
             <option value="">Auto-Detect (Default)</option>
           </select>
-          <button id="setting-fetch-profiles" class="btn-secondary" style="width: auto;">🔄</button>
+          <button id="setting-fetch-profiles" class="btn-secondary" style="width: 42px;" title="Fetch Profiles">🔄</button>
         </div>
 
-        <label style="display: block; margin-top: 15px; margin-bottom: 5px; font-weight: bold; font-size: 0.9em;">Icon Action</label>
-        <select id="setting-icon-action" style="margin-bottom: 0;">
-          <option value="popup">Open Popup</option>
-          <option value="sidebar">Open Sidebar</option>
+        <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85em; color: var(--text-muted);">ICON CLICK ACTION</label>
+        <select id="setting-icon-action">
+          <option value="popup">Open Dropdown Popup</option>
+          <option value="sidebar">Open Native Sidebar</option>
         </select>
 
-        <label style="display: flex; align-items: center; gap: 8px; margin-top: 15px; font-size: 0.9em; cursor: pointer;">
-          <input type="checkbox" id="setting-auto-refresh" style="width: auto; margin: 0;"> Auto-Refresh Logs
-        </label>
+        <label class="checkbox-label"><input type="checkbox" id="setting-auto-refresh"> Auto-Refresh Logs by Default</label>
+        <label class="checkbox-label"><input type="checkbox" id="setting-block-notif"> Enable Block Notifications</label>
+        <label class="checkbox-label"><input type="checkbox" id="setting-enable-labs"> Enable Experimental Labs</label>
 
-        <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.9em; cursor: pointer;">
-          <input type="checkbox" id="setting-block-notif" style="width: auto; margin: 0;"> Block Notifications
-        </label>
+        <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85em; color: var(--text-muted);">REFRESH INTERVAL (SECONDS)</label>
+        <input type="number" id="setting-refresh-time" min="1" max="300">
 
-        <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.9em; cursor: pointer;">
-          <input type="checkbox" id="setting-enable-labs" style="width: auto; margin: 0;"> Enable Labs
-        </label>
-
-        <label style="display: block; margin-top: 15px; margin-bottom: 5px; font-weight: bold; font-size: 0.9em;">Refresh Interval (s)</label>
-        <input type="number" id="setting-refresh-time" min="1" max="300" style="margin-bottom: 0;">
-
-        <button id="save-settings-btn" class="btn-allow" style="margin-top: 10px;">💾 Save Options</button>
+        <button id="save-settings-btn" class="btn-allow">💾 Save Options</button>
       </div>
     </div>
 
@@ -249,42 +383,51 @@
     <div id="settings-analytics" class="settings-sub-content" style="padding: 15px;">
       <div class="panel-box">
         <h4>Quick Insights</h4>
-        <div id="analytics-overview" style="font-size: 0.85em; color: var(--text-muted);">Loading metrics...</div>
+        <div id="analytics-overview" style="font-size: 0.9em; color: var(--text-muted); line-height: 1.6;">
+          Connecting to analytics server...
+        </div>
       </div>
     </div>
 
     <!-- Data Management Sub-Tab -->
     <div id="settings-manager" class="settings-sub-content" style="padding: 15px;">
-      <div class="panel-box" style="text-align: center;">
+      <div class="panel-box" style="text-align: center; border-color: var(--accent);">
         <h4 style="color: var(--text-main);">Centralized Data Manager</h4>
-        <p>Manage Descriptions, Notes, Filters, and Aliases.</p>
-        <button id="launch-full-manager-btn" class="btn-allow">🚀 Launch Manager</button>
+        <p>Edit Domain Descriptions, Profile Notes, Log Filters, and Device Aliases in a full-screen window.</p>
+        <button id="launch-full-manager-btn" class="btn-allow" style="background-color: var(--accent);">🚀 Launch Manager</button>
       </div>
 
       <div class="panel-box">
         <h4>Meta Data Management</h4>
-        <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px;">
-          <button id="meta-refresh-btn" class="btn-secondary" style="flex: 1; padding: 4px; font-size: 0.8em;">🔄 Refresh</button>
-          <button id="meta-save-btn" class="btn-secondary" style="flex: 1; padding: 4px; font-size: 0.8em;">💾 Save</button>
-          <button id="meta-load-btn" class="btn-secondary" style="flex: 1; padding: 4px; font-size: 0.8em;">📂 Load</button>
-          <button id="meta-delete-btn" class="btn-deny" style="flex: 1; padding: 4px; font-size: 0.8em;">🗑️</button>
+        <p>Synchronize your blocklists and metadata database.</p>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+          <button id="meta-refresh-btn" class="btn-secondary" style="flex: 1; padding: 6px; font-size: 0.85em;">🔄 Sync</button>
+          <button id="meta-save-btn" class="btn-secondary" style="flex: 1; padding: 6px; font-size: 0.85em;">💾 Export</button>
+          <button id="meta-load-btn" class="btn-secondary" style="flex: 1; padding: 6px; font-size: 0.85em;">📂 Import</button>
+          <button id="meta-delete-btn" class="btn-deny" style="flex: 0 0 40px; padding: 6px; font-size: 0.85em;">🗑️</button>
           <input type="file" id="meta-file-input" accept=".json" style="display: none;">
         </div>
-        <div style="display: flex; justify-content: space-between; font-size: 0.7em; color: var(--text-muted);">
-          <span id="meta-status-text">Waiting...</span>
-          <span id="meta-last-refresh">Unknown</span>
+        <div class="flex-between" style="font-size: 0.75em; color: var(--text-muted); padding: 0 4px;">
+          <span id="meta-status-text">Ready</span>
+          <span id="meta-last-refresh">Update Required</span>
         </div>
       </div>
 
       <div class="panel-box">
-        <h4>Logs & Portability</h4>
-        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-          <button id="download-logs-btn" class="btn-secondary">📥 CSV</button>
-          <button id="wipe-logs-btn" class="btn-deny">🗑️ Wipe</button>
+        <h4>Log Management</h4>
+        <p>Export configurations or manage remote log storage.</p>
+        <div class="grid">
+          <button id="download-logs-btn" class="btn-secondary">📥 CSV Export</button>
+          <button id="wipe-logs-btn" class="btn-deny">🗑️ Clear Logs</button>
         </div>
-        <div style="display: flex; gap: 8px;">
-          <button id="export-settings-btn" class="btn-allow" style="background-color: var(--accent);">📤 Export</button>
-          <button id="import-settings-btn" class="btn-secondary">📥 Import</button>
+      </div>
+
+      <div class="panel-box">
+        <h4>Settings Portability</h4>
+        <p>Backup or restore your entire extension configuration.</p>
+        <div class="grid">
+          <button id="export-settings-btn" class="btn-allow" style="background-color: #5d6d7e;">📤 Backup All</button>
+          <button id="import-settings-btn" class="btn-secondary">📥 Restore</button>
         </div>
         <input type="file" id="import-settings-file" style="display: none;" accept=".json">
       </div>
@@ -294,39 +437,51 @@
     <div id="settings-customize" class="settings-sub-content" style="padding: 15px;">
       <div class="panel-box">
         <h4>Website Customizations</h4>
-        <label style="display:flex; align-items:center; gap:8px; font-size:0.85em; margin-bottom:12px; cursor:pointer;">
-          <input type="checkbox" id="web-gui-master-toggle" style="margin: 0;"> <strong>Enable Master</strong>
+        <p>Enhance the official NextDNS dashboard withForge features.</p>
+        <label class="checkbox-label" style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+          <input type="checkbox" id="web-gui-master-toggle"> <strong>Master Toggle</strong>
         </label>
-        <div id="web-gui-features" style="margin-left: 20px; padding-left: 10px; border-left: 2px solid var(--border-color);">
-          <div style="margin-bottom: 10px;">
-            <a id="web-gui-logs-link" href="#" target="_blank" style="font-size:0.75em; text-decoration:none; color:var(--accent);">Go to Logs ↗</a>
+        <div id="web-gui-features" style="margin-left: 5px; display: grid; gap: 10px;">
+          <div class="flex-between">
+             <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" id="web-gui-tlds-toggle"> TLD Buttons</label>
+             <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" id="web-gui-log-actions-toggle"> Logs</label>
           </div>
-          <label style="display:flex; align-items:center; gap:8px; font-size:0.8em; margin-bottom:8px; cursor:pointer;"><input type="checkbox" id="web-gui-tlds-toggle"> TLDs</label>
-          <label style="display:flex; align-items:center; gap:8px; font-size:0.8em; margin-bottom:8px; cursor:pointer;"><input type="checkbox" id="web-gui-log-actions-toggle"> Logs</label>
-          <label style="display:flex; align-items:center; gap:8px; font-size:0.8em; margin-bottom:8px; cursor:pointer;"><input type="checkbox" id="web-gui-filter-toggle"> Filters</label>
-          <button id="web-gui-filter-viewer-btn" class="btn-secondary" style="width:100%; padding: 4px; font-size: 0.75em; margin-bottom: 8px;">View Filters</button>
-          <label style="display:flex; align-items:center; gap:8px; font-size:0.8em; margin-bottom:8px; cursor:pointer;"><input type="checkbox" id="web-gui-desc-toggle"> Desc</label>
-          <button id="domain-desc-viewer-btn" class="btn-secondary" style="width:100%; padding: 4px; font-size: 0.75em; margin-bottom: 8px;">View Desc</button>
-          <label style="display:flex; align-items:center; gap:8px; font-size:0.8em; margin-bottom:8px; cursor:pointer;"><input type="checkbox" id="web-gui-profile-notes-toggle"> Notes</label>
-          <button id="profile-notes-viewer-btn" class="btn-secondary" style="width:100%; padding: 4px; font-size: 0.75em;">View Notes</button>
+          <div class="flex-between">
+             <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" id="web-gui-filter-toggle"> Filters</label>
+             <button id="web-gui-filter-viewer-btn" class="btn-secondary" style="width: auto; padding: 2px 10px; font-size: 0.75em;">VIEW</button>
+          </div>
+          <div class="flex-between">
+             <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" id="web-gui-desc-toggle"> Descriptions</label>
+             <button id="domain-desc-viewer-btn" class="btn-secondary" style="width: auto; padding: 2px 10px; font-size: 0.75em;">VIEW</button>
+          </div>
+          <div class="flex-between">
+             <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" id="web-gui-profile-notes-toggle"> Profile Notes</label>
+             <button id="profile-notes-viewer-btn" class="btn-secondary" style="width: auto; padding: 2px 10px; font-size: 0.75em;">VIEW</button>
+          </div>
+          <a id="web-gui-logs-link" href="#" target="_blank" style="font-size:0.8em; text-decoration:none; color:var(--accent); text-align: right; margin-top: 5px;">Open Official Logs ↗</a>
         </div>
       </div>
 
       <div class="panel-box">
-        <h4>Theme Manager</h4>
-        <select id="theme-selector" style="margin-bottom: 10px;"></select>
-        <div class="grid">
-          <label style="display:flex; justify-content:space-between; align-items:center; font-size: 0.8em;">BG <input type="color" id="color-bg-main"></label>
-          <label style="display:flex; justify-content:space-between; align-items:center; font-size: 0.8em;">Panel <input type="color" id="color-bg-panel"></label>
-          <label style="display:flex; justify-content:space-between; align-items:center; font-size: 0.8em;">Border <input type="color" id="color-border-color"></label>
-          <label style="display:flex; justify-content:space-between; align-items:center; font-size: 0.8em;">Hover <input type="color" id="color-hover-bg"></label>
-          <label style="display:flex; justify-content:space-between; align-items:center; font-size: 0.8em;">Text <input type="color" id="color-text-main"></label>
-          <label style="display:flex; justify-content:space-between; align-items:center; font-size: 0.8em;">Muted <input type="color" id="color-text-muted"></label>
+        <h4>Theme Engine</h4>
+        <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85em; color: var(--text-muted);">ACTIVE THEME</label>
+        <div class="flex-between" style="gap: 8px; margin-bottom: 12px;">
+          <select id="theme-selector" style="margin-bottom: 0; flex-grow: 1;"></select>
+          <button id="delete-theme-btn" class="btn-deny" style="width: 42px; display: none;">🗑️</button>
         </div>
-        <div style="display: flex; gap: 5px; margin-top: 10px;">
-          <input type="text" id="theme-name-input" placeholder="Theme name..." style="margin-bottom: 0;">
-          <button id="save-theme-btn" class="btn-allow" style="background-color: var(--accent); width: auto;">💾</button>
-          <button id="delete-theme-btn" class="btn-deny" style="width: auto; display: none;">🗑️</button>
+        
+        <div class="grid" style="background: rgba(0,0,0,0.15); padding: 12px; border-radius: 6px;">
+          <label class="flex-between" style="font-size: 0.8em;">BG <input type="color" id="color-bg-main"></label>
+          <label class="flex-between" style="font-size: 0.8em;">Panel <input type="color" id="color-bg-panel"></label>
+          <label class="flex-between" style="font-size: 0.8em;">Border <input type="color" id="color-border-color"></label>
+          <label class="flex-between" style="font-size: 0.8em;">Hover <input type="color" id="color-hover-bg"></label>
+          <label class="flex-between" style="font-size: 0.8em;">Text <input type="color" id="color-text-main"></label>
+          <label class="flex-between" style="font-size: 0.8em;">Muted <input type="color" id="color-text-muted"></label>
+        </div>
+        
+        <div style="display: flex; gap: 8px; margin-top: 12px;">
+          <input type="text" id="theme-name-input" placeholder="New theme name..." style="margin-bottom: 0; flex-grow: 1;">
+          <button id="save-theme-btn" class="btn-allow" style="width: 42px; padding: 0;">💾</button>
         </div>
       </div>
     </div>
