@@ -1,13 +1,14 @@
 const INTERNAL_API = "https://api.nextdns.io/profiles";
 
-let webGuiConfig = { master: true, tlds: true, logs: true, desc: true };
+let webGuiConfig = { master: true, tlds: true, logs: true, desc: true, notes: true };
 
 // Initialize config and listen for live changes
-browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc"]).then(res => {
+browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes"]).then(res => {
   if (res.webGuiMaster !== undefined) webGuiConfig.master = res.webGuiMaster;
   if (res.webGuiTlds !== undefined) webGuiConfig.tlds = res.webGuiTlds;
   if (res.webGuiLogActions !== undefined) webGuiConfig.logs = res.webGuiLogActions;
   if (res.webGuiDesc !== undefined) webGuiConfig.desc = res.webGuiDesc;
+  if (res.webGuiProfileNotes !== undefined) webGuiConfig.notes = res.webGuiProfileNotes;
 });
 
 browser.storage.onChanged.addListener((changes, area) => {
@@ -16,6 +17,7 @@ browser.storage.onChanged.addListener((changes, area) => {
     if (changes.webGuiTlds) webGuiConfig.tlds = changes.webGuiTlds.newValue;
     if (changes.webGuiLogActions) webGuiConfig.logs = changes.webGuiLogActions.newValue;
     if (changes.webGuiDesc) webGuiConfig.desc = changes.webGuiDesc.newValue;
+    if (changes.webGuiProfileNotes) webGuiConfig.notes = changes.webGuiProfileNotes.newValue;
     
     // Force a UI re-evaluation if user toggles live
     if (!webGuiConfig.master || !webGuiConfig.tlds) {
@@ -29,6 +31,9 @@ browser.storage.onChanged.addListener((changes, area) => {
     if (!webGuiConfig.master || !webGuiConfig.desc) {
       document.querySelectorAll('.nxm-domain-desc').forEach(el => el.remove());
     }
+    if (!webGuiConfig.master || !webGuiConfig.notes) {
+      document.getElementById('nxm-profile-note')?.remove();
+    }
   }
 });
 
@@ -37,6 +42,11 @@ const observer = new MutationObserver(() => {
   const path = window.location.pathname;
   clearTimeout(mutationTimer);
   mutationTimer = setTimeout(() => {
+    // Inject profile note on all dashboard pages
+    if (webGuiConfig.master && webGuiConfig.notes) {
+      injectProfileNote();
+    }
+
     if (path.endsWith('/security')) {
       scrapeTLDs(); // Passive scraper always runs
       
@@ -499,4 +509,49 @@ async function processTLDs(profileId, tldArray, method, actionText, alertOnFinis
     alert(`Success: ${actionText} finished. The page will now reload.`);
     window.location.reload();
   }
+}
+
+async function injectProfileNote() {
+  if (document.getElementById('nxm-profile-note')) return;
+
+  const profileId = getProfileId();
+  if (!profileId) return;
+
+  // Find the profile selector or header area to inject into
+  const header = document.querySelector('.navbar-brand')?.parentElement;
+  if (!header) return;
+
+  const { profileNotes = {} } = await browser.storage.sync.get("profileNotes");
+  const note = profileNotes[profileId] || "";
+
+  const container = document.createElement('div');
+  container.id = 'nxm-profile-note';
+  container.style.fontSize = '0.85em';
+  container.style.color = '#4facf7';
+  container.style.marginLeft = '20px';
+  container.style.display = 'flex';
+  container.style.alignItems = 'center';
+  container.style.gap = '8px';
+  container.style.cursor = 'pointer';
+  container.title = 'Click to edit profile note';
+
+  const icon = document.createElement('span');
+  icon.textContent = '📝';
+  
+  const text = document.createElement('span');
+  text.textContent = note ? `Note: ${note}` : 'Add Profile Note';
+  text.style.fontStyle = 'italic';
+
+  container.appendChild(icon);
+  container.appendChild(text);
+  header.appendChild(container);
+
+  container.onclick = async () => {
+    const newNote = prompt(`Note for Profile ${profileId}:`, note);
+    if (newNote !== null) {
+      profileNotes[profileId] = newNote;
+      await browser.storage.sync.set({ profileNotes });
+      text.textContent = newNote ? `Note: ${newNote}` : 'Add Profile Note';
+    }
+  };
 }

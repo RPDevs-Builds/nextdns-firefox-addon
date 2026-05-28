@@ -274,9 +274,7 @@
             <option value="">Auto-Detect (Default)</option>
           </select>
           <button id="setting-fetch-profiles" class="btn-secondary" style="width: auto;" title="Fetch Profiles">🔄</button>
-          <button id="profile-note-btn" class="btn-secondary" style="width: auto;" title="Edit Profile Note">📝</button>
         </div>
-        <div id="profile-note-display" style="font-size: 0.75em; color: var(--text-muted); margin-top: 4px; font-style: italic; display: none;"></div>
 
         <label style="display: flex; align-items: center; gap: 8px; margin-top: 20px; font-size: 0.9em; cursor: pointer;">
           <input type="checkbox" id="setting-auto-refresh" style="width: auto; margin: 0;">
@@ -399,7 +397,16 @@
               <input type="checkbox" id="web-gui-desc-toggle" style="margin: 0;">
               Domain Descriptions
             </label>
-            <button id="domain-desc-viewer-btn" class="btn-secondary" style="width:100%; padding: 4px; font-size: 0.8em;">📋 Domain Description Viewer</button>
+            <button id="domain-desc-viewer-btn" class="btn-secondary" style="width:100%; padding: 4px; font-size: 0.8em;">📋 Domain Descriptions (New Window)</button>
+          </div>
+
+          <div style="margin-top: 10px; border-top: 1px solid var(--border-color); pt: 8px;">
+            <div style="font-size:0.85em; font-weight:bold; margin-bottom:5px;">Profile Level Notes</div>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.85em; margin-bottom:8px; cursor:pointer;">
+              <input type="checkbox" id="web-gui-profile-notes-toggle" style="margin: 0;">
+              Profile Notes
+            </label>
+            <button id="profile-notes-viewer-btn" class="btn-secondary" style="width:100%; padding: 4px; font-size: 0.8em;">📋 Profile Notes Viewer (New Window)</button>
           </div>
         </div>
       </div>
@@ -425,26 +432,6 @@
           <input type="text" id="theme-name-input" placeholder="Name new theme..." style="margin-bottom: 0;">
           <button id="save-theme-btn" class="btn-allow" style="background-color: #4facf7; width: auto; white-space: nowrap;">💾 Save</button>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="desc-viewer-modal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 90%; max-height: 80vh; overflow-y: auto;">
-      <h3 style="margin-top: 0;">Domain Description Viewer</h3>
-      <input type="text" id="desc-viewer-search" placeholder="Search domains or notes..." style="margin-bottom: 10px;">
-      <div id="desc-viewer-list" style="margin-bottom: 15px;"></div>
-      <button class="btn-deny close-modal">Close</button>
-    </div>
-  </div>
-
-  <div id="note-edit-modal" class="modal" style="display: none;">
-    <div class="modal-content">
-      <h3 id="note-edit-title">Edit Note</h3>
-      <textarea id="note-edit-text" rows="4" style="width: 100%; margin-bottom: 10px;"></textarea>
-      <div style="display: flex; gap: 10px;">
-        <button id="note-save-btn" class="btn-allow">Save</button>
-        <button id="note-cancel-btn" class="btn-deny">Cancel</button>
       </div>
     </div>
   </div>
