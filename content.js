@@ -1,12 +1,13 @@
 const INTERNAL_API = "https://api.nextdns.io/profiles";
 
-let webGuiConfig = { master: true, tlds: true, logs: true };
+let webGuiConfig = { master: true, tlds: true, logs: true, desc: true };
 
 // Initialize config and listen for live changes
-browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions"]).then(res => {
+browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc"]).then(res => {
   if (res.webGuiMaster !== undefined) webGuiConfig.master = res.webGuiMaster;
   if (res.webGuiTlds !== undefined) webGuiConfig.tlds = res.webGuiTlds;
   if (res.webGuiLogActions !== undefined) webGuiConfig.logs = res.webGuiLogActions;
+  if (res.webGuiDesc !== undefined) webGuiConfig.desc = res.webGuiDesc;
 });
 
 browser.storage.onChanged.addListener((changes, area) => {
@@ -14,6 +15,7 @@ browser.storage.onChanged.addListener((changes, area) => {
     if (changes.webGuiMaster) webGuiConfig.master = changes.webGuiMaster.newValue;
     if (changes.webGuiTlds) webGuiConfig.tlds = changes.webGuiTlds.newValue;
     if (changes.webGuiLogActions) webGuiConfig.logs = changes.webGuiLogActions.newValue;
+    if (changes.webGuiDesc) webGuiConfig.desc = changes.webGuiDesc.newValue;
     
     // Force a UI re-evaluation if user toggles live
     if (!webGuiConfig.master || !webGuiConfig.tlds) {
@@ -23,6 +25,9 @@ browser.storage.onChanged.addListener((changes, area) => {
     }
     if (!webGuiConfig.master || !webGuiConfig.logs) {
       document.querySelectorAll('.nxm-log-actions').forEach(el => el.remove());
+    }
+    if (!webGuiConfig.master || !webGuiConfig.desc) {
+      document.querySelectorAll('.nxm-domain-desc').forEach(el => el.remove());
     }
   }
 });
@@ -36,12 +41,16 @@ const observer = new MutationObserver(() => {
       scrapeTLDs(); // Passive scraper always runs
       
       // Only inject UI if both master and feature toggles are enabled
-      if (webGuiConfig.master && webGuiConfig.tlds) {
-        injectPageButtons();
-        injectModalButtons();
+      if (webGuiConfig.master) {
+        if (webGuiConfig.tlds) {
+          injectPageButtons();
+          injectModalButtons();
+        }
+        if (webGuiConfig.desc) injectDomainDescriptions();
       }
     } else if (path.endsWith('/privacy')) {
       scrapeBlocklists();
+      if (webGuiConfig.master && webGuiConfig.desc) injectDomainDescriptions();
     } else if (path.endsWith('/parentalcontrol')) {
       scrapeServices();
     } else if (path.endsWith('/logs')) {
@@ -52,6 +61,74 @@ const observer = new MutationObserver(() => {
   }, 500);
 });
 observer.observe(document.body, { childList: true, subtree: true });
+
+async function injectDomainDescriptions() {
+  const items = Array.from(document.querySelectorAll('.list-group-item'));
+  const { domainDescriptions = {} } = await browser.storage.sync.get("domainDescriptions");
+
+  items.forEach(item => {
+    // Look for domains in allow/deny lists (they are usually in spans with notranslate)
+    const domainEl = item.querySelector('.notranslate');
+    if (!domainEl) return;
+    
+    const domain = domainEl.textContent.trim();
+    if (!domain || domain.includes(' ') || domain.startsWith('.')) return;
+    
+    // Check if we are in the Allowlist/Denylist sections (heuristic: they have a delete button)
+    const deleteBtn = item.querySelector('button[class*="btn-danger"], button[class*="btn-deny"]');
+    if (!deleteBtn) return;
+
+    if (item.querySelector('.nxm-domain-desc')) return;
+
+    const note = domainDescriptions[domain] || "";
+    
+    const container = document.createElement('div');
+    container.className = 'nxm-domain-desc';
+    container.style.fontSize = '0.8em';
+    container.style.color = '#6c757d';
+    container.style.marginTop = '2px';
+    container.style.display = 'flex';
+    container.style.alignItems = 'center';
+    container.style.gap = '8px';
+
+    const textSpan = document.createElement('span');
+    textSpan.textContent = note ? `Note: ${note}` : "";
+    textSpan.style.fontStyle = 'italic';
+
+    const editBtn = document.createElement('button');
+    editBtn.textContent = note ? '📝' : '➕ Note';
+    editBtn.style.border = 'none';
+    editBtn.style.background = 'transparent';
+    editBtn.style.cursor = 'pointer';
+    editBtn.style.padding = '0';
+    editBtn.style.fontSize = '0.9em';
+    editBtn.style.opacity = '0.6';
+    editBtn.onclick = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const newNote = prompt(`Note for ${domain}:`, note);
+      if (newNote !== null) {
+        handleSaveNote(domain, newNote);
+      }
+    };
+
+    container.appendChild(textSpan);
+    container.appendChild(editBtn);
+    domainEl.parentElement.appendChild(container);
+  });
+}
+
+async function handleSaveNote(domain, note) {
+  const { domainDescriptions = {} } = await browser.storage.sync.get("domainDescriptions");
+  if (note.trim()) {
+    domainDescriptions[domain] = note;
+  } else {
+    delete domainDescriptions[domain];
+  }
+  await browser.storage.sync.set({ domainDescriptions });
+  // The observer or a manual re-run will update the UI
+  document.querySelectorAll('.nxm-domain-desc').forEach(el => el.remove());
+  injectDomainDescriptions();
+}
 
 function injectLogActions() {
   const rows = Array.from(document.querySelectorAll('.list-group-item'));

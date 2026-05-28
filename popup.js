@@ -434,26 +434,30 @@ async function initializeApp() {
   await loadAllMetadata();
 
   // --- Web GUI Customization Toggles ---
-  const { webGuiMaster = true, webGuiTlds = true, webGuiLogActions = true } = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions"]);
+  const { webGuiMaster = true, webGuiTlds = true, webGuiLogActions = true, webGuiDesc = true } = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc"]);
   const masterToggle = document.getElementById("web-gui-master-toggle");
   const tldsToggle = document.getElementById("web-gui-tlds-toggle");
   const logActionsToggle = document.getElementById("web-gui-log-actions-toggle");
+  const descToggle = document.getElementById("web-gui-desc-toggle");
   const featuresDiv = document.getElementById("web-gui-features");
   const logsLink = document.getElementById("web-gui-logs-link");
 
-  if (masterToggle && tldsToggle && logActionsToggle && featuresDiv) {
+  if (masterToggle && tldsToggle && logActionsToggle && descToggle && featuresDiv) {
     masterToggle.checked = webGuiMaster;
     tldsToggle.checked = webGuiTlds;
     logActionsToggle.checked = webGuiLogActions;
+    descToggle.checked = webGuiDesc;
     featuresDiv.style.opacity = webGuiMaster ? "1" : "0.5";
     tldsToggle.disabled = !webGuiMaster;
     logActionsToggle.disabled = !webGuiMaster;
+    descToggle.disabled = !webGuiMaster;
 
     masterToggle.onchange = async (e) => {
       const checked = e.target.checked;
       featuresDiv.style.opacity = checked ? "1" : "0.5";
       tldsToggle.disabled = !checked;
       logActionsToggle.disabled = !checked;
+      descToggle.disabled = !checked;
       await browser.storage.sync.set({ webGuiMaster: checked });
     };
 
@@ -464,7 +468,30 @@ async function initializeApp() {
     logActionsToggle.onchange = async (e) => {
       await browser.storage.sync.set({ webGuiLogActions: e.target.checked });
     };
+
+    descToggle.onchange = async (e) => {
+      await browser.storage.sync.set({ webGuiDesc: e.target.checked });
+    };
   }
+
+  // --- Profile Notes Logic ---
+  const profileNoteBtn = document.getElementById("profile-note-btn");
+  if (profileNoteBtn) {
+    profileNoteBtn.onclick = async () => {
+      const { profileNotes = {} } = await browser.storage.sync.get("profileNotes");
+      openNoteModal(`Note for ${activeProfile}`, profileNotes[activeProfile] || "", async (newNote) => {
+        profileNotes[activeProfile] = newNote;
+        await browser.storage.sync.set({ profileNotes });
+        renderProfileNote();
+      });
+    };
+  }
+
+  // --- Domain Description Viewer Logic ---
+  const descViewerBtn = document.getElementById("domain-desc-viewer-btn");
+  if (descViewerBtn) descViewerBtn.onclick = openDescViewer;
+  const descViewerSearch = document.getElementById("desc-viewer-search");
+  if (descViewerSearch) descViewerSearch.oninput = renderDescViewerList;
 
   if (!apiKey) { document.querySelector('.tab-btn[data-tab="settings"]').click(); return; }
   
@@ -480,7 +507,7 @@ async function initializeApp() {
 
   const profStatus = document.getElementById("profile-status");
   if (profStatus) profStatus.innerHTML = activeProfile ? `Profile: <span style="color:#4facf7;">${escapeHTML(stored.activeProfileName || activeProfile)}</span>` : "Profile: Not Found";
-  await syncLists(); updateDashboardTabInfo(); renderLogs();
+  await syncLists(); updateDashboardTabInfo(); renderLogs(); renderProfileNote();
 }
 
 async function toggleAutoRefresh(enable) {
@@ -992,3 +1019,103 @@ async function findInLists(d) {
   if (input) input.value = d;
   loadManagerList();
 }
+
+// --- New Customization Helpers ---
+
+async function renderProfileNote() {
+  const display = document.getElementById("profile-note-display");
+  if (!display || !activeProfile) return;
+  const { profileNotes = {} } = await browser.storage.sync.get("profileNotes");
+  const note = profileNotes[activeProfile];
+  if (note) {
+    display.textContent = `Note: ${note}`;
+    display.style.display = "block";
+  } else {
+    display.style.display = "none";
+  }
+}
+
+let activeNoteCallback = null;
+function openNoteModal(title, initialText, callback) {
+  const modal = document.getElementById("note-edit-modal");
+  const titleEl = document.getElementById("note-edit-title");
+  const textEl = document.getElementById("note-edit-text");
+  if (!modal || !titleEl || !textEl) return;
+  
+  titleEl.textContent = title;
+  textEl.value = initialText;
+  activeNoteCallback = callback;
+  modal.style.display = "flex";
+}
+
+document.getElementById("note-save-btn").onclick = () => {
+  const text = document.getElementById("note-edit-text").value;
+  if (activeNoteCallback) activeNoteCallback(text);
+  document.getElementById("note-edit-modal").style.display = "none";
+};
+
+document.getElementById("note-cancel-btn").onclick = () => {
+  document.getElementById("note-edit-modal").style.display = "none";
+};
+
+async function openDescViewer() {
+  const modal = document.getElementById("desc-viewer-modal");
+  if (modal) {
+    modal.style.display = "flex";
+    await renderDescViewerList();
+  }
+}
+
+async function renderDescViewerList() {
+  const listEl = document.getElementById("desc-viewer-list");
+  const searchInput = document.getElementById("desc-viewer-search");
+  if (!listEl) return;
+  
+  const query = searchInput ? searchInput.value.toLowerCase() : "";
+  const { domainDescriptions = {} } = await browser.storage.sync.get("domainDescriptions");
+  
+  const entries = Object.entries(domainDescriptions).filter(([domain, note]) => {
+    return domain.toLowerCase().includes(query) || note.toLowerCase().includes(query);
+  });
+
+  listEl.innerHTML = entries.map(([domain, note]) => `
+    <div style="padding: 8px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+      <div style="max-width: 70%;">
+        <div style="font-weight: bold; font-size: 0.9em;">${escapeHTML(domain)}</div>
+        <div style="font-size: 0.8em; color: var(--text-muted);">${escapeHTML(note)}</div>
+      </div>
+      <div style="display: flex; gap: 5px;">
+        <button class="btn-secondary" onclick="editDomainNote('${domain}')" style="padding: 2px 6px; font-size: 0.7em;">📝</button>
+        <button class="btn-deny" onclick="deleteDomainNote('${domain}')" style="padding: 2px 6px; font-size: 0.7em;">🗑️</button>
+      </div>
+    </div>
+  `).join('') || '<div style="text-align:center; padding: 20px; opacity: 0.5;">No descriptions found.</div>';
+}
+
+window.editDomainNote = async (domain) => {
+  const { domainDescriptions = {} } = await browser.storage.sync.get("domainDescriptions");
+  openNoteModal(`Note for ${domain}`, domainDescriptions[domain] || "", async (newNote) => {
+    if (newNote.trim()) {
+      domainDescriptions[domain] = newNote;
+    } else {
+      delete domainDescriptions[domain];
+    }
+    await browser.storage.sync.set({ domainDescriptions });
+    renderDescViewerList();
+  });
+};
+
+window.deleteDomainNote = async (domain) => {
+  if (!confirm(`Delete note for ${domain}?`)) return;
+  const { domainDescriptions = {} } = await browser.storage.sync.get("domainDescriptions");
+  delete domainDescriptions[domain];
+  await browser.storage.sync.set({ domainDescriptions });
+  renderDescViewerList();
+};
+
+document.querySelectorAll(".close-modal").forEach(btn => {
+  btn.onclick = (e) => {
+    const modal = e.target.closest(".modal");
+    if (modal) modal.style.display = "none";
+  };
+});
