@@ -257,7 +257,7 @@
       <button class="sub-tab-btn" data-sub="analytics">Analytics</button>
       <button class="sub-tab-btn" data-sub="hostnames">Hostnames</button>
       <button class="sub-tab-btn" data-sub="data">Data</button>
-      <button class="sub-tab-btn" data-sub="theme">Theme</button>
+      <button class="sub-tab-btn" data-sub="customize">Customize</button>
     </div>
 
     <!-- Setup Sub-Tab -->
@@ -362,8 +362,26 @@
       </div>
     </div>
 
-    <!-- Theme Sub-Tab -->
-    <div id="settings-theme" class="settings-sub-content" style="padding: 15px; display: none;">
+    <!-- Customize Sub-Tab -->
+    <div id="settings-customize" class="settings-sub-content" style="padding: 15px; display: none;">
+      
+      <div style="background: var(--bg-panel); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color); margin-bottom: 15px;">
+        <h4 style="margin: 0 0 10px 0; font-size: 0.9em; color: var(--text-muted);">Customize Website</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 0; margin-bottom: 10px;">Modify the NextDNS Web GUI.</p>
+        
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.85em; margin-bottom:8px; cursor:pointer;">
+          <input type="checkbox" id="web-gui-master-toggle" style="margin: 0;">
+          <strong>Enable Website Customizations</strong>
+        </label>
+        
+        <div id="web-gui-features" style="margin-left: 24px; padding-left: 10px; border-left: 2px solid var(--border-color); transition: opacity 0.2s;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.85em; margin-bottom:0; cursor:pointer;">
+            <input type="checkbox" id="web-gui-tlds-toggle" style="margin: 0;">
+            TLD Management Buttons
+          </label>
+        </div>
+      </div>
+
       <div style="background: var(--bg-panel); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color);">
         <h4 style="margin: 0 0 10px 0; font-size: 0.9em; color: var(--text-muted);">Theme Manager</h4>
         

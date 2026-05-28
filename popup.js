@@ -433,6 +433,30 @@ async function initializeApp() {
   // Load monolithic metadata
   await loadAllMetadata();
 
+  // --- Web GUI Customization Toggles ---
+  const { webGuiMaster = true, webGuiTlds = true } = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds"]);
+  const masterToggle = document.getElementById("web-gui-master-toggle");
+  const tldsToggle = document.getElementById("web-gui-tlds-toggle");
+  const featuresDiv = document.getElementById("web-gui-features");
+
+  if (masterToggle && tldsToggle && featuresDiv) {
+    masterToggle.checked = webGuiMaster;
+    tldsToggle.checked = webGuiTlds;
+    featuresDiv.style.opacity = webGuiMaster ? "1" : "0.5";
+    tldsToggle.disabled = !webGuiMaster;
+
+    masterToggle.onchange = async (e) => {
+      const checked = e.target.checked;
+      featuresDiv.style.opacity = checked ? "1" : "0.5";
+      tldsToggle.disabled = !checked;
+      await browser.storage.sync.set({ webGuiMaster: checked });
+    };
+
+    tldsToggle.onchange = async (e) => {
+      await browser.storage.sync.set({ webGuiTlds: e.target.checked });
+    };
+  }
+
   if (!apiKey) { document.querySelector('.tab-btn[data-tab="settings"]').click(); return; }
   
   let stored = await browser.storage.sync.get(["activeProfile", "activeProfileName"]);

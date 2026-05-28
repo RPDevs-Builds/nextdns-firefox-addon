@@ -1,14 +1,40 @@
 const INTERNAL_API = "https://api.nextdns.io/profiles";
 
+let webGuiConfig = { master: true, tlds: true };
+
+// Initialize config and listen for live changes
+browser.storage.sync.get(["webGuiMaster", "webGuiTlds"]).then(res => {
+  if (res.webGuiMaster !== undefined) webGuiConfig.master = res.webGuiMaster;
+  if (res.webGuiTlds !== undefined) webGuiConfig.tlds = res.webGuiTlds;
+});
+
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === "sync") {
+    if (changes.webGuiMaster) webGuiConfig.master = changes.webGuiMaster.newValue;
+    if (changes.webGuiTlds) webGuiConfig.tlds = changes.webGuiTlds.newValue;
+    
+    // Force a UI re-evaluation if user toggles live
+    if (!webGuiConfig.master || !webGuiConfig.tlds) {
+      document.getElementById('nxm-tld-controls')?.remove();
+      document.getElementById('nxm-modal-enable-all')?.remove();
+      document.getElementById('nxm-modal-disable-all')?.remove();
+    }
+  }
+});
+
 let mutationTimer;
 const observer = new MutationObserver(() => {
   const path = window.location.pathname;
   clearTimeout(mutationTimer);
   mutationTimer = setTimeout(() => {
     if (path.endsWith('/security')) {
-      injectPageButtons();
-      injectModalButtons();
-      scrapeTLDs();
+      scrapeTLDs(); // Passive scraper always runs
+      
+      // Only inject UI if both master and feature toggles are enabled
+      if (webGuiConfig.master && webGuiConfig.tlds) {
+        injectPageButtons();
+        injectModalButtons();
+      }
     } else if (path.endsWith('/privacy')) {
       scrapeBlocklists();
     } else if (path.endsWith('/parentalcontrol')) {
