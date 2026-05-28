@@ -377,8 +377,9 @@ const messageHandlers = {
       const { metaType, data } = msg.payload;
       // Load current local meta
       const storage = await browser.storage.local.get("scrapedMeta");
-      const scrapedMeta = storage.scrapedMeta || {};
-      scrapedMeta[metaType] = { data, lastUpdated: Date.now() };
+      const scrapedMeta = storage.scrapedMeta || { blocklists: [], parental_services: [], tlds: [], categories: [] };
+      scrapedMeta[metaType] = data;
+      scrapedMeta.last_updated = new Date().toISOString();
       await browser.storage.local.set({ scrapedMeta });
       return { success: true };
     } catch (e) {

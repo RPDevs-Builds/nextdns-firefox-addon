@@ -318,6 +318,7 @@ async function handleMetaRefresh() {
   try {
     const REMOTE_BASE = 'https://raw.githubusercontent.com/DNS-Forge/nextdns-addon-data/main/data/blocks_meta.json';
     const response = await fetch(REMOTE_BASE);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const data = await response.json();
     await browser.storage.local.set({ scrapedMeta: data });
     blocksMeta = data;
@@ -372,7 +373,7 @@ async function loadAllMetadata() {
   try {
     const storage = await browser.storage.local.get("scrapedMeta");
     const scraped = storage.scrapedMeta;
-    if (scraped && scraped.blocklists && scraped.tlds) {
+    if (scraped && scraped.blocklists && scraped.tlds && scraped.blocklists.length > 0) {
       blocksMeta = scraped;
       updateMetaStatus("Using fully cached/scraped metadata.");
       return blocksMeta;
@@ -383,7 +384,13 @@ async function loadAllMetadata() {
   try {
     updateMetaStatus("Using remote fallback data.");
     const REMOTE_BASE = 'https://raw.githubusercontent.com/DNS-Forge/nextdns-addon-data/main/data/blocks_meta.json';
-    const response = await fetch(REMOTE_BASE).catch(() => fetch(browser.runtime.getURL(`data/blocks_meta.json`)));
+    let response = await fetch(REMOTE_BASE).catch(() => null);
+    
+    if (!response || !response.ok) {
+      // Fallback to local bundled JSON if remote is 404 (e.g. private repo) or fails
+      response = await fetch(browser.runtime.getURL(`data/blocks_meta.json`));
+    }
+    
     const data = await response.json();
     blocksMeta = data;
     return data;
