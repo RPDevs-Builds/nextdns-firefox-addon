@@ -298,6 +298,10 @@ const messageHandlers = {
     const h = await getHeaders();
     try { return await (await fetch(`${API_BASE}/profiles/${msg.profileId}/analytics/status`, { headers: h })).json(); } catch(e) { return { data: {} }; }
   },
+  OPEN_VIEWER: async (msg) => {
+    browser.tabs.create({ url: `viewer.html?tab=${msg.tab || 'domains'}` });
+    return { success: true };
+  },
   GET_PROFILE: async () => await detectActiveProfile(),
   GET_PROFILES_LIST: async () => {
     const h = await getHeaders();

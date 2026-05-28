@@ -77,11 +77,73 @@ const observer = new MutationObserver(() => {
       if (webGuiConfig.master) {
         if (webGuiConfig.logs) injectLogActions();
         if (webGuiConfig.filter) applyLogFilters();
+        injectLogsSettingsControls();
       }
     }
   }, 500);
 });
 observer.observe(document.body, { childList: true, subtree: true });
+
+async function injectLogsSettingsControls() {
+  if (document.getElementById('nxm-logs-filter-controls')) return;
+
+  // Try to find the settings/options container in the logs header
+  const searchInput = document.querySelector('input[type="search"]') || document.querySelector('input[placeholder*="Search"]');
+  const settingsBtn = document.querySelector('button[aria-label="Settings"]') || document.querySelector('button[title="Settings"]');
+  
+  // We want to inject near the search bar or clear button
+  const anchor = settingsBtn ? settingsBtn.parentElement : (searchInput ? searchInput.parentElement : null);
+  if (!anchor) return;
+
+  const controlGroup = document.createElement('div');
+  controlGroup.id = 'nxm-logs-filter-controls';
+  controlGroup.style.display = 'inline-flex';
+  controlGroup.style.alignItems = 'center';
+  controlGroup.style.gap = '8px';
+  controlGroup.style.marginLeft = '10px';
+  controlGroup.style.padding = '4px 10px';
+  controlGroup.style.background = 'rgba(255,255,255,0.05)';
+  controlGroup.style.border = '1px solid rgba(255,255,255,0.1)';
+  controlGroup.style.borderRadius = '4px';
+  controlGroup.style.fontSize = '0.85em';
+
+  const label = document.createElement('label');
+  label.style.display = 'flex';
+  label.style.alignItems = 'center';
+  label.style.gap = '5px';
+  label.style.cursor = 'pointer';
+  label.style.margin = '0';
+  label.style.whiteSpace = 'nowrap';
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = webGuiConfig.filter;
+  checkbox.onchange = async (e) => {
+    await browser.storage.sync.set({ webGuiFilter: e.target.checked });
+  };
+
+  label.appendChild(checkbox);
+  label.appendChild(document.createTextNode('Filter'));
+
+  const viewerBtn = document.createElement('button');
+  viewerBtn.textContent = '📋';
+  viewerBtn.title = 'Filtered Domains';
+  viewerBtn.style.border = 'none';
+  viewerBtn.style.background = 'transparent';
+  viewerBtn.style.cursor = 'pointer';
+  viewerBtn.style.fontSize = '1.1em';
+  viewerBtn.style.padding = '0';
+  viewerBtn.onclick = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    browser.runtime.sendMessage({ type: "OPEN_VIEWER", tab: "filters" });
+  };
+
+  controlGroup.appendChild(label);
+  controlGroup.appendChild(viewerBtn);
+  
+  // Append to the header area
+  anchor.appendChild(controlGroup);
+}
 
 async function applyLogFilters() {
   const rows = Array.from(document.querySelectorAll('.list-group-item'));
@@ -249,10 +311,35 @@ function injectLogActions() {
       handleLogAction(domain, 'denylist');
     };
 
+    const hideBtn = document.createElement('button');
+    hideBtn.textContent = '👁️‍🗨️';
+    hideBtn.title = `Hide ${domain} from logs`;
+    hideBtn.style.border = 'none';
+    hideBtn.style.background = 'transparent';
+    hideBtn.style.cursor = 'pointer';
+    hideBtn.style.fontSize = '0.9em';
+    hideBtn.onclick = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      handleHideAction(domain);
+    };
+
     actionContainer.appendChild(allowBtn);
     actionContainer.appendChild(denyBtn);
+    actionContainer.appendChild(hideBtn);
     domainEl.parentElement.appendChild(actionContainer);
   });
+}
+
+async function handleHideAction(domain) {
+  const pattern = prompt(`Enter filter pattern to hide (supports *, **):`, domain);
+  if (!pattern) return;
+
+  const { logFilters = {} } = await browser.storage.sync.get("logFilters");
+  logFilters[pattern] = "Hidden via Log Action";
+  await browser.storage.sync.set({ logFilters });
+  
+  // Re-apply filters instantly
+  applyLogFilters();
 }
 
 async function handleLogAction(domain, listType) {
