@@ -9,7 +9,7 @@ let isTabTrackingPaused = false;
 let listsSynced = false;
 let currentAllowlist = new Set();
 let currentDenylist = new Set();
-let deviceAliases = {};
+let hostnameAliases = {};
 let blocksMeta = { blocklists: [], parental_services: [], tlds: [], categories: [] };
 let activeBlocksSort = 'popularity';
 
@@ -426,9 +426,19 @@ async function loadAllMetadata() {
 }
 
 async function initializeApp() {
-  const { apiKey, autoRefreshDefault, aliases } = await browser.storage.sync.get(["apiKey", "autoRefreshDefault", "aliases"]);
+  const { apiKey, autoRefreshDefault, hostnameAliases: hAliases, aliases } = await browser.storage.sync.get(["apiKey", "autoRefreshDefault", "hostnameAliases", "aliases"]);
   isAutoRefreshDefault = autoRefreshDefault !== false;
-  deviceAliases = aliases || {};
+  
+  if (hAliases) {
+    hostnameAliases = hAliases;
+  } else if (aliases) {
+    // Migrate old aliases to hostnameAliases
+    hostnameAliases = aliases;
+    await browser.storage.sync.set({ hostnameAliases: aliases });
+    await browser.storage.sync.remove("aliases");
+  } else {
+    hostnameAliases = {};
+  }
   
   // Load monolithic metadata
   await loadAllMetadata();
@@ -613,7 +623,7 @@ function renderLogs() {
     unique.forEach(id => {
       const log = cachedLogs.find(l => l && (l.device?.id || l.clientIp) === id);
       if (!log) return;
-      const name = deviceAliases[id] || log.device?.name || id;
+      const name = hostnameAliases[id] || log.device?.name || id;
       deviceDropdown.insertAdjacentHTML('beforeend', `<option value="${id}">${escapeHTML(name)}</option>`);
     });
   }
@@ -656,7 +666,7 @@ function renderLogs() {
       row.className = 'log-row';
       const isBlocked = log.status === 'blocked';
       row.style.color = isBlocked ? '#dc3545' : '#28a745';
-      const name = deviceAliases[log.device?.id || log.clientIp] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
+      const name = hostnameAliases[log.device?.id || log.clientIp] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
       
       let timeStr = "---";
       if (log.timestamp) {
@@ -763,17 +773,13 @@ async function loadAnalytics() {
   } else if (container) container.innerHTML = "No analytics data.";
 }
 
-function renderAliases() {
-  const container = document.getElementById("hostname-alias-list");
-  if (container) container.innerHTML = Object.entries(deviceAliases).map(([id, name]) => `
-    <div style="display:flex; justify-content:space-between; padding:5px; border-bottom:1px solid var(--border-color);">
-      <span><b>${escapeHTML(name)}</b> (${escapeHTML(id)})</span>
-      <button class="btn-deny" style="width:auto; padding:2px 8px;" onclick="deleteAlias('${id}')">Remove</button>
-    </div>
-  `).join('') || "No aliases.";
+// Data Manager Entry point
+const launchManagerBtn = document.getElementById("launch-full-manager-btn");
+if (launchManagerBtn) {
+  launchManagerBtn.onclick = () => {
+    browser.runtime.sendMessage({ type: "OPEN_VIEWER", tab: "hostnames" });
+  };
 }
-
-window.deleteAlias = async (id) => { delete deviceAliases[id]; await browser.storage.sync.set({ aliases: deviceAliases }); renderAliases(); };
 
 async function updateDashboardTabInfo() {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });

@@ -1,9 +1,10 @@
-let activeTab = 'domains'; // 'domains', 'profiles', or 'filters'
+let activeTab = 'domains'; // 'domains', 'profiles', 'filters', or 'hostnames'
 let currentData = {}; // Cache for currently displayed tab
 
 const tabDomains = document.getElementById('tab-domains');
 const tabProfiles = document.getElementById('tab-profiles');
 const tabFilters = document.getElementById('tab-filters');
+const tabHostnames = document.getElementById('tab-hostnames');
 const listContainer = document.getElementById('list-container');
 const searchInput = document.getElementById('search-input');
 const addBtn = document.getElementById('add-btn');
@@ -23,6 +24,7 @@ let profilesList = [];
 const params = new URLSearchParams(window.location.search);
 if (params.get('tab') === 'profiles') activeTab = 'profiles';
 else if (params.get('tab') === 'filters') activeTab = 'filters';
+else if (params.get('tab') === 'hostnames') activeTab = 'hostnames';
 updateTabs();
 renderList();
 fetchProfiles();
@@ -46,15 +48,18 @@ function populateProfileSelect() {
 tabDomains.onclick = () => { activeTab = 'domains'; updateTabs(); renderList(); };
 tabProfiles.onclick = () => { activeTab = 'profiles'; updateTabs(); renderList(); };
 tabFilters.onclick = () => { activeTab = 'filters'; updateTabs(); renderList(); };
+tabHostnames.onclick = () => { activeTab = 'hostnames'; updateTabs(); renderList(); };
 searchInput.oninput = () => renderList();
 
 function updateTabs() {
   tabDomains.classList.toggle('active', activeTab === 'domains');
   tabProfiles.classList.toggle('active', activeTab === 'profiles');
   tabFilters.classList.toggle('active', activeTab === 'filters');
+  tabHostnames.classList.toggle('active', activeTab === 'hostnames');
   
   if (activeTab === 'domains') labelKey.textContent = 'Domain';
   else if (activeTab === 'profiles') labelKey.textContent = 'Profile ID';
+  else if (activeTab === 'hostnames') labelKey.textContent = 'Device ID / IP';
   else labelKey.textContent = 'Filter Pattern (e.g. **.google.com)';
 }
 
@@ -63,6 +68,7 @@ async function renderList() {
   let storageKey = 'domainDescriptions';
   if (activeTab === 'profiles') storageKey = 'profileNotes';
   if (activeTab === 'filters') storageKey = 'logFilters';
+  if (activeTab === 'hostnames') storageKey = 'hostnameAliases';
   
   const storage = await browser.storage.sync.get(storageKey);
   currentData = storage[storageKey] || {};
@@ -79,6 +85,10 @@ async function renderList() {
       - <code>*.domain.tld</code>: 1 level of subdomains.<br>
       - <code>*.*.domain.tld</code>: 2 levels of subdomains.<br>
       - <code>**.domain.tld</code>: ALL subdomains recursively.
+    </div>`;
+  } else if (activeTab === 'hostnames') {
+    html += `<div style="padding: 10px; font-size: 0.85em; color: var(--text-muted); background: var(--bg-main); border-radius: 4px; margin-bottom: 15px;">
+      <b>Device Aliases:</b> Map Device IDs or IPs to friendly names. These will appear in your logs for easier identification.
     </div>`;
   }
 
@@ -121,7 +131,7 @@ function escapeHTML(str) {
 
 function openEdit(key) {
   const val = currentData[key] || "";
-  modalTitle.textContent = `Edit ${activeTab === 'domains' ? 'Domain Description' : (activeTab === 'profiles' ? 'Profile Note' : 'Log Filter')}`;
+  modalTitle.textContent = `Edit ${activeTab === 'domains' ? 'Domain Description' : (activeTab === 'profiles' ? 'Profile Note' : (activeTab === 'hostnames' ? 'Device Alias' : 'Log Filter'))}`;
   
   inputKey.value = key;
   inputKey.disabled = true;
@@ -133,7 +143,7 @@ function openEdit(key) {
 }
 
 addBtn.onclick = () => {
-  modalTitle.textContent = `Add ${activeTab === 'domains' ? 'Domain Description' : (activeTab === 'profiles' ? 'Profile Note' : 'Log Filter')}`;
+  modalTitle.textContent = `Add ${activeTab === 'domains' ? 'Domain Description' : (activeTab === 'profiles' ? 'Profile Note' : (activeTab === 'hostnames' ? 'Device Alias' : 'Log Filter'))}`;
   inputKey.value = '';
   inputNote.value = '';
   
@@ -165,6 +175,7 @@ saveBtn.onclick = async () => {
   let storageKey = 'domainDescriptions';
   if (activeTab === 'profiles') storageKey = 'profileNotes';
   if (activeTab === 'filters') storageKey = 'logFilters';
+  if (activeTab === 'hostnames') storageKey = 'hostnameAliases';
 
   const storage = await browser.storage.sync.get(storageKey);
   const data = storage[storageKey] || {};
@@ -183,10 +194,11 @@ saveBtn.onclick = async () => {
 };
 
 async function deleteEntry(key) {
-  if (!confirm(`Delete ${activeTab === 'domains' ? 'description' : (activeTab === 'profiles' ? 'note' : 'filter')} for ${key}?`)) return;
+  if (!confirm(`Delete ${activeTab === 'domains' ? 'description' : (activeTab === 'profiles' ? 'note' : (activeTab === 'hostnames' ? 'alias' : 'filter'))} for ${key}?`)) return;
   let storageKey = 'domainDescriptions';
   if (activeTab === 'profiles') storageKey = 'profileNotes';
   if (activeTab === 'filters') storageKey = 'logFilters';
+  if (activeTab === 'hostnames') storageKey = 'hostnameAliases';
 
   const storage = await browser.storage.sync.get(storageKey);
   const data = storage[storageKey] || {};
@@ -196,3 +208,4 @@ async function deleteEntry(key) {
   await browser.storage.sync.set(saveObj);
   renderList();
 }
+

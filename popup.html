@@ -255,7 +255,7 @@
     <div id="settings-sub-nav" style="display: flex; background: var(--bg-panel); border-bottom: 1px solid var(--border-color); overflow-x: auto; white-space: nowrap;">
       <button class="sub-tab-btn active" data-sub="setup">Setup</button>
       <button class="sub-tab-btn" data-sub="analytics">Analytics</button>
-      <button class="sub-tab-btn" data-sub="hostnames">Hostnames</button>
+      <button class="sub-tab-btn" data-sub="manager">Manager</button>
       <button class="sub-tab-btn" data-sub="data">Data</button>
       <button class="sub-tab-btn" data-sub="customize">Customize</button>
     </div>
@@ -315,23 +315,15 @@
       </div>
     </div>
 
-    <!-- Hostnames Sub-Tab -->
-    <div id="settings-hostnames" class="settings-sub-content" style="padding: 15px; display: none;">
-      <div style="background: var(--bg-panel); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color);">
-        <h4 style="margin: 0 0 10px 0; font-size: 0.9em; color: var(--text-muted);">Device Aliases</h4>
-        <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 0;">Map Device IDs or IPs to friendly names for logs.</p>
-        
-        <div id="hostname-alias-list" style="margin-bottom: 15px; max-height: 200px; overflow-y: auto;">
-          <!-- Aliases go here -->
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          <input type="text" id="alias-id" placeholder="Device ID or IP (e.g. 192.168.1.1)" style="margin-bottom: 0;">
-          <div style="display: flex; gap: 5px;">
-            <input type="text" id="alias-name" placeholder="Friendly Name (e.g. My PC)" style="margin-bottom: 0;">
-            <button id="add-alias-btn" class="btn-secondary" style="width: auto; white-space: nowrap;">Add</button>
-          </div>
-        </div>
+    <!-- Manager Sub-Tab -->
+    <div id="settings-manager" class="settings-sub-content" style="padding: 15px; display: none;">
+      <div style="background: var(--bg-panel); padding: 20px; border-radius: 4px; border: 1px solid var(--border-color); text-align: center;">
+        <div style="font-size: 2.5em; margin-bottom: 10px;">📋</div>
+        <h4 style="margin: 0 0 10px 0; color: var(--text-main);">Centralized Data Manager</h4>
+        <p style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 20px;">
+          Manage your Domain Descriptions, Profile Notes, Log Filters, and Device Aliases in a dedicated full-screen window.
+        </p>
+        <button id="launch-full-manager-btn" class="btn-allow" style="width: auto; padding: 10px 20px;">🚀 Launch Data Manager</button>
       </div>
     </div>
 
