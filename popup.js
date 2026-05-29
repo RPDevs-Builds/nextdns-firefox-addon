@@ -577,12 +577,22 @@ function initWebCustomizationUI(prefs) {
         const masterOn = prefs.webGuiMaster !== false;
         masterToggle.checked = masterOn;
 
+        const keyMap = {
+            "web-gui-tlds-toggle": "webGuiTlds",
+            "web-gui-blocklists-toggle": "webGuiBlocklists",
+            "web-gui-log-actions-toggle": "webGuiLogActions",
+            "web-gui-filter-toggle": "webGuiFilter",
+            "web-gui-desc-toggle": "webGuiDesc",
+            "web-gui-profile-notes-toggle": "webGuiProfileNotes"
+        };
+
         Object.keys(toggles).forEach(id => {
             const el = document.getElementById(id);
             if (el) {
                 el.checked = toggles[id];
                 el.onchange = async (e) => {
-                    const key = id.replace(/-toggle$/, '').replace(/^web-gui-/, 'webGui').replace(/-(.)/g, (_, c) => c.toUpperCase());
+                    const key = keyMap[id];
+                    if (!key) return;
                     const obj = {}; obj[key] = e.target.checked;
                     await Promise.all([
                         browser.storage.sync.set(obj),
