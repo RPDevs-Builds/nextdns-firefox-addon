@@ -723,3 +723,15 @@ async function injectProfileNote() {
     }
   };
 }
+
+browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "TOGGLE_TLD_LIST") {
+    const toggleBtn = document.getElementById("nxm-toggle-table");
+    if (toggleBtn) {
+      toggleBtn.click();
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false, error: "Button not found on page." });
+    }
+  }
+});

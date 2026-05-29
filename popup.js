@@ -453,6 +453,7 @@ async function initializeApp() {
   const profileNotesToggle = document.getElementById("web-gui-profile-notes-toggle");
   const featuresDiv = document.getElementById("web-gui-features");
   const logsLink = document.getElementById("web-gui-logs-link");
+  const securityLink = document.getElementById("web-gui-security-link");
 
   if (masterToggle && tldsToggle && logActionsToggle && descToggle && profileNotesToggle && filterToggle && featuresDiv) {
     masterToggle.checked = webGuiMaster;
@@ -463,6 +464,7 @@ async function initializeApp() {
     profileNotesToggle.checked = webGuiProfileNotes;
     
     featuresDiv.style.opacity = webGuiMaster ? "1" : "0.5";
+    featuresDiv.style.pointerEvents = webGuiMaster ? "auto" : "none";
     tldsToggle.disabled = !webGuiMaster;
     logActionsToggle.disabled = !webGuiMaster;
     filterToggle.disabled = !webGuiMaster;
@@ -472,6 +474,7 @@ async function initializeApp() {
     masterToggle.onchange = async (e) => {
       const checked = e.target.checked;
       featuresDiv.style.opacity = checked ? "1" : "0.5";
+      featuresDiv.style.pointerEvents = checked ? "auto" : "none";
       tldsToggle.disabled = !checked;
       logActionsToggle.disabled = !checked;
       filterToggle.disabled = !checked;
@@ -483,6 +486,28 @@ async function initializeApp() {
     tldsToggle.onchange = async (e) => {
       await browser.storage.sync.set({ webGuiTlds: e.target.checked });
     };
+
+    const showHideTldsBtn = document.getElementById("web-gui-tlds-show-hide-btn");
+    if (showHideTldsBtn) {
+      showHideTldsBtn.onclick = async () => {
+        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+        if (tabs[0] && tabs[0].url.includes("my.nextdns.io")) {
+          // Send message to content script to toggle the TLD list visibility
+          browser.tabs.sendMessage(tabs[0].id, { type: "TOGGLE_TLD_LIST" }).catch(() => {
+            alert("No NextDNS page found or extension not loaded on this page.");
+          });
+        } else {
+          alert("Please open the NextDNS Security page first.");
+        }
+      };
+    }
+
+    const tldManagerBtn = document.getElementById("web-gui-tlds-manager-btn");
+    if (tldManagerBtn) {
+      tldManagerBtn.onclick = () => {
+        browser.tabs.create({ url: 'viewer.html?tab=tlds' });
+      };
+    }
 
     logActionsToggle.onchange = async (e) => {
       await browser.storage.sync.set({ webGuiLogActions: e.target.checked });
@@ -574,6 +599,9 @@ async function initializeApp() {
 
   if (logsLink && activeProfile) {
     logsLink.href = `https://my.nextdns.io/${activeProfile}/logs`;
+  }
+  if (securityLink && activeProfile) {
+    securityLink.href = `https://my.nextdns.io/${activeProfile}/security`;
   }
 
   const profStatus = document.getElementById("profile-status");
