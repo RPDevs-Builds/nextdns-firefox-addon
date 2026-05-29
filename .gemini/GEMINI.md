@@ -27,6 +27,10 @@ Manual testing is insufficient. All features must be locked behind automated ass
 - **Cleanup Validation:** Every injection routine in `content.js` must have a corresponding logic in `cleanupUI()` to restore the original page state (including visibility of hidden elements).
 
 ## UI & DOM Conventions
+## Commit & Security Protocol
+- **GPG Signing:** ALWAYS use GPG signing (e.g., `git commit -S`). Never bypass this requirement.
+- **Hardware Interaction:** I acknowledge that initiating a signed commit will trigger the user's FIDO2/GPG hardware key. I will wait for the user to perform the physical touch/password entry required to finalize the signature.
+- **State Key Mapping:** When mapping UI elements (e.g., toggle IDs) to storage configuration keys, NEVER use implicit string manipulations (like regex replacements). Always define an explicit static mapping object (e.g., `const keyMap = { "my-toggle": "myKey" }`) to guarantee case sensitivity and prevent silent sync failures between popup and content scripts.
 - **Scoping:** Always scope sub-tab button selectors to their specific parent container.
 - **Defensive Rendering:** Logs and list containers must handle empty states explicitly. Wrap log row generation in `try...catch`.
 - **Live Injection:** Website customizations must respond to storage changes in real-time using `browser.storage.onChanged` and `MutationObserver` without requiring a page refresh.

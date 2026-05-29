@@ -453,79 +453,82 @@ function initTabNavigation() {
  * Core Application Logic
  */
 async function initializeApp() {
-    // Load Core Preferences (Dual-storage fallback)
-    const syncPrefs = await browser.storage.sync.get([
-        "apiKey", "autoRefreshDefault", "hostnameAliases", "aliases",
-        "webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", 
-        "webGuiProfileNotes", "webGuiFilter"
-    ]);
-    const localPrefs = await browser.storage.local.get([
-        "apiKey", "autoRefreshDefault", "hostnameAliases",
-        "webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", 
-        "webGuiProfileNotes", "webGuiFilter"
-    ]);
-    
-    // Falsy-safe merge: sync takes precedence ONLY if it has a non-empty value
-    const prefs = {
-        ...localPrefs,
-        ...syncPrefs,
-        apiKey: syncPrefs.apiKey || localPrefs.apiKey || "",
-        autoRefreshDefault: syncPrefs.autoRefreshDefault !== undefined ? syncPrefs.autoRefreshDefault : localPrefs.autoRefreshDefault,
-        webGuiMaster: syncPrefs.webGuiMaster !== undefined ? syncPrefs.webGuiMaster : localPrefs.webGuiMaster
-    };
+    // 1. Initialize centralized storage
+    if (typeof storage !== 'undefined') await storage.init();
 
-    // Auto-heal Local storage if Sync has the data (e.g. after reinstall)
-    if (syncPrefs.apiKey && !localPrefs.apiKey) {
-        await browser.storage.local.set(syncPrefs);
-        console.log("[Init] Healed local storage from sync.");
-    }
+    // 2. Load Core Preferences
+    const apiKey = await storage.get("apiKey", "");
+    isAutoRefreshDefault = await storage.get("autoRefreshDefault", true);
+    hostnameAliases = await storage.get("hostnameAliases", {});
+    const webGuiMaster = await storage.get("webGuiMaster", true);
 
-    isAutoRefreshDefault = prefs.autoRefreshDefault !== false;
-    
     // Migration: Move old 'aliases' key to 'hostnameAliases'
-    if (!prefs.hostnameAliases && prefs.aliases) {
-        hostnameAliases = prefs.aliases;
-        await browser.storage.sync.set({ hostnameAliases: prefs.aliases });
+    const oldAliases = await storage.get("aliases");
+    if (oldAliases) {
+        hostnameAliases = { ...hostnameAliases, ...oldAliases };
+        await storage.set("hostnameAliases", hostnameAliases);
         await browser.storage.sync.remove("aliases");
-    } else {
-        hostnameAliases = prefs.hostnameAliases || {};
     }
-    
+
     // Load feature metadata (Blocklists, TLDs, etc.)
     await loadAllMetadata();
 
     // Initialize Web GUI Customization controls
-    initWebCustomizationUI(prefs);
+    initWebCustomizationUI({ 
+        webGuiMaster,
+        webGuiTlds: await storage.get("webGuiTlds", true),
+        webGuiBlocklists: await storage.get("webGuiBlocklists", true),
+        webGuiLogActions: await storage.get("webGuiLogActions", true),
+        webGuiDesc: await storage.get("webGuiDesc", true),
+        webGuiProfileNotes: await storage.get("webGuiProfileNotes", true),
+        webGuiFilter: await storage.get("webGuiFilter", true)
+    });
 
-    // Profile Setup
-    if (!prefs.apiKey) { 
+    // 3. Profile Setup
+    if (!apiKey) { 
         document.querySelector('.tab-btn[data-tab="settings"]').click(); 
         return; 
     }
     
-    const stored = await browser.storage.sync.get(["activeProfile", "activeProfileName"]);
-    if (!stored.activeProfile) {
-        const p = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
-        if (p) activeProfile = p.id;
-    } else {
-        activeProfile = stored.activeProfile;
+    const profile = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
+    if (profile) {
+        activeProfile = profile.id;
+        const profStatus = document.getElementById("profile-status");
+        if (profStatus) {
+            profStatus.innerHTML = `
+                <span style="display:inline-block; width:8px; height:8px; background:var(--success); border-radius:50%; box-shadow: 0 0 6px var(--success);"></span>
+                Profile: ${escapeHTML(profile.name)}
+            `;
+            // Phase 3.3: "Protected" Status Indicator
+            checkProtectionStatus(activeProfile);
+        }
     }
 
     // Update dynamic links based on active profile
     updateDynamicLinks();
 
-    // UI Feedback for profile status
-    const profStatus = document.getElementById("profile-status");
-    if (profStatus) {
-        profStatus.innerHTML = activeProfile 
-            ? `Profile: <span style="color:var(--accent); font-weight:700;">${escapeHTML(stored.activeProfileName || activeProfile)}</span>` 
-            : "Profile: Not Found";
-    }
-
-    // Initial Data Fetch
+    // 4. Initial Data Fetch
     await syncLists(); 
     updateDashboardTabInfo(); 
     renderLogs();
+}
+
+async function checkProtectionStatus(profileId) {
+    try {
+        const res = await fetch("https://test.nextdns.io/", { cache: 'no-store' });
+        const data = await res.json();
+        const statusEl = document.getElementById('profile-status');
+        if (!statusEl) return;
+        
+        if (data.status === 'ok' && (data.profile === profileId || data.fingerprint === profileId)) {
+            statusEl.innerHTML += ` <span class="status-badge badge-allow" style="font-size:0.6em; padding:1px 4px;">PROTECTED</span>`;
+        } else {
+            statusEl.innerHTML += ` <span class="status-badge badge-deny" style="font-size:0.6em; padding:1px 4px;">UNPROTECTED</span>`;
+            statusEl.title = data.status === 'ok' ? `Connected to different profile: ${data.profile}` : "Not using NextDNS";
+        }
+    } catch (e) {
+        console.warn("Protection check failed", e);
+    }
 }
 
 function initWebCustomizationUI(prefs) {

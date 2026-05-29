@@ -32,6 +32,12 @@
       "js": ["content.js"]
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/domSelectors.json", "data/blocks_meta.json"],
+      "matches": ["https://my.nextdns.io/*"]
+    }
+  ],
   "browser_specific_settings": {
     "gecko": {
       "id": "{56fda99b-4dd4-4a4a-a413-00ff1c2cffd8}"

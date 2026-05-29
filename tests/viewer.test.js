@@ -67,12 +67,22 @@ describe('Data Manager (Viewer) Audit', () => {
         <div class="tabs">
             <button id="tab-blocklists" class="tab-btn">Blocklist Manager</button>
             <button id="tab-tlds" class="tab-btn">TLD Manager</button>
+            <button id="tab-backup" class="tab-btn">Backup</button>
         </div>
-        <div class="controls-row">
+        <div class="controls-row" id="main-controls">
             <input type="text" id="search-input" class="search-bar">
             <button id="add-btn" class="btn btn-add">+ Add New Entry</button>
         </div>
         <div id="list-container" class="list-container"></div>
+
+        <!-- Phase 3.1: Profile Cloning UI -->
+        <div id="backup-container" class="hidden">
+            <button id="export-profile-btn"></button>
+            <button id="import-profile-btn"></button>
+            <select id="clone-target-profile"></select>
+            <input type="file" id="import-profile-file">
+            <div id="cloning-log"></div>
+        </div>
 
         <div id="edit-modal" class="modal">
             <h2 id="modal-title"></h2>

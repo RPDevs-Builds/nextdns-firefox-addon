@@ -63,6 +63,7 @@ describe('Website Customization Engine', () => {
         }
       },
       runtime: {
+        getURL: jest.fn(path => path),
         sendMessage: jest.fn().mockResolvedValue({ success: true }),
         onMessage: { addListener: jest.fn() }
       }

@@ -18,6 +18,7 @@ describe('Legacy Logic Audit: Menus, Notifications, Profiles', () => {
       storage: {
         sync: {
           get: jest.fn(keys => {
+            if (keys === null) return Promise.resolve(mockSync);
             if (typeof keys === 'string') return Promise.resolve({ [keys]: mockSync[keys] });
             const res = {};
             (keys || []).forEach(k => res[k] = mockSync[k]);
@@ -27,6 +28,7 @@ describe('Legacy Logic Audit: Menus, Notifications, Profiles', () => {
         },
         local: {
           get: jest.fn(keys => {
+            if (keys === null) return Promise.resolve(mockSync);
             if (typeof keys === 'string') return Promise.resolve({ [keys]: mockSync[keys] });
             const res = {};
             (keys || []).forEach(k => res[k] = mockSync[k]);
@@ -59,17 +61,21 @@ describe('Legacy Logic Audit: Menus, Notifications, Profiles', () => {
         sendMessage: jest.fn().mockResolvedValue({ success: true }) 
       },
       alarms: {
+        create: jest.fn(),
         onAlarm: { addListener: jest.fn() }
       },
       webRequest: { onBeforeRequest: { addListener: jest.fn(), hasListener: jest.fn(() => false) } }
     };
 
-    global.fetch = jest.fn();
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({}) });
     global.console.log = jest.fn();
   });
 
   test('Context Menus: Correctly formatted API payload for Denylist', async () => {
     const backgroundJs = fs.readFileSync(path.resolve(__dirname, '../background.js'), 'utf8');
+    global.storage = require('../src/storage.js');
+    global.apiClient = require('../src/apiClient.js');
+    global.apiClient.setStorage(global.storage);
     eval(backgroundJs);
     
     // Simulate click on Denylist menu
@@ -100,6 +106,9 @@ describe('Legacy Logic Audit: Menus, Notifications, Profiles', () => {
     // We need to access the internal throttle function or trigger it via the listener
     // Since it's internal to background.js, we'll verify it via side-effects
     const backgroundJs = fs.readFileSync(path.resolve(__dirname, '../background.js'), 'utf8');
+    global.storage = require('../src/storage.js');
+    global.apiClient = require('../src/apiClient.js');
+    global.apiClient.setStorage(global.storage);
     eval(backgroundJs);
 
     // Mock the notification call
@@ -113,6 +122,9 @@ describe('Legacy Logic Audit: Menus, Notifications, Profiles', () => {
 
   test('Profile Detection: Fallback to /profiles API when TEST_URL fails', async () => {
     const backgroundJs = fs.readFileSync(path.resolve(__dirname, '../background.js'), 'utf8');
+    global.storage = require('../src/storage.js');
+    global.apiClient = require('../src/apiClient.js');
+    global.apiClient.setStorage(global.storage);
     eval(backgroundJs);
 
     global.fetch.mockImplementation((url) => {
@@ -126,7 +138,7 @@ describe('Legacy Logic Audit: Menus, Notifications, Profiles', () => {
 
     // We need to trigger detection
     // In background.js, it's called during initializeBackground
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 1500));
 
     expect(mockSync.activeProfile).toBe('detected-p1');
   });

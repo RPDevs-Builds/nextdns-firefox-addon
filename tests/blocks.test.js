@@ -55,13 +55,22 @@ describe('Popup UI - Blocks Expansion Suite', () => {
       },
       storage: {
         sync: {
-          get: jest.fn(keys => Promise.resolve(mockStorage)),
+          get: jest.fn(keys => {
+            if (keys === null) return Promise.resolve(mockStorage);
+            if (typeof keys === 'string') return Promise.resolve({ [keys]: mockStorage[keys] });
+            return Promise.resolve(mockStorage);
+          }),
           set: jest.fn(obj => { Object.assign(mockStorage, obj); return Promise.resolve(); })
         },
         local: {
-          get: jest.fn(keys => Promise.resolve(mockStorage)),
+          get: jest.fn(keys => {
+            if (keys === null) return Promise.resolve(mockStorage);
+            if (typeof keys === 'string') return Promise.resolve({ [keys]: mockStorage[keys] });
+            return Promise.resolve(mockStorage);
+          }),
           set: jest.fn(obj => { Object.assign(mockStorage, obj); return Promise.resolve(); })
-        }
+        },
+        onChanged: { addListener: jest.fn() }
       },
       action: {
         setPopup: jest.fn().mockResolvedValue({})
@@ -87,6 +96,7 @@ describe('Popup UI - Blocks Expansion Suite', () => {
   });
 
   test('Blocks UI - TLD Alphabetization and Multi-inclusion', async () => {
+    global.storage = require('../src/storage.js');
     require('../popup.js');
     document.dispatchEvent(new Event('DOMContentLoaded'));
     await new Promise(r => setTimeout(r, 100));
@@ -116,6 +126,7 @@ describe('Popup UI - Blocks Expansion Suite', () => {
   });
 
   test('Blocks UI - Blocklists Management and Search', async () => {
+    global.storage = require('../src/storage.js');
     require('../popup.js');
     document.dispatchEvent(new Event('DOMContentLoaded'));
     await new Promise(r => setTimeout(r, 100));
@@ -138,6 +149,7 @@ describe('Popup UI - Blocks Expansion Suite', () => {
   });
 
   test('Blocks UI - Parental Categories and Services', async () => {
+    global.storage = require('../src/storage.js');
     require('../popup.js');
     document.dispatchEvent(new Event('DOMContentLoaded'));
     await new Promise(r => setTimeout(r, 100));
@@ -154,6 +166,7 @@ describe('Popup UI - Blocks Expansion Suite', () => {
   });
 
   test('Security Tab - Missing Settings Present', async () => {
+    global.storage = require('../src/storage.js');
     require('../popup.js');
     document.dispatchEvent(new Event('DOMContentLoaded'));
     await new Promise(r => setTimeout(r, 100));

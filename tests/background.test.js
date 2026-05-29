@@ -119,6 +119,10 @@ describe('Background Script - Full Coverage Suite', () => {
       }
     };
 
+    global.storage = require('../src/storage.js');
+    global.apiClient = require('../src/apiClient.js');
+    global.apiClient.setStorage(global.storage);
+
     bg = require('../background.js');
   });
 

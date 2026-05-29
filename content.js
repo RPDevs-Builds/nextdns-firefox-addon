@@ -1,11 +1,21 @@
 const INTERNAL_API = "https://api.nextdns.io/profiles";
 
 let webGuiConfig = { master: true, tlds: true, blocklists: true, logs: true, desc: true, notes: true, filter: true };
+let domSelectors = null;
+let hostnameAliases = {};
 
 // Initialize config and listen for live changes
 async function initConfig() {
-  const sync = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]);
-  const local = await browser.storage.local.get(["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]);
+  try {
+    const url = browser.runtime.getURL("src/domSelectors.json");
+    const res = await fetch(url);
+    domSelectors = await res.json();
+  } catch (e) {
+    console.error("[DNS Forge] Failed to load domSelectors.json", e);
+  }
+
+  const sync = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter", "hostnameAliases"]);
+  const local = await browser.storage.local.get(["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter", "hostnameAliases"]);
   const res = { ...local, ...sync };
 
   if (res.webGuiMaster !== undefined) webGuiConfig.master = res.webGuiMaster;
@@ -15,6 +25,8 @@ async function initConfig() {
   if (res.webGuiDesc !== undefined) webGuiConfig.desc = res.webGuiDesc;
   if (res.webGuiProfileNotes !== undefined) webGuiConfig.notes = res.webGuiProfileNotes;
   if (res.webGuiFilter !== undefined) webGuiConfig.filter = res.webGuiFilter;
+  
+  hostnameAliases = res.hostnameAliases || {};
 }
 
 initConfig().then(evaluatePage);
@@ -84,6 +96,7 @@ function evaluatePage() {
     });
 
     if (webGuiConfig.notes) injectProfileNote();
+    injectProfileSwitcher();
 
     if (path.endsWith('/parentalcontrol')) {
         scrapeServices();
@@ -145,10 +158,58 @@ browser.storage.onChanged.addListener((changes, area) => {
 });
 
 let mutationTimer;
-const observer = new MutationObserver(() => {
+const observer = new MutationObserver((mutations) => {
+    // Phase 2.1: The "Network Error" Suppressor
+    for (const mutation of mutations) {
+        if (mutation.addedNodes.length) {
+            mutation.addedNodes.forEach(node => {
+                if (node.nodeType === 1) {
+                    if (node.classList && node.classList.contains('modal')) {
+                        if (node.textContent.includes('Network Error')) {
+                            node.style.display = 'none';
+                            node.style.opacity = '0';
+                            console.warn("[DNS Forge] Suppressed NextDNS Network Error modal.");
+                            // Show non-intrusive toast instead
+                            showToast("Reconnecting to NextDNS...");
+                        }
+                    }
+                    // Phase 3.4: Device Nickname Aliasing
+                    applyDeviceAliases(node);
+                }
+            });
+        }
+    }
+
     clearTimeout(mutationTimer);
     mutationTimer = setTimeout(evaluatePage, 500);
 });
+
+function applyDeviceAliases(root) {
+    if (!Object.keys(hostnameAliases).length) return;
+    
+    // Target device ID spans in Logs and Analytics
+    const elements = root.querySelectorAll('.notranslate');
+    elements.forEach(el => {
+        const id = el.textContent.trim();
+        if (hostnameAliases[id]) {
+            el.innerHTML = `<span title="ID: ${id}" style="border-bottom: 1px dashed var(--accent); cursor: help;">${hostnameAliases[id]}</span>`;
+        }
+    });
+}
+
+function showToast(message) {
+    let toast = document.getElementById('nxm-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'nxm-toast';
+        toast.style.cssText = 'position:fixed; bottom:20px; right:20px; background:#333; color:#fff; padding:10px 20px; border-radius:8px; z-index:999999; box-shadow:0 4px 12px rgba(0,0,0,0.3); font-size:14px; transition: opacity 0.3s ease; opacity: 0;';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.opacity = '1';
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+}
 
 observer.observe(document.body, { childList: true, subtree: true });
 
@@ -185,15 +246,23 @@ async function extractApiKey() {
 async function injectPrivacyButtons() {
   if (document.getElementById('nxm-privacy-controls')) return;
   
-  // Find header by text content "Blocklists" precisely
-  const h5 = Array.from(document.querySelectorAll('h5')).find(el => el.textContent.trim() === 'Blocklists');
+  let h5;
+  if (domSelectors?.dashboard?.blocklistHeader) {
+      const sel = domSelectors.dashboard.blocklistHeader;
+      h5 = Array.from(document.querySelectorAll(sel.selector)).find(el => el.textContent.trim() === sel.textMatches);
+  } else {
+      h5 = Array.from(document.querySelectorAll('h5')).find(el => el.textContent.trim() === 'Blocklists');
+  }
   const headerItem = h5?.closest('.list-group-item');
 
   if (headerItem && h5) {
     const btnGroup = document.createElement('div');
     btnGroup.id = 'nxm-privacy-controls';
-    btnGroup.style.cssText = 'display: inline-flex; gap: 8px; margin-left: 12px; vertical-align: middle;';
-    btnGroup.innerHTML = `<button id="nxm-toggle-blocklists" class="btn btn-secondary" style="background: #6c757d; border-color: #6c757d; padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;">👁️ Toggle List</button>`;
+    btnGroup.style.cssText = 'display: inline-flex; gap: 8px; margin-left: 12px; vertical-align: middle; align-items: center;';
+    btnGroup.innerHTML = `
+      <input type="search" id="nxm-search-blocklists" placeholder="Filter Blocklists..." class="form-control form-control-sm" style="height: 22px; width: 150px; font-size: 0.75em;">
+      <button id="nxm-toggle-blocklists" class="btn btn-secondary" style="background: #6c757d; border-color: #6c757d; padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;">👁️ Toggle List</button>
+    `;
     
     h5.style.display = 'inline-block';
     h5.style.margin = '0';
@@ -203,9 +272,11 @@ async function injectPrivacyButtons() {
     if (listGroup) {
       const toggleList = () => {
         const siblings = Array.from(listGroup.children).filter(child => child !== headerItem);
-        const isCurrentlyHidden = siblings.some(s => s.style.display === 'none');
+        const isCurrentlyHidden = siblings.some(s => s.style.display === 'none' && !s.dataset.nxmFiltered);
         siblings.forEach(s => {
-          s.style.display = isCurrentlyHidden ? '' : 'none';
+          if (!s.dataset.nxmFiltered) {
+              s.style.display = isCurrentlyHidden ? '' : 'none';
+          }
           if (!isCurrentlyHidden) {
               s.dataset.nxmHidden = "true";
               s.dataset.nxmOwner = "nxm-privacy-controls";
@@ -228,6 +299,21 @@ async function injectPrivacyButtons() {
         e.preventDefault(); e.stopPropagation();
         toggleList();
       };
+
+      // Search functionality
+      document.getElementById('nxm-search-blocklists').oninput = (e) => {
+          const query = e.target.value.toLowerCase();
+          siblings.forEach(s => {
+              const text = s.textContent.toLowerCase();
+              if (text.includes(query)) {
+                  s.style.display = '';
+                  delete s.dataset.nxmFiltered;
+              } else {
+                  s.style.display = 'none';
+                  s.dataset.nxmFiltered = "true";
+              }
+          });
+      };
     }
   }
 }
@@ -235,15 +321,21 @@ async function injectPrivacyButtons() {
 async function injectPageButtons() {
   if (document.getElementById('nxm-tld-controls')) return;
   
-  // Find header by text content "Block Top-Level Domains (TLDs)"
-  const h5 = Array.from(document.querySelectorAll('h5')).find(el => el.textContent.includes('Block Top-Level Domains (TLDs)'));
+  let h5;
+  if (domSelectors?.dashboard?.tldHeader) {
+      const sel = domSelectors.dashboard.tldHeader;
+      h5 = Array.from(document.querySelectorAll(sel.selector)).find(el => el.textContent.includes(sel.textMatches));
+  } else {
+      h5 = Array.from(document.querySelectorAll('h5')).find(el => el.textContent.includes('Block Top-Level Domains (TLDs)'));
+  }
   const headerItem = h5?.closest('.list-group-item');
 
   if (headerItem && h5) {
     const btnGroup = document.createElement('div');
     btnGroup.id = 'nxm-tld-controls';
-    btnGroup.style.cssText = 'display: inline-flex; gap: 6px; margin-left: 12px; vertical-align: middle;';
+    btnGroup.style.cssText = 'display: inline-flex; gap: 6px; margin-left: 12px; vertical-align: middle; align-items: center;';
     btnGroup.innerHTML = `
+      <input type="search" id="nxm-search-tlds" placeholder="Filter TLDs..." class="form-control form-control-sm" style="height: 22px; width: 120px; font-size: 0.75em;">
       <button id="nxm-enable-all" class="btn btn-primary" style="padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;">Enable ALL</button>
       <button id="nxm-disable-all" class="btn btn-danger" style="padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;">Disable ALL</button>
       <button id="nxm-restore" class="btn btn-secondary" style="display: none; padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;">Restore</button>
@@ -258,9 +350,11 @@ async function injectPageButtons() {
     if (listGroup) {
       const toggleList = () => {
         const siblings = Array.from(listGroup.children).filter(child => child !== headerItem);
-        const isCurrentlyHidden = siblings.some(s => s.style.display === 'none');
+        const isCurrentlyHidden = siblings.some(s => s.style.display === 'none' && !s.dataset.nxmFiltered);
         siblings.forEach(s => {
-          s.style.display = isCurrentlyHidden ? '' : 'none';
+          if (!s.dataset.nxmFiltered) {
+              s.style.display = isCurrentlyHidden ? '' : 'none';
+          }
           if (!isCurrentlyHidden) {
               s.dataset.nxmHidden = "true";
               s.dataset.nxmOwner = "nxm-tld-controls";
@@ -282,6 +376,21 @@ async function injectPageButtons() {
       document.getElementById('nxm-toggle-table').onclick = (e) => {
         e.preventDefault(); e.stopPropagation();
         toggleList();
+      };
+
+      // Search functionality
+      document.getElementById('nxm-search-tlds').oninput = (e) => {
+          const query = e.target.value.toLowerCase();
+          siblings.forEach(s => {
+              const text = s.textContent.toLowerCase();
+              if (text.includes(query)) {
+                  s.style.display = '';
+                  delete s.dataset.nxmFiltered;
+              } else {
+                  s.style.display = 'none';
+                  s.dataset.nxmFiltered = "true";
+              }
+          });
       };
     }
 
@@ -307,7 +416,12 @@ if (typeof module !== 'undefined') {
 async function injectLogsSettingsControls() {
   if (document.getElementById('nxm-logs-filter-group')) return;
 
-  const headerContainer = document.querySelector('.Logs .list-group-item.bg-2 .d-md-flex');
+  let headerContainer;
+  if (domSelectors?.dashboard?.logsHeader) {
+      headerContainer = document.querySelector(domSelectors.dashboard.logsHeader.selector);
+  } else {
+      headerContainer = document.querySelector('.Logs .list-group-item.bg-2 .d-md-flex');
+  }
   if (!headerContainer) return;
 
   const group = document.createElement('div');
@@ -362,7 +476,58 @@ async function injectLogsSettingsControls() {
   textWrapper.appendChild(viewerBtn);
   group.appendChild(switchWrapper);
   group.appendChild(textWrapper);
+  
+  // Phase 2.5: Compact Mode, Highlighting, and Search
+  const extraControls = document.createElement('div');
+  extraControls.className = 'd-flex align-items-center gap-3 ms-4';
+  extraControls.style.cssText = 'border-left: 1px solid var(--border-color); padding-left: 15px;';
+  extraControls.innerHTML = `
+    <div class="form-check form-switch" title="Highlight blocked rows in red and allowed in green">
+        <input class="form-check-input" type="checkbox" id="nxm-logs-highlight" checked>
+        <label class="form-check-label" style="font-size:0.8em; margin-left: 5px;">Highlight</label>
+    </div>
+    <div class="form-check form-switch" title="Reduce vertical padding in logs">
+        <input class="form-check-input" type="checkbox" id="nxm-logs-compact">
+        <label class="form-check-label" style="font-size:0.8em; margin-left: 5px;">Compact</label>
+    </div>
+    <input type="search" id="nxm-logs-search" class="form-control form-control-sm" placeholder="Search..." style="width: 120px; height: 24px; font-size: 0.8em;">
+  `;
+  group.appendChild(extraControls);
+
   headerContainer.appendChild(group);
+
+  const applyLogStyles = () => {
+      const isCompact = document.getElementById('nxm-logs-compact')?.checked;
+      const isHighlight = document.getElementById('nxm-logs-highlight')?.checked;
+      
+      let styleEl = document.getElementById('nxm-log-styles');
+      if (!styleEl) {
+          styleEl = document.createElement('style');
+          styleEl.id = 'nxm-log-styles';
+          document.head.appendChild(styleEl);
+      }
+      
+      let css = "";
+      if (isCompact) css += `.Logs .list-group-item { padding-top: 4px !important; padding-bottom: 4px !important; min-height: 0 !important; }`;
+      if (isHighlight) css += `
+        .Logs .list-group-item:has(.text-danger) { background-color: rgba(220, 53, 69, 0.08) !important; }
+        .Logs .list-group-item:has(.text-success) { background-color: rgba(40, 167, 69, 0.05) !important; }
+      `;
+      styleEl.textContent = css;
+  };
+
+  document.getElementById('nxm-logs-compact').onchange = applyLogStyles;
+  document.getElementById('nxm-logs-highlight').onchange = applyLogStyles;
+  
+  document.getElementById('nxm-logs-search').oninput = (e) => {
+      const query = e.target.value.toLowerCase();
+      const rows = document.querySelectorAll('.Logs .list-group-item:not(.bg-2)');
+      rows.forEach(row => {
+          row.style.display = row.textContent.toLowerCase().includes(query) ? '' : 'none';
+      });
+  };
+
+  applyLogStyles();
 }
 
 async function applyLogFilters() {
@@ -418,6 +583,8 @@ async function injectDomainDescriptions() {
   const items = Array.from(document.querySelectorAll('.list-group-item'));
   const { domainDescriptions = {} } = await browser.storage.sync.get("domainDescriptions");
 
+  let listContainer = null;
+
   items.forEach(item => {
     const domainEl = item.querySelector('.notranslate');
     if (!domainEl) return;
@@ -425,30 +592,87 @@ async function injectDomainDescriptions() {
     if (!domain || domain.includes(' ') || domain.startsWith('.')) return;
     const deleteBtn = item.querySelector('button[class*="btn-danger"], button[class*="btn-deny"]');
     if (!deleteBtn) return;
-    if (item.querySelector('.nxm-domain-desc')) return;
+    
+    if (!listContainer) listContainer = item.parentElement;
 
-    const note = domainDescriptions[domain] || "";
-    const container = document.createElement('div');
-    container.className = 'nxm-domain-desc';
-    container.style.cssText = 'font-size: 0.8em; color: #6c757d; margin-top: 2px; display: flex; align-items: center; gap: 8px;';
+    if (!item.querySelector('.nxm-domain-desc')) {
+      const note = domainDescriptions[domain] || "";
+      const container = document.createElement('div');
+      container.className = 'nxm-domain-desc';
+      container.style.cssText = 'font-size: 0.8em; color: #6c757d; margin-top: 2px; display: flex; align-items: center; gap: 8px;';
 
-    const textSpan = document.createElement('span');
-    textSpan.textContent = note ? `Note: ${note}` : "";
-    textSpan.style.fontStyle = 'italic';
+      const textSpan = document.createElement('span');
+      textSpan.textContent = note ? `Note: ${note}` : "";
+      textSpan.style.fontStyle = 'italic';
 
-    const editBtn = document.createElement('button');
-    editBtn.textContent = note ? '📝' : '➕ Note';
-    editBtn.style.cssText = 'border: none; background: transparent; cursor: pointer; padding: 0; font-size: 0.9em; opacity: 0.6;';
-    editBtn.onclick = (e) => {
-      e.preventDefault(); e.stopPropagation();
-      const newNote = prompt(`Note for ${domain}:`, note);
-      if (newNote !== null) handleSaveNote(domain, newNote);
-    };
+      const editBtn = document.createElement('button');
+      editBtn.textContent = note ? '📝' : '➕ Note';
+      editBtn.style.cssText = 'border: none; background: transparent; cursor: pointer; padding: 0; font-size: 0.9em; opacity: 0.6;';
+      editBtn.onclick = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const newNote = prompt(`Note for ${domain}:`, note);
+        if (newNote !== null) handleSaveNote(domain, newNote);
+      };
 
-    container.appendChild(textSpan);
-    container.appendChild(editBtn);
-    domainEl.parentElement.appendChild(container);
+      container.appendChild(textSpan);
+      container.appendChild(editBtn);
+      domainEl.parentElement.appendChild(container);
+    }
+
+    // Phase 2.2: Bulk Management Checkboxes
+    if (!item.querySelector('.nxm-bulk-cb')) {
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'nxm-bulk-cb';
+      cb.dataset.domain = domain;
+      cb.style.cssText = 'margin-right: 15px; cursor: pointer; transform: scale(1.2);';
+      item.insertBefore(cb, item.firstChild);
+    }
   });
+
+  // Inject Bulk Action Header
+  if (listContainer && !document.getElementById('nxm-bulk-header')) {
+      const header = document.createElement('div');
+      header.id = 'nxm-bulk-header';
+      header.className = 'list-group-item bg-2 d-flex align-items-center';
+      header.style.cssText = 'padding: 10px 15px; gap: 15px; border-bottom: 2px solid var(--border-color);';
+      
+      const selectAll = document.createElement('input');
+      selectAll.type = 'checkbox';
+      selectAll.style.cssText = 'cursor: pointer; transform: scale(1.2);';
+      selectAll.onchange = (e) => {
+          document.querySelectorAll('.nxm-bulk-cb').forEach(cb => cb.checked = e.target.checked);
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-danger btn-sm';
+      delBtn.textContent = 'Delete Selected';
+      delBtn.onclick = async () => {
+          const selected = Array.from(document.querySelectorAll('.nxm-bulk-cb:checked')).map(cb => cb.dataset.domain);
+          if (selected.length === 0) return alert('No domains selected.');
+          if (!confirm(`Are you sure you want to delete ${selected.length} domains?`)) return;
+          
+          const profileId = getProfileId();
+          const listType = window.location.pathname.includes('allowlist') ? 'allowlist' : 'denylist';
+          
+          delBtn.disabled = true;
+          delBtn.textContent = 'Deleting...';
+          
+          // Execute in parallel batches to prevent extreme rate limiting, though background handles it too
+          const batchSize = 5;
+          for (let i = 0; i < selected.length; i += batchSize) {
+              const batch = selected.slice(i, i + batchSize);
+              await Promise.all(batch.map(domain => 
+                  browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId, listType, action: "delete", domain })
+              ));
+          }
+          window.location.reload();
+      };
+
+      header.appendChild(selectAll);
+      header.appendChild(delBtn);
+      listContainer.insertBefore(header, listContainer.firstChild);
+  }
 }
 
 async function handleSaveNote(domain, note) {
@@ -667,6 +891,44 @@ async function injectProfileNote() {
       container.querySelector('span:last-child').textContent = newNote || 'Add Profile Note';
     }
   };
+}
+
+async function injectProfileSwitcher() {
+  if (document.getElementById('nxm-profile-switcher')) return;
+  const profileId = getProfileId();
+  if (!profileId) return;
+  
+  const header = document.querySelector('.navbar-brand')?.parentElement;
+  if (!header) return;
+
+  const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
+  let profiles = [];
+  if (res && res.data) profiles = res.data;
+  else if (Array.isArray(res)) profiles = res;
+  
+  if (profiles.length < 2) return;
+
+  const select = document.createElement('select');
+  select.id = 'nxm-profile-switcher';
+  select.className = 'form-select form-select-sm';
+  select.style.cssText = 'width: 200px; margin-left: auto; margin-right: 15px; font-size: 0.85em; background-color: var(--bg-panel); color: var(--text-color); border: 1px solid var(--border-color);';
+  
+  profiles.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = `${p.name} (${p.id})`;
+    if (p.id === profileId || p.fingerprint === profileId) opt.selected = true;
+    select.appendChild(opt);
+  });
+
+  select.onchange = (e) => {
+    const newId = e.target.value;
+    const currentPath = window.location.pathname;
+    const newPath = currentPath.replace(/\/([a-z0-9]+)\//, `/${newId}/`);
+    window.location.href = newPath;
+  };
+
+  header.appendChild(select);
 }
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {

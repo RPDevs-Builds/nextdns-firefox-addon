@@ -54,6 +54,7 @@ describe('Popup UI - Advanced Coverage Suite', () => {
       storage: {
         sync: {
           get: jest.fn(keys => {
+            if (keys === null) return Promise.resolve(mockStorage);
             if (typeof keys === 'string') return Promise.resolve({ [keys]: mockStorage[keys] });
             if (Array.isArray(keys)) {
               let res = {};
@@ -69,6 +70,7 @@ describe('Popup UI - Advanced Coverage Suite', () => {
         },
         local: {
           get: jest.fn(keys => {
+            if (keys === null) return Promise.resolve(mockStorage);
             if (typeof keys === 'string') return Promise.resolve({ [keys]: mockStorage[keys] });
             if (Array.isArray(keys)) {
               let res = {};
@@ -81,7 +83,8 @@ describe('Popup UI - Advanced Coverage Suite', () => {
             Object.assign(mockStorage, obj);
             return Promise.resolve();
           })
-        }
+        },
+        onChanged: { addListener: jest.fn() }
       },
       action: {
         setPopup: jest.fn().mockResolvedValue({})
@@ -126,6 +129,7 @@ describe('Popup UI - Advanced Coverage Suite', () => {
   });
 
   test('Sub-nav Scoping', async () => {
+    global.storage = require('../src/storage.js');
     require('../popup.js');
     document.dispatchEvent(new Event('DOMContentLoaded'));
     await new Promise(r => setTimeout(r, 100));
@@ -143,6 +147,7 @@ describe('Popup UI - Advanced Coverage Suite', () => {
   });
 
   test('Log Filter State interaction', async () => {
+    global.storage = require('../src/storage.js');
     require('../popup.js');
     document.dispatchEvent(new Event('DOMContentLoaded'));
     await new Promise(r => setTimeout(r, 300));
@@ -181,6 +186,7 @@ describe('Popup UI - Advanced Coverage Suite', () => {
       return { success: true };
     });
 
+    global.storage = require('../src/storage.js');
     require('../popup.js');
     document.dispatchEvent(new Event('DOMContentLoaded'));
     await new Promise(r => setTimeout(r, 100));

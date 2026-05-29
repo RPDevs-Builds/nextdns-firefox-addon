@@ -20,6 +20,7 @@ describe('Storage Persistence & Auto-Heal', () => {
       storage: {
         sync: {
           get: jest.fn(keys => {
+            if (keys === null) return Promise.resolve(mockSync);
             if (typeof keys === 'string') return Promise.resolve({ [keys]: mockSync[keys] });
             const res = {};
             (keys || []).forEach(k => res[k] = mockSync[k]);
@@ -27,9 +28,9 @@ describe('Storage Persistence & Auto-Heal', () => {
           }),
           set: jest.fn(obj => {
             const changes = {};
-            for (let k in obj) {
-              changes[k] = { oldValue: mockSync[k], newValue: obj[k] };
-              mockSync[k] = obj[k];
+            for (let [k, v] of Object.entries(obj)) {
+                changes[k] = { oldValue: mockSync[k], newValue: v };
+                mockSync[k] = v;
             }
             storageListeners.forEach(l => l(changes, 'sync'));
             return Promise.resolve();
@@ -37,6 +38,7 @@ describe('Storage Persistence & Auto-Heal', () => {
         },
         local: {
           get: jest.fn(keys => {
+            if (keys === null) return Promise.resolve(mockLocal);
             if (typeof keys === 'string') return Promise.resolve({ [keys]: mockLocal[keys] });
             const res = {};
             (keys || []).forEach(k => res[k] = mockLocal[k]);
@@ -44,9 +46,9 @@ describe('Storage Persistence & Auto-Heal', () => {
           }),
           set: jest.fn(obj => {
             const changes = {};
-            for (let k in obj) {
-              changes[k] = { oldValue: mockLocal[k], newValue: obj[k] };
-              mockLocal[k] = obj[k];
+            for (let [k, v] of Object.entries(obj)) {
+                changes[k] = { oldValue: mockLocal[k], newValue: v };
+                mockLocal[k] = v;
             }
             storageListeners.forEach(l => l(changes, 'local'));
             return Promise.resolve();
@@ -69,10 +71,12 @@ describe('Storage Persistence & Auto-Heal', () => {
         onClicked: { addListener: jest.fn() }
       },
       runtime: {
+        getURL: jest.fn(path => path),
         onMessage: { addListener: jest.fn() },
         sendMessage: jest.fn().mockResolvedValue({ success: true })
       },
       alarms: {
+        create: jest.fn(),
         onAlarm: { addListener: jest.fn() }
       },
       webRequest: {
@@ -98,6 +102,9 @@ describe('Storage Persistence & Auto-Heal', () => {
 
   test('Background: Heals local storage from sync on startup', async () => {
     const backgroundJs = fs.readFileSync(path.resolve(__dirname, '../background.js'), 'utf8');
+    global.storage = require('../src/storage.js');
+    global.apiClient = require('../src/apiClient.js');
+    global.apiClient.setStorage(global.storage);
     eval(backgroundJs);
 
     // Give it time to run initializeBackground
@@ -121,6 +128,7 @@ describe('Storage Persistence & Auto-Heal', () => {
 
     
     // Require popup.js (it will run initializeApp)
+    global.storage = require('../src/storage.js');
     require('../popup.js');
     document.dispatchEvent(new Event('DOMContentLoaded'));
     

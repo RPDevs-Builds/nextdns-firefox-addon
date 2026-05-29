@@ -118,8 +118,17 @@ async function refreshView() {
     });
     
     // Update Control visibility
-    addBtn.classList.toggle('hidden', ['tlds', 'blocklists'].includes(activeTab));
+    const isBackup = activeTab === 'backup';
+    addBtn.classList.toggle('hidden', ['tlds', 'blocklists', 'backup'].includes(activeTab));
+    document.getElementById('main-controls').classList.toggle('hidden', isBackup);
+    listContainer.classList.toggle('hidden', isBackup);
+    document.getElementById('backup-container').classList.toggle('hidden', !isBackup);
     
+    if (isBackup) {
+        setupBackupTab();
+        return;
+    }
+
     // Update Labels
     const labelKey = document.getElementById('label-key');
     const labels = {
@@ -145,6 +154,104 @@ async function refreshView() {
     }
 
     renderList();
+}
+
+/**
+ * Phase 3.1: Profile Cloning & Backup Logic
+ */
+async function setupBackupTab() {
+    const cloneTarget = document.getElementById('clone-target-profile');
+    cloneTarget.innerHTML = profilesList.map(p => 
+        `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`
+    ).join('');
+
+    document.getElementById('export-profile-btn').onclick = handleExportProfile;
+    document.getElementById('import-profile-btn').onclick = () => document.getElementById('import-profile-file').click();
+    document.getElementById('import-profile-file').onchange = handleImportProfile;
+}
+
+async function handleExportProfile() {
+    if (!activeProfile) return alert("No active profile detected.");
+    
+    const btn = document.getElementById('export-profile-btn');
+    btn.disabled = true;
+    btn.textContent = "Exporting...";
+
+    try {
+        const res = await browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: activeProfile });
+        if (!res?.success) throw new Error(res?.error || "Failed to fetch settings");
+
+        const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `dns-forge-backup-${activeProfile}-${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+    } catch (e) {
+        alert("Export failed: " + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "📤 Export to JSON";
+    }
+}
+
+async function handleImportProfile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const targetProfile = document.getElementById('clone-target-profile').value;
+    if (!confirm(`Are you sure you want to CLONE settings to profile ${targetProfile}? This will overwrite existing settings.`)) return;
+
+    const logEl = document.getElementById('cloning-log');
+    logEl.classList.remove('hidden');
+    logEl.innerHTML = "<div>[System] Starting Import...</div>";
+    
+    const log = (msg) => { logEl.innerHTML += `<div>${msg}</div>`; logEl.scrollTop = logEl.scrollHeight; };
+
+    try {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const config = JSON.parse(event.target.result);
+            
+            // 1. Security Settings
+            log("[1/4] Applying Security settings...");
+            for (let [key, val] of Object.entries(config.security || {})) {
+                if (typeof val === 'boolean') {
+                    await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "security", id: key, action: val ? "add" : "delete", settingType: "boolean" });
+                }
+            }
+
+            // 2. Privacy settings
+            log("[2/4] Applying Privacy settings...");
+            for (let [key, val] of Object.entries(config.privacy || {})) {
+                if (typeof val === 'boolean') {
+                    await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy", id: key, action: val ? "add" : "delete", settingType: "boolean" });
+                }
+            }
+
+            // 3. Blocklists & TLDs
+            log("[3/4] Enabling Blocklists & TLDs...");
+            for (let b of (config.blocklists || [])) {
+                await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy/blocklists", id: b.id, action: "add" });
+            }
+            for (let t of (config.tlds || [])) {
+                await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "security/tlds", id: t.id, action: "add" });
+            }
+
+            // 4. Parental Control
+            log("[4/4] Applying Parental Controls...");
+            for (let s of (config.services || [])) {
+                await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "parentalControl/services", id: s.id, action: "add" });
+            }
+
+            log("[Success] Profile cloned successfully!");
+            alert("Cloning complete!");
+        };
+        reader.readAsText(file);
+    } catch (e) {
+        log("[Error] " + e.message);
+        alert("Import failed: " + e.message);
+    }
 }
 
 /**

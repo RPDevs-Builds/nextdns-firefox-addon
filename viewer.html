@@ -201,15 +201,43 @@
       <button id="tab-filters" class="tab-btn">Filtered Domains</button>
       <button id="tab-hostnames" class="tab-btn">Device Aliases</button>
       <button id="tab-tlds" class="tab-btn">TLD Manager</button>
+      <button id="tab-backup" class="tab-btn">Backup & Cloning</button>
     </div>
 
-    <div class="controls-row">
+    <div class="controls-row" id="main-controls">
       <input type="text" id="search-input" class="search-bar" placeholder="Search entries...">
       <button id="add-btn" class="btn btn-add">+ Add New Entry</button>
     </div>
 
     <div id="list-container" class="list-container">
       <!-- Items dynamically rendered by viewer.js -->
+    </div>
+
+    <!-- Phase 3.1: Profile Cloning UI -->
+    <div id="backup-container" class="hidden">
+        <div class="panel-box" style="margin-bottom: 20px; background: var(--bg-panel); padding: 25px; border-radius: 8px; border: 1px solid var(--border-color);">
+            <h2 style="color: var(--accent); margin-top: 0;">Profile Backup & Cloning</h2>
+            <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 20px;">Download a full configuration backup (Security, Privacy, Settings, Lists) or clone it to another profile.</p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div style="border-right: 1px solid var(--border-color); padding-right: 20px;">
+                    <label>Export Current Profile</label>
+                    <p style="font-size: 0.8em; opacity: 0.7;">Create a JSON snapshot of your current settings.</p>
+                    <button id="export-profile-btn" class="btn btn-add" style="width: 100%; justify-content: center; background: #5d6d7e;">📤 Export to JSON</button>
+                </div>
+                <div>
+                    <label>Clone / Restore to Profile</label>
+                    <p style="font-size: 0.8em; opacity: 0.7;">Apply a backup file to the selected profile.</p>
+                    <select id="clone-target-profile" style="margin-bottom: 12px;"></select>
+                    <button id="import-profile-btn" class="btn btn-edit" style="width: 100%; justify-content: center;">📥 Import & Clone</button>
+                    <input type="file" id="import-profile-file" class="hidden" accept=".json">
+                </div>
+            </div>
+        </div>
+
+        <div id="cloning-log" class="panel-box hidden" style="background: #000; font-family: monospace; font-size: 0.8em; max-height: 200px; overflow-y: auto; color: #00ff00;">
+            <!-- Real-time cloning progress logs -->
+        </div>
     </div>
   </div>
 

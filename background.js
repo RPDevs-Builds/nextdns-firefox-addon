@@ -25,9 +25,7 @@ let isInitialized = false;          // Guard to prevent double initialization
  * Triggered on startup, API key change, or manual sync.
  */
 async function updateProfileCache() {
-    const sync = await browser.storage.sync.get("activeProfile");
-    const local = await browser.storage.local.get("activeProfile");
-    const activeProfile = sync.activeProfile || local.activeProfile;
+    const activeProfile = await storage.get("activeProfile");
     if (!activeProfile) return;
     
     console.log(`[Cache] Syncing lists for profile: ${activeProfile}`);
@@ -113,7 +111,7 @@ function requestListener(details) {
  * Logic to throttle notifications
  */
 async function handleBlockNotification(domain) {
-    const { blockNotif } = await browser.storage.sync.get("blockNotif");
+    const blockNotif = await storage.get("blockNotif");
     if (!blockNotif) return;
 
     const now = Date.now();
@@ -162,9 +160,7 @@ browser.storage.onChanged.addListener((changes, area) => {
  * Handle Toolbar Icon Action (Sidebar vs Popup)
  */
 async function applyIconAction() {
-    const sync = await browser.storage.sync.get("iconAction");
-    const local = await browser.storage.local.get("iconAction");
-    const iconAction = sync.iconAction || local.iconAction || "popup";
+    const iconAction = await storage.get("iconAction", "popup");
 
     if (iconAction === "sidebar") {
         await browser.action.setPopup({ popup: "" });
@@ -174,9 +170,7 @@ async function applyIconAction() {
 }
 
 browser.action.onClicked.addListener(async () => {
-    const sync = await browser.storage.sync.get("iconAction");
-    const local = await browser.storage.local.get("iconAction");
-    const iconAction = sync.iconAction || local.iconAction || "popup";
+    const iconAction = await storage.get("iconAction", "popup");
 
     if (iconAction === "sidebar") {
         if (browser.sidebarAction && browser.sidebarAction.open) {
@@ -193,24 +187,8 @@ async function initializeBackground() {
     if (isInitialized) return;
     console.log("[Init] Starting DNS Forge Background Engine...");
     
-    // Auto-heal storage from Sync (e.g. after reinstall)
-    try {
-        const sync = await browser.storage.sync.get(["apiKey", "activeProfile", "activeProfileName", "webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]);
-        const local = await browser.storage.local.get(["apiKey", "activeProfile", "activeProfileName", "webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]);
-        
-        const healObj = {};
-        for (let k in sync) {
-            if (sync[k] !== undefined && local[k] === undefined) {
-                healObj[k] = sync[k];
-            }
-        }
-        if (Object.keys(healObj).length > 0) {
-            await browser.storage.local.set(healObj);
-            console.log("[Init] Healed local storage from sync.");
-        }
-    } catch (e) {
-        console.warn("[Init] Storage heal failed:", e);
-    }
+    // Initialize centralized storage cache
+    if (typeof storage !== 'undefined') await storage.init();
 
     // 1. Detect active profile & setup UI
     await detectActiveProfile();
@@ -229,8 +207,39 @@ async function initializeBackground() {
         );
     }
     
+    // 4. Start Dynamic IP Updater (DDNS)
+    browser.alarms.create("ddns-check", { periodInMinutes: 60 });
+    checkAndUpdateLinkedIP();
+
     isInitialized = true;
     console.log("[Init] Background Engine Ready.");
+}
+
+async function checkAndUpdateLinkedIP() {
+    const activeProfile = await storage.get("activeProfile");
+    if (!activeProfile) return;
+
+    try {
+        // 1. Get current WAN IP
+        const res = await fetch("https://api.ipify.org?format=json");
+        const { ip } = await res.json();
+        
+        // 2. Get Profile Settings to check current Linked IP
+        const settingsRes = await apiClient.fetchWithRetry(`/profiles/${activeProfile}`);
+        if (!settingsRes.success) return;
+        const pData = await settingsRes.response.json();
+        const currentLinkedIP = pData.data?.linkedIp;
+
+        if (ip && ip !== currentLinkedIP) {
+            console.log(`[DDNS] IP Change detected: ${currentLinkedIP} -> ${ip}. Updating...`);
+            const updateRes = await apiClient.fetchWithRetry(`/profiles/${activeProfile}/linked-ip/${ip}`, { method: 'POST' });
+            if (updateRes.success) {
+                console.log("[DDNS] Successfully updated linked IP.");
+            }
+        }
+    } catch (e) {
+        console.warn("[DDNS] Check failed", e);
+    }
 }
 
 // Start Initialization
@@ -267,52 +276,44 @@ browser.menus.onClicked.addListener(async (info, tab) => {
 /**
  * API Communication Layer
  */
-async function getHeaders() {
-    const sync = await browser.storage.sync.get("apiKey");
-    const local = await browser.storage.local.get("apiKey");
-    const apiKey = sync.apiKey || local.apiKey || "";
-    return { "Content-Type": "application/json", "X-Api-Key": apiKey };
-}
-
 async function manageDomain(profileId, listType, domain, action) {
-    const headers = await getHeaders();
-    const endpoint = `${API_BASE}/profiles/${profileId}/${listType}`;
+    const endpoint = `/profiles/${profileId}/${listType}`;
     try {
-        let response;
+        let res;
         if (action === 'add') {
-            response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify({ id: domain }) });
+            res = await apiClient.fetchWithRetry(endpoint, { method: 'POST', body: JSON.stringify({ id: domain }) });
         } else if (action === 'delete') {
-            response = await fetch(`${endpoint}/${domain}`, { method: 'DELETE', headers });
+            res = await apiClient.fetchWithRetry(`${endpoint}/${domain}`, { method: 'DELETE' });
         } else if (action === 'list') {
-            response = await fetch(endpoint, { method: 'GET', headers });
-            if (response.ok) return await response.json();
-            return { error: response.statusText };
+            res = await apiClient.fetchWithRetry(endpoint, { method: 'GET' });
+            if (res.success) return await res.response.json();
+            return { error: res.error || "Fetch Error" };
         }
-        return { success: response.ok };
+        return { success: res.success };
     } catch (error) { return { success: false, error: "Network Error" }; }
 }
 
 async function detectActiveProfile() {
-    const sync = await browser.storage.sync.get(["overrideProfileId", "apiKey"]);
-    const local = await browser.storage.local.get(["overrideProfileId", "apiKey"]);
-    const overrideProfileId = sync.overrideProfileId || local.overrideProfileId;
-    const apiKey = sync.apiKey || local.apiKey;
+    const overrideProfileId = await storage.get("overrideProfileId");
+    const apiKey = await storage.get("apiKey");
     
     let activeId = overrideProfileId;
     
     if (!activeId) {
         try {
-            const response = await fetch(TEST_URL, { cache: 'no-store' });
-            const data = await response.json();
-            if (data?.profile) activeId = data.profile;
+            const res = await apiClient.fetchWithRetry(TEST_URL, { cache: 'no-store' }, 2, 500);
+            if (res.success) {
+                const data = await res.response.json();
+                if (data?.profile) activeId = data.profile;
+            }
         } catch (e) {}
     }
 
     if (!activeId && apiKey) {
         try {
-            const res = await fetch(`${API_BASE}/profiles`, { headers: { "X-Api-Key": apiKey } });
-            if (res.ok) {
-                const pData = await res.json();
+            const res = await apiClient.fetchWithRetry(`${API_BASE}/profiles`, {}, 2, 500);
+            if (res.success) {
+                const pData = await res.response.json();
                 if (pData.data?.length > 0) activeId = pData.data[0].id;
             }
         } catch (e) {}
@@ -320,12 +321,11 @@ async function detectActiveProfile() {
 
     if (activeId) {
         let profileName = activeId; 
-        const headers = await getHeaders();
-        if (headers["X-Api-Key"]) {
+        if (apiKey) {
             try {
-                const pRes = await fetch(`${API_BASE}/profiles`, { headers });
-                if (pRes.ok) {
-                    const pData = await pRes.json();
+                const pRes = await apiClient.fetchWithRetry(`${API_BASE}/profiles`, {}, 2, 500);
+                if (pRes.success) {
+                    const pData = await pRes.response.json();
                     const matchedProfile = pData.data.find(p => p.id === activeId || p.fingerprint === activeId);
                     if (matchedProfile) {
                         activeId = matchedProfile.id;
@@ -335,11 +335,8 @@ async function detectActiveProfile() {
             } catch(e) {}
         }
         
-        const saveObj = { activeProfile: activeId, activeProfileName: profileName };
-        await Promise.all([
-            browser.storage.sync.set(saveObj),
-            browser.storage.local.set(saveObj)
-        ]);
+        await storage.set("activeProfile", activeId);
+        await storage.set("activeProfileName", profileName);
         
         return { id: activeId, name: profileName };
     }
@@ -368,38 +365,41 @@ const messageHandlers = {
     },
     GET_TAB_STATS: async (msg) => ({ requests: tabRequests[msg.tabId] || {}, blockedCount: blockedTabRequests[msg.tabId] || 0 }),
     GET_LOGS: async (msg) => {
-        const h = await getHeaders();
-        h["Accept"] = "application/json";
         try { 
-            const r = await fetch(`${API_BASE}/profiles/${msg.profileId}/logs`, { headers: h, cache: 'no-store' });
-            const json = await r.json();
-            return { success: r.ok, data: json.data || json || [] };
+            const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/logs`, { cache: 'no-store', headers: { "Accept": "application/json", "X-Api-Key": await storage.get("apiKey", "") } });
+            if (!r.success) return { success: false, data: [] };
+            const json = await r.response.json();
+            return { success: true, data: json.data || json || [] };
         } catch(e) { return { success: false, data: [] }; }
     },
     GET_ANALYTICS: async (msg) => {
-        const h = await getHeaders();
-        try { return await (await fetch(`${API_BASE}/profiles/${msg.profileId}/analytics/status`, { headers: h, cache: 'no-store' })).json(); } catch(e) { return { data: {} }; }
+        try { 
+            const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/analytics/status`, { cache: 'no-store' });
+            return r.success ? await r.response.json() : { data: {} };
+        } catch(e) { return { data: {} }; }
     },
     GET_PROFILE: async () => await detectActiveProfile(),
     GET_PROFILES_LIST: async () => {
-        const h = await getHeaders();
-        try { return await (await fetch(`${API_BASE}/profiles`, { headers: h, cache: 'no-store' })).json(); } catch(e) { return null; }
+        try { 
+            const r = await apiClient.fetchWithRetry(`/profiles`, { cache: 'no-store' });
+            return r.success ? await r.response.json() : null;
+        } catch(e) { return null; }
     },
     CLEAR_LOGS: async (msg) => {
-        const h = await getHeaders();
-        const r = await fetch(`${API_BASE}/profiles/${msg.profileId}/logs`, { method: 'DELETE', headers: h });
-        return { success: r.ok };
+        const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/logs`, { method: 'DELETE' });
+        return { success: r.success };
     },
     DOWNLOAD_LOGS_CSV: async (msg) => {
-        const h = await getHeaders();
-        try { return await (await fetch(`${API_BASE}/profiles/${msg.profileId}/logs/download`, { headers: h, cache: 'no-store' })).text(); } catch(e) { return null; }
+        try { 
+            const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/logs/download`, { cache: 'no-store' });
+            return r.success ? await r.response.text() : null;
+        } catch(e) { return null; }
     },
     GET_ALL_SETTINGS: async (msg) => {
-        const h = await getHeaders();
         try {
-            const r = await fetch(`${API_BASE}/profiles/${msg.profileId}`, { headers: h, cache: 'no-store' });
-            if (!r.ok) return { success: false, error: r.statusText };
-            const res = await r.json();
+            const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}`, { cache: 'no-store' });
+            if (!r.success) return { success: false, error: r.error };
+            const res = await r.response.json();
             const p = res.data || {};
             return { 
                 success: true, 
@@ -417,7 +417,6 @@ const messageHandlers = {
         } catch(e) { return { success: false, error: e.message }; }
     },
     TOGGLE_SETTING: async (msg) => {
-        const h = await getHeaders();
         let { profileId, category, id, action, settingType } = msg;
         
         // Normalize Category (NextDNS API case-sensitivity)
@@ -425,22 +424,22 @@ const messageHandlers = {
             category = category.replace(/parentalcontrol/i, 'parentalControl');
         }
         
-        const url = `${API_BASE}/profiles/${profileId}/${category}`;
+        const endpoint = `/profiles/${profileId}/${category}`;
         try {
             let r;
             if (settingType === 'boolean') {
                 const body = {}; body[id] = (action === "add");
-                r = await fetch(url, { method: 'PATCH', headers: h, body: JSON.stringify(body) });
+                r = await apiClient.fetchWithRetry(endpoint, { method: 'PATCH', body: JSON.stringify(body) });
             } else {
                 if (action === "add") {
                     const body = { id: id };
                     if (category.includes('parentalControl')) body.active = true;
-                    r = await fetch(url, { method: 'POST', headers: h, body: JSON.stringify(body) });
+                    r = await apiClient.fetchWithRetry(endpoint, { method: 'POST', body: JSON.stringify(body) });
                 } else {
-                    r = await fetch(`${url}/${id}`, { method: 'DELETE', headers: h });
+                    r = await apiClient.fetchWithRetry(`${endpoint}/${id}`, { method: 'DELETE' });
                 }
             }
-            return { success: r.ok };
+            return { success: r.success };
         } catch(e) { return { success: false, error: e.message }; }
     }
 };
@@ -468,6 +467,8 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
             await manageDomain(p, "allowlist", d, "delete");
             await updateProfileCache();
         }
+    } else if (alarm.name === "ddns-check") {
+        checkAndUpdateLinkedIP();
     }
 });
 

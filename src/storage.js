@@ -14,6 +14,17 @@ class StorageManager {
         const localData = await browser.storage.local.get(null);
         this.cache = { ...localData, ...syncData };
         
+        const healObj = {};
+        for (let k in syncData) {
+            if (syncData[k] !== undefined && localData[k] === undefined) {
+                healObj[k] = syncData[k];
+            }
+        }
+        if (Object.keys(healObj).length > 0) {
+            await browser.storage.local.set(healObj);
+            console.log("[StorageManager] Healed local storage from sync.");
+        }
+
         browser.storage.onChanged.addListener((changes, area) => {
             for (let [key, { newValue }] of Object.entries(changes)) {
                 if (newValue === undefined) {
