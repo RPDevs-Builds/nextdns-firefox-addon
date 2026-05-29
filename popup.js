@@ -456,12 +456,12 @@ async function initializeApp() {
     // Load Core Preferences (Dual-storage fallback)
     const syncPrefs = await browser.storage.sync.get([
         "apiKey", "autoRefreshDefault", "hostnameAliases", "aliases",
-        "webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc", 
+        "webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", 
         "webGuiProfileNotes", "webGuiFilter"
     ]);
     const localPrefs = await browser.storage.local.get([
         "apiKey", "autoRefreshDefault", "hostnameAliases",
-        "webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc", 
+        "webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", 
         "webGuiProfileNotes", "webGuiFilter"
     ]);
     
@@ -528,6 +528,7 @@ function initWebCustomizationUI(prefs) {
     
     const toggles = {
         "web-gui-tlds-toggle": prefs.webGuiTlds !== false,
+        "web-gui-blocklists-toggle": prefs.webGuiBlocklists !== false,
         "web-gui-log-actions-toggle": prefs.webGuiLogActions !== false,
         "web-gui-filter-toggle": prefs.webGuiFilter !== false,
         "web-gui-desc-toggle": prefs.webGuiDesc !== false,

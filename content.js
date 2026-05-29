@@ -1,15 +1,16 @@
 const INTERNAL_API = "https://api.nextdns.io/profiles";
 
-let webGuiConfig = { master: true, tlds: true, logs: true, desc: true, notes: true, filter: true };
+let webGuiConfig = { master: true, tlds: true, blocklists: true, logs: true, desc: true, notes: true, filter: true };
 
 // Initialize config and listen for live changes
 async function initConfig() {
-  const sync = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]);
-  const local = await browser.storage.local.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]);
+  const sync = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]);
+  const local = await browser.storage.local.get(["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]);
   const res = { ...local, ...sync };
 
   if (res.webGuiMaster !== undefined) webGuiConfig.master = res.webGuiMaster;
   if (res.webGuiTlds !== undefined) webGuiConfig.tlds = res.webGuiTlds;
+  if (res.webGuiBlocklists !== undefined) webGuiConfig.blocklists = res.webGuiBlocklists;
   if (res.webGuiLogActions !== undefined) webGuiConfig.logs = res.webGuiLogActions;
   if (res.webGuiDesc !== undefined) webGuiConfig.desc = res.webGuiDesc;
   if (res.webGuiProfileNotes !== undefined) webGuiConfig.notes = res.webGuiProfileNotes;
@@ -22,18 +23,30 @@ browser.storage.onChanged.addListener((changes, area) => {
   if (area === "sync" || area === "local") {
     if (changes.webGuiMaster) webGuiConfig.master = changes.webGuiMaster.newValue;
     if (changes.webGuiTlds) webGuiConfig.tlds = changes.webGuiTlds.newValue;
+    if (changes.webGuiBlocklists) webGuiConfig.blocklists = changes.webGuiBlocklists.newValue;
     if (changes.webGuiLogActions) webGuiConfig.logs = changes.webGuiLogActions.newValue;
     if (changes.webGuiDesc) webGuiConfig.desc = changes.webGuiDesc.newValue;
     if (changes.webGuiProfileNotes) webGuiConfig.notes = changes.webGuiProfileNotes.newValue;
     if (changes.webGuiFilter) webGuiConfig.filter = changes.webGuiFilter.newValue;
     
+    const path = window.location.pathname;
+
     // Force a UI re-evaluation if user toggles live
     if (!webGuiConfig.master || !webGuiConfig.tlds) {
       document.getElementById('nxm-tld-controls')?.remove();
       document.getElementById('nxm-modal-enable-all')?.remove();
       document.getElementById('nxm-modal-disable-all')?.remove();
-      document.getElementById('nxm-privacy-controls')?.remove();
+    } else if (webGuiConfig.master && webGuiConfig.tlds && path.endsWith('/security')) {
+      injectPageButtons();
+      injectModalButtons();
     }
+
+    if (!webGuiConfig.master || !webGuiConfig.blocklists) {
+      document.getElementById('nxm-privacy-controls')?.remove();
+    } else if (webGuiConfig.master && webGuiConfig.blocklists && path.endsWith('/privacy')) {
+      injectPrivacyButtons();
+    }
+
     if (!webGuiConfig.master || !webGuiConfig.logs) {
       document.querySelectorAll('.nxm-log-actions').forEach(el => el.remove());
       document.getElementById('nxm-logs-filter-group')?.remove();
