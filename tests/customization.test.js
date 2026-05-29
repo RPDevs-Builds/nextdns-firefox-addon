@@ -73,23 +73,25 @@ describe('Website Customization Engine', () => {
       <div id="root">
         <div class="Security">
           <div class="card">
-            <div class="card-body">
-              <button>Add a TLD</button>
-            </div>
             <div class="list-group">
-              <div class="list-group-item">.com</div>
+                <div class="py-3 list-group-item">
+                    <h5>Block Top-Level Domains (TLDs)</h5>
+                    <div style="opacity: 0.6; font-size: 0.9em;">Block all domains and subdomains belonging to specific TLDs.</div>
+                </div>
+                <div class="list-group-item">.com</div>
+                <div class="list-group-item">.net</div>
             </div>
           </div>
         </div>
         <div class="Privacy">
             <div class="card">
                 <div class="list-group">
-                    <div class="list-group-item">
-                        <div>Blocklists</div>
+                    <div class="py-3 list-group-item">
+                        <h5>Blocklists</h5>
+                        <div style="opacity: 0.6; font-size: 0.9em;">Block ads &amp; trackers using the most popular blocklists available — all updated in real-time.</div>
                     </div>
-                    <div class="list-group list-group-flush">
-                        <div class="list-group-item">EasyList</div>
-                    </div>
+                    <div class="list-group-item">EasyList</div>
+                    <div class="list-group-item">NextDNS Recommended</div>
                 </div>
             </div>
         </div>
@@ -110,18 +112,19 @@ describe('Website Customization Engine', () => {
 
   test('TLD injection, cleanup, and re-injection', async () => {
     expect(document.getElementById('nxm-tld-controls')).not.toBeNull();
-    const listGroup = document.querySelector('.Security .list-group');
-    expect(listGroup.style.display).toBe('none');
+    const headerItem = document.querySelector('.Security .py-3.list-group-item');
+    const siblings = Array.from(headerItem.parentElement.children).filter(el => el !== headerItem);
+    expect(siblings[0].style.display).toBe('none');
 
     // Disable TLD Rollup
     await global.browser.storage.sync.set({ webGuiTlds: false });
     expect(document.getElementById('nxm-tld-controls')).toBeNull();
-    expect(listGroup.style.display).toBe('');
+    expect(siblings[0].style.display).toBe('');
 
     // Re-enable TLD Rollup
     await global.browser.storage.sync.set({ webGuiTlds: true });
     expect(document.getElementById('nxm-tld-controls')).not.toBeNull();
-    expect(listGroup.style.display).toBe('none');
+    expect(siblings[0].style.display).toBe('none');
   });
 
   test('Master toggle cleanup', async () => {
@@ -131,8 +134,9 @@ describe('Website Customization Engine', () => {
     await global.browser.storage.sync.set({ webGuiMaster: false });
 
     expect(document.getElementById('nxm-tld-controls')).toBeNull();
-    const listGroup = document.querySelector('.Security .list-group');
-    expect(listGroup.style.display).toBe('');
+    const headerItem = document.querySelector('.Security .py-3.list-group-item');
+    const siblings = Array.from(headerItem.parentElement.children).filter(el => el !== headerItem);
+    expect(siblings[0].style.display).toBe('');
   });
 
   test('Blocklist injection and cleanup', async () => {
