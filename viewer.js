@@ -1,338 +1,381 @@
-let activeTab = 'domains'; // 'domains', 'profiles', 'filters', 'hostnames', or 'tlds'
-let currentData = {}; // Cache for currently displayed tab
-let blocksMeta = { tlds: [] };
-let activeTlds = new Set();
-let activeProfile = null;
+/**
+ * DNS Forge - viewer.js
+ * Logic for the full-screen Data Manager window.
+ * 
+ * Performance & Security Refactor - June 2026
+ */
 
-const tabDomains = document.getElementById('tab-domains');
-const tabProfiles = document.getElementById('tab-profiles');
-const tabFilters = document.getElementById('tab-filters');
-const tabHostnames = document.getElementById('tab-hostnames');
-const tabTlds = document.getElementById('tab-tlds');
+// --- Global State ---
+let activeTab = 'domains';      // Currently active sub-tab ('domains', 'profiles', 'filters', 'hostnames', 'tlds')
+let currentData = {};           // Cache for the active tab's data (storage-based)
+let profilesList = [];          // List of available NextDNS profiles
+let activeProfile = null;       // Active profile ID for API calls
+let blocksMeta = { tlds: [] };  // Metadata for TLDs
+let activeTlds = new Set();     // Currently blocked TLDs
+
+// --- DOM References ---
 const listContainer = document.getElementById('list-container');
 const searchInput = document.getElementById('search-input');
 const addBtn = document.getElementById('add-btn');
-
 const editModal = document.getElementById('edit-modal');
 const modalTitle = document.getElementById('modal-title');
-const labelKey = document.getElementById('label-key');
 const inputKey = document.getElementById('input-key');
 const selectProfile = document.getElementById('select-profile');
 const inputNote = document.getElementById('input-note');
 const saveBtn = document.getElementById('save-btn');
 const cancelBtn = document.getElementById('cancel-btn');
 
-let profilesList = [];
-
-// Initialize from URL params
-const params = new URLSearchParams(window.location.search);
-if (params.get('tab') === 'profiles') activeTab = 'profiles';
-else if (params.get('tab') === 'filters') activeTab = 'filters';
-else if (params.get('tab') === 'hostnames') activeTab = 'hostnames';
-else if (params.get('tab') === 'tlds') activeTab = 'tlds';
-
-async function init() {
-  const p = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
-  if (p) activeProfile = p.id;
-  
-  if (activeTab === 'tlds') {
-    await fetchTldData();
-  }
-  
-  updateTabs();
-  renderList();
-  fetchProfiles();
+/**
+ * Robust HTML escaping to prevent XSS
+ */
+function escapeHTML(str) {
+    if (typeof str !== 'string') return str;
+    return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag]));
 }
 
-init();
-
-async function fetchTldData() {
-  const local = await browser.storage.local.get("scrapedMeta");
-  if (local.scrapedMeta && local.scrapedMeta.tlds) {
-    blocksMeta.tlds = local.scrapedMeta.tlds;
-  }
-  if (activeProfile) {
-    const res = await browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: activeProfile });
-    if (res && res.success && res.data && res.data.tlds) {
-      activeTlds = new Set(res.data.tlds.map(t => t.id));
+/**
+ * Main Initialization
+ */
+async function init() {
+    // 1. Detect Active Profile
+    const p = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
+    if (p) activeProfile = p.id;
+    
+    // 2. Parse initial tab from URL
+    const params = new URLSearchParams(window.location.search);
+    const initialTab = params.get('tab');
+    if (['profiles', 'filters', 'hostnames', 'tlds'].includes(initialTab)) {
+        activeTab = initialTab;
     }
-  }
+    
+    // 3. Setup event listeners
+    initEventListeners();
+    
+    // 4. Initial Render
+    await refreshView();
+    
+    // 5. Fetch profiles for selection
+    fetchProfiles();
+}
+
+/**
+ * Bind global UI events
+ */
+function initEventListeners() {
+    // Tab Navigation
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.onclick = async () => {
+            activeTab = btn.id.replace('tab-', '');
+            await refreshView();
+        };
+    });
+
+    // Search Input
+    searchInput.oninput = () => renderList();
+
+    // Add New Entry
+    addBtn.onclick = openAddModal;
+
+    // Modal Controls
+    cancelBtn.onclick = () => { editModal.style.display = 'none'; };
+    saveBtn.onclick = handleSave;
+
+    // Global Click Delegation for List Items (Edit/Delete/Toggle)
+    listContainer.onclick = async (e) => {
+        const target = e.target;
+        
+        // Handle TLD Toggles
+        if (target.closest('.api-toggle-btn')) {
+            handleTldToggle(target.closest('.api-toggle-btn'));
+            return;
+        }
+        
+        // Handle Edit/Delete Buttons
+        const btn = target.closest('.btn');
+        if (!btn) return;
+        
+        const key = btn.getAttribute('data-key');
+        if (!key) return;
+
+        if (btn.classList.contains('btn-edit')) {
+            openEditModal(key);
+        } else if (btn.classList.contains('btn-delete')) {
+            handleDelete(key);
+        }
+    };
+}
+
+/**
+ * Central View Refresher
+ */
+async function refreshView() {
+    // Update Tab UI
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.id === `tab-${activeTab}`);
+    });
+    
+    // Update Control visibility
+    addBtn.classList.toggle('hidden', activeTab === 'tlds');
+    
+    // Update Labels
+    const labelKey = document.getElementById('label-key');
+    const labels = {
+        'domains': 'Domain',
+        'profiles': 'Profile ID',
+        'hostnames': 'Device ID / IP',
+        'tlds': 'TLD',
+        'filters': 'Filter Pattern'
+    };
+    if (labelKey) labelKey.textContent = labels[activeTab] || 'Key';
+
+    // Fetch Data based on tab
+    if (activeTab === 'tlds') {
+        await fetchTldData();
+    } else {
+        const storageKey = getStorageKey();
+        const sync = await browser.storage.sync.get(storageKey);
+        const local = await browser.storage.local.get(storageKey);
+        currentData = sync[storageKey] || local[storageKey] || {};
+    }
+
+    renderList();
+}
+
+/**
+ * Fetch Metadata for TLD Manager
+ */
+async function fetchTldData() {
+    const local = await browser.storage.local.get("scrapedMeta");
+    if (local.scrapedMeta?.tlds) {
+        blocksMeta.tlds = local.scrapedMeta.tlds;
+    }
+    if (activeProfile) {
+        const res = await browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: activeProfile });
+        if (res?.success && res.data?.tlds) {
+            activeTlds = new Set(res.data.tlds.map(t => t.id));
+        }
+    }
+}
+
+/**
+ * Render the main content list
+ */
+function renderList() {
+    const query = searchInput.value.toLowerCase();
+    
+    if (activeTab === 'tlds') {
+        renderTlds(query);
+        return;
+    }
+    
+    const entries = Object.entries(currentData).filter(([key, val]) => {
+        return key.toLowerCase().includes(query) || val.toLowerCase().includes(query);
+    }).sort((a, b) => a[0].localeCompare(b[0]));
+
+    let html = '';
+    // Optional info banners
+    if (activeTab === 'filters') {
+        html += `<div class="panel-box" style="margin: 15px; font-size: 0.9em; opacity: 0.8;">
+            <b>Wildcard Rules:</b> <code>domain.tld</code> (Exact), <code>*.domain.tld</code> (Subdomain), <code>**.domain.tld</code> (All Subdomains).
+        </div>`;
+    }
+
+    // Map entries to HTML
+    html += entries.map(([key, val]) => `
+        <div class="list-item">
+            <div class="item-info">
+                <div class="item-title">${escapeHTML(key)}</div>
+                <div class="item-desc">${escapeHTML(val)}</div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-edit" data-key="${escapeHTML(key)}">Edit</button>
+                <button class="btn btn-delete" data-key="${escapeHTML(key)}">Delete</button>
+            </div>
+        </div>
+    `).join('') || `<div style="text-align:center; padding:60px; opacity:0.5;">No items found in ${activeTab}.</div>`;
+    
+    listContainer.innerHTML = html;
+}
+
+/**
+ * Render TLD Manager Tab
+ */
+function renderTlds(query) {
+    const groups = {};
+    blocksMeta.tlds.forEach(tld => {
+        if (query && !tld.toLowerCase().includes(query)) return;
+        const letter = tld[0].toUpperCase();
+        if (!groups[letter]) groups[letter] = [];
+        groups[letter].push(tld);
+    });
+
+    const sortedLetters = Object.keys(groups).sort();
+    
+    let html = `<div id="tlds-top">${sortedLetters.map(l => `<a href="#tld-group-${l}" class="tld-jump-link">${l}</a>`).join('')}</div>`;
+
+    html += sortedLetters.map(letter => `
+        <div id="tld-group-${letter}" class="panel-box" style="margin: 20px; padding: 20px; background: var(--bg-panel);">
+            <div class="flex-between" style="border-bottom: 1px solid var(--border-color); margin-bottom: 15px; padding-bottom: 10px;">
+                <h2 style="margin:0; font-size: 1.5em; color: var(--accent);">${letter}</h2>
+                <a href="#tlds-top" style="font-size:0.8em; color:var(--text-muted); text-decoration:none;">↑ BACK TO TOP</a>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                ${groups[letter].map(t => {
+                    const active = activeTlds.has(t);
+                    return `
+                        <div class="flex-between" style="background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px;">
+                            <span style="font-family:monospace; font-size:0.95em; ${active ? 'color: var(--deny);' : ''}">${escapeHTML(t)}</span>
+                            <button class="api-toggle-btn btn ${active ? 'btn-delete' : 'btn-add'}" 
+                                data-cat="security/tlds" data-id="${t}" data-active="${active}" 
+                                style="padding:4px 10px; font-size: 0.8em;">${active ? 'OFF' : 'ON'}</button>
+                        </div>`;
+                }).join('')}
+            </div>
+        </div>
+    `).join('') || `<div style="text-align:center; padding:60px; opacity:0.5;">TLD list is empty. Try syncing metadata in Options.</div>`;
+    
+    listContainer.innerHTML = html;
+}
+
+/**
+ * Modal Actions (Add/Edit)
+ */
+function openEditModal(key) {
+    const val = currentData[key] || "";
+    modalTitle.textContent = `Edit Entry`;
+    inputKey.value = key;
+    inputKey.disabled = true;
+    inputKey.classList.remove('hidden');
+    selectProfile.classList.add('hidden');
+    inputNote.value = val;
+    editModal.style.display = 'flex';
+}
+
+function openAddModal() {
+    modalTitle.textContent = `Add New Entry`;
+    inputKey.value = '';
+    inputNote.value = '';
+    
+    const keySection = document.getElementById('key-section');
+    const labelKey = document.getElementById('label-key');
+    
+    if (activeTab === 'profiles') {
+        if (labelKey) labelKey.textContent = 'Select Profile';
+        inputKey.classList.add('hidden');
+        selectProfile.classList.remove('hidden');
+    } else {
+        if (labelKey) labelKey.textContent = 'Key / Domain';
+        inputKey.classList.remove('hidden');
+        inputKey.disabled = false;
+        selectProfile.classList.add('hidden');
+    }
+    
+    editModal.style.display = 'flex';
+}
+
+async function handleSave() {
+    const key = (activeTab === 'profiles' && !selectProfile.classList.contains('hidden')) 
+        ? selectProfile.value 
+        : inputKey.value.trim();
+        
+    const note = inputNote.value.trim();
+    if (!key) return alert('Please enter or select a key.');
+
+    const storageKey = getStorageKey();
+    const storage = await browser.storage.sync.get(storageKey);
+    const data = storage[storageKey] || {};
+    
+    data[key] = note || (activeTab === 'filters' ? "Hidden" : "");
+    
+    const saveObj = {};
+    saveObj[storageKey] = data;
+    await Promise.all([
+        browser.storage.sync.set(saveObj),
+        browser.storage.local.set(saveObj)
+    ]);
+    editModal.style.display = 'none';
+    refreshView();
+}
+
+async function handleDelete(key) {
+    if (!confirm(`Permanently remove entry for "${key}"?`)) return;
+    const storageKey = getStorageKey();
+    const storage = await browser.storage.sync.get(storageKey);
+    const data = storage[storageKey] || {};
+    delete data[key];
+    
+    const saveObj = {};
+    saveObj[storageKey] = data;
+    await Promise.all([
+        browser.storage.sync.set(saveObj),
+        browser.storage.local.set(saveObj)
+    ]);
+    refreshView();
+}
+
+/**
+ * TLD API Handler
+ */
+async function handleTldToggle(btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    
+    const cat = btn.getAttribute('data-cat');
+    const id = btn.getAttribute('data-id');
+    const active = btn.getAttribute('data-active') === 'true';
+    
+    const res = await browser.runtime.sendMessage({ 
+        type: "TOGGLE_SETTING", 
+        profileId: activeProfile, 
+        category: cat, 
+        id, 
+        action: active ? "delete" : "add", 
+        settingType: 'list' 
+    });
+    
+    if (res?.success) {
+        if (active) activeTlds.delete(id);
+        else activeTlds.add(id);
+        renderList();
+    } else {
+        alert("Failed to update TLD setting.");
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    }
+}
+
+/**
+ * Utility Helpers
+ */
+function getStorageKey() {
+    const map = {
+        'domains': 'domainDescriptions',
+        'profiles': 'profileNotes',
+        'filters': 'logFilters',
+        'hostnames': 'hostnameAliases'
+    };
+    return map[activeTab] || 'domainDescriptions';
 }
 
 async function fetchProfiles() {
-  try {
-    const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
-    if (res && res.data) {
-      profilesList = res.data;
-      populateProfileSelect();
-    }
-  } catch (e) { console.error("Failed to fetch profiles", e); }
+    try {
+        const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
+        if (res && res.data) {
+            profilesList = res.data;
+            selectProfile.innerHTML = profilesList.map(p => 
+                `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`
+            ).join('');
+        } else if (Array.isArray(res)) {
+            // Handle different API response shapes
+            profilesList = res;
+            selectProfile.innerHTML = profilesList.map(p => 
+                `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`
+            ).join('');
+        }
+    } catch (e) { console.warn("Failed to fetch profiles for modal", e); }
 }
 
-function populateProfileSelect() {
-  selectProfile.innerHTML = profilesList.map(p => 
-    `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`
-  ).join('');
-}
-
-tabDomains.onclick = () => { activeTab = 'domains'; updateTabs(); renderList(); };
-tabProfiles.onclick = () => { activeTab = 'profiles'; updateTabs(); renderList(); };
-tabFilters.onclick = () => { activeTab = 'filters'; updateTabs(); renderList(); };
-tabHostnames.onclick = () => { activeTab = 'hostnames'; updateTabs(); renderList(); };
-tabTlds.onclick = async () => { activeTab = 'tlds'; updateTabs(); await fetchTldData(); renderList(); };
-searchInput.oninput = () => renderList();
-
-function updateTabs() {
-  tabDomains.classList.toggle('active', activeTab === 'domains');
-  tabProfiles.classList.toggle('active', activeTab === 'profiles');
-  tabFilters.classList.toggle('active', activeTab === 'filters');
-  tabHostnames.classList.toggle('active', activeTab === 'hostnames');
-  tabTlds.classList.toggle('active', activeTab === 'tlds');
-  
-  addBtn.style.display = activeTab === 'tlds' ? 'none' : 'block';
-  
-  if (activeTab === 'domains') labelKey.textContent = 'Domain';
-  else if (activeTab === 'profiles') labelKey.textContent = 'Profile ID';
-  else if (activeTab === 'hostnames') labelKey.textContent = 'Device ID / IP';
-  else if (activeTab === 'tlds') labelKey.textContent = 'TLD';
-  else labelKey.textContent = 'Filter Pattern (e.g. **.google.com)';
-}
-
-async function renderList() {
-  const query = searchInput.value.toLowerCase();
-  
-  if (activeTab === 'tlds') {
-    renderTlds(query);
-    return;
-  }
-  
-  let storageKey = 'domainDescriptions';
-  if (activeTab === 'profiles') storageKey = 'profileNotes';
-  if (activeTab === 'filters') storageKey = 'logFilters';
-  if (activeTab === 'hostnames') storageKey = 'hostnameAliases';
-  
-  const storage = await browser.storage.sync.get(storageKey);
-  currentData = storage[storageKey] || {};
-  
-  const entries = Object.entries(currentData).filter(([key, val]) => {
-    return key.toLowerCase().includes(query) || val.toLowerCase().includes(query);
-  }).sort((a, b) => a[0].localeCompare(b[0]));
-
-  let html = '';
-  if (activeTab === 'filters') {
-    html += `<div style="padding: 10px; font-size: 0.85em; color: var(--text-muted); background: var(--bg-main); border-radius: 4px; margin-bottom: 15px;">
-      <b>Wildcard Rules:</b><br>
-      - <code>domain.tld</code>: Exact match only.<br>
-      - <code>*.domain.tld</code>: 1 level of subdomains.<br>
-      - <code>*.*.domain.tld</code>: 2 levels of subdomains.<br>
-      - <code>**.domain.tld</code>: ALL subdomains recursively.
-    </div>`;
-  } else if (activeTab === 'hostnames') {
-    html += `<div style="padding: 10px; font-size: 0.85em; color: var(--text-muted); background: var(--bg-main); border-radius: 4px; margin-bottom: 15px;">
-      <b>Device Aliases:</b> Map Device IDs or IPs to friendly names. These will appear in your logs for easier identification.
-    </div>`;
-  }
-
-  html += entries.map(([key, val]) => `
-    <div class="list-item">
-      <div class="item-info">
-        <div class="item-title">${escapeHTML(key)}</div>
-        <div class="item-desc">${escapeHTML(val)}</div>
-      </div>
-      <div style="display:flex; gap:10px;">
-        <button class="btn btn-edit" data-key="${escapeHTML(key)}">Edit</button>
-        <button class="btn btn-delete" data-key="${escapeHTML(key)}">Delete</button>
-      </div>
-    </div>
-  `).join('') || `<div style="text-align:center; padding:40px; color:var(--text-muted);">No ${activeTab} found.</div>`;
-  
-  listContainer.innerHTML = html;
-}
-
-// Event Delegation for Edit/Delete
-listContainer.addEventListener('click', async (e) => {
-  const btn = e.target.closest('button');
-  if (!btn) return;
-
-  const key = btn.getAttribute('data-key');
-  if (!key) return;
-
-  if (btn.classList.contains('btn-edit')) {
-    openEdit(key);
-  } else if (btn.classList.contains('btn-delete')) {
-    deleteEntry(key);
-  }
-});
-
-function escapeHTML(str) {
-  const p = document.createElement('p');
-  p.textContent = str;
-  return p.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-function openEdit(key) {
-  const val = currentData[key] || "";
-  modalTitle.textContent = `Edit ${activeTab === 'domains' ? 'Domain Description' : (activeTab === 'profiles' ? 'Profile Note' : (activeTab === 'hostnames' ? 'Device Alias' : 'Log Filter'))}`;
-  
-  inputKey.value = key;
-  inputKey.disabled = true;
-  inputKey.style.display = 'block';
-  selectProfile.style.display = 'none';
-
-  inputNote.value = val;
-  editModal.style.display = 'flex';
-}
-
-addBtn.onclick = () => {
-  modalTitle.textContent = `Add ${activeTab === 'domains' ? 'Domain Description' : (activeTab === 'profiles' ? 'Profile Note' : (activeTab === 'hostnames' ? 'Device Alias' : 'Log Filter'))}`;
-  inputKey.value = '';
-  inputNote.value = '';
-  
-  if (activeTab === 'profiles') {
-    inputKey.style.display = 'none';
-    selectProfile.style.display = 'block';
-    if (profilesList.length === 0) fetchProfiles();
-  } else {
-    inputKey.style.display = 'block';
-    inputKey.disabled = false;
-    selectProfile.style.display = 'none';
-  }
-  
-  editModal.style.display = 'flex';
-};
-
-cancelBtn.onclick = () => {
-  editModal.style.display = 'none';
-};
-
-saveBtn.onclick = async () => {
-  const key = (activeTab === 'profiles' && selectProfile.style.display === 'block') 
-    ? selectProfile.value 
-    : inputKey.value.trim();
-    
-  const note = inputNote.value.trim();
-  if (!key) return alert('Please enter or select a key.');
-
-  let storageKey = 'domainDescriptions';
-  if (activeTab === 'profiles') storageKey = 'profileNotes';
-  if (activeTab === 'filters') storageKey = 'logFilters';
-  if (activeTab === 'hostnames') storageKey = 'hostnameAliases';
-
-  const storage = await browser.storage.sync.get(storageKey);
-  const data = storage[storageKey] || {};
-  
-  if (note || activeTab === 'filters') {
-    data[key] = note || "Hidden";
-  } else {
-    delete data[key];
-  }
-  
-  const saveObj = {};
-  saveObj[storageKey] = data;
-  await browser.storage.sync.set(saveObj);
-  editModal.style.display = 'none';
-  renderList();
-};
-
-async function deleteEntry(key) {
-  if (!confirm(`Delete ${activeTab === 'domains' ? 'description' : (activeTab === 'profiles' ? 'note' : (activeTab === 'hostnames' ? 'alias' : 'filter'))} for ${key}?`)) return;
-  let storageKey = 'domainDescriptions';
-  if (activeTab === 'profiles') storageKey = 'profileNotes';
-  if (activeTab === 'filters') storageKey = 'logFilters';
-  if (activeTab === 'hostnames') storageKey = 'hostnameAliases';
-
-  const storage = await browser.storage.sync.get(storageKey);
-  const data = storage[storageKey] || {};
-  delete data[key];
-  const saveObj = {};
-  saveObj[storageKey] = data;
-  await browser.storage.sync.set(saveObj);
-  renderList();
-}
-
-function renderTlds(query) {
-  const groups = {};
-  blocksMeta.tlds.forEach(tld => {
-    if (query && !tld.toLowerCase().includes(query)) return;
-    
-    const addToList = (letter) => {
-      letter = letter.toUpperCase();
-      if (!groups[letter]) groups[letter] = [];
-      groups[letter].push(tld);
-    };
-
-    const firstLetter = tld[0];
-    addToList(firstLetter);
-
-    // Handle 2-part TLDs like co.uk
-    if (tld.includes('.')) {
-      const parts = tld.split('.');
-      parts.forEach((p, idx) => {
-        if (idx > 0) addToList(p[0]);
-      });
-    }
-  });
-
-  const sortedLetters = Object.keys(groups).sort();
-  
-  let html = `<div id="tlds-top" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom: 20px; justify-content:center;">
-    ${sortedLetters.map(l => `<a href="#tld-group-${l}" style="text-decoration:none; padding: 4px 10px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main);">${l}</a>`).join('')}
-  </div>`;
-
-  html += sortedLetters.map(letter => `
-    <div id="tld-group-${letter}" style="margin-top: 20px; scroll-margin-top: 20px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px;">
-      <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1px solid var(--border-color); margin-bottom:10px; padding-bottom: 5px;">
-        <div style="font-weight:bold; font-size:1.2em; color:var(--accent);">${letter}</div>
-        <a href="#tlds-top" style="font-size:0.85em; text-decoration:none; color:var(--text-muted);">↑ Back to Top</a>
-      </div>
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
-        ${groups[letter].map(t => {
-          const active = activeTlds.has(t);
-          return `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px; background: rgba(0,0,0,0.2); border-radius: 4px;">
-              <span style="font-family:monospace; font-size:0.9em; ${active ? 'text-decoration:line-through; opacity:0.5;' : ''}">${escapeHTML(t)}</span>
-              <button class="api-toggle-btn btn ${active ? 'btn-allow' : 'btn-delete'}" data-cat="security/tlds" data-id="${t}" data-active="${active}" style="padding:4px 8px; font-size: 0.8em; margin: 0;">${active ? 'OFF' : 'ON'}</button>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    </div>
-  `).join('');
-  
-  if (sortedLetters.length === 0) {
-    html = `<div style="text-align:center; padding:40px; color:var(--text-muted);">No TLDs found. Need to sync meta first.</div>`;
-  }
-  
-  listContainer.innerHTML = html;
-}
-
-listContainer.addEventListener('click', async (e) => {
-  const toggleBtn = e.target.closest('.api-toggle-btn');
-  if (toggleBtn) {
-    toggleBtn.disabled = true;
-    toggleBtn.style.opacity = '0.5';
-    const cat = toggleBtn.getAttribute('data-cat');
-    const id = toggleBtn.getAttribute('data-id');
-    const active = toggleBtn.getAttribute('data-active') === 'true';
-    
-    const res = await browser.runtime.sendMessage({ 
-      type: "TOGGLE_SETTING", 
-      profileId: activeProfile, 
-      category: cat, 
-      id, 
-      action: active ? "delete" : "add", 
-      settingType: 'list' 
-    });
-    
-    if (res.success) {
-      if (active) activeTlds.delete(id);
-      else activeTlds.add(id);
-      renderTlds(searchInput.value.toLowerCase());
-    } else {
-      alert("Failed to toggle setting.");
-      toggleBtn.disabled = false;
-      toggleBtn.style.opacity = '1';
-    }
-  }
-});
-
+// Start application
+init();

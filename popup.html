@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>DNS Forge</title>
   <style>
+    /* CSS Variables for consistent theming */
     :root {
       --bg-main: #0f172a;
       --bg-panel: #1e293b;
@@ -17,6 +18,7 @@
       --warning: #f39c12;
     }
     
+    /* Reset and base styles */
     * { box-sizing: border-box; }
     
     html, body { 
@@ -29,7 +31,7 @@
       overflow: hidden;
     }
 
-    /* Fixed size only when NOT in sidebar or popout mode */
+    /* Fixed dimensions for standard popup mode */
     body:not(.mode-sidebar):not(.mode-popout) {
       width: 400px;
       height: 600px;
@@ -40,19 +42,21 @@
       flex-direction: column;
     }
 
-    /* Scrollbar Styling */
+    /* Custom scrollbars */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-    /* Header */
+    /* Helper Classes */
+    .flex-center { display: flex; align-items: center; justify-content: center; }
+    .flex-between { display: flex; align-items: center; justify-content: space-between; }
+    .hidden { display: none !important; }
+
+    /* Header Styling */
     .header-container { 
       padding: 10px 15px; 
       border-bottom: 1px solid var(--border-color); 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
       background: var(--bg-main); 
       z-index: 10; 
       flex-shrink: 0; 
@@ -68,13 +72,10 @@
       border-radius: 6px; 
       transition: all 0.2s; 
       color: var(--text-muted); 
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
     .header-btn:hover { background: var(--hover-bg); color: var(--text-main); transform: translateY(-1px); }
 
-    /* Navigation */
+    /* Main Tab Navigation */
     .tab-bar { 
       display: flex; 
       background: var(--bg-panel); 
@@ -103,6 +104,7 @@
     .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: rgba(79, 172, 247, 0.08); }
     .tab-btn:hover:not(.active) { color: var(--text-main); background: var(--hover-bg); }
 
+    /* Sub-navigation (within tabs) */
     .sub-nav { 
       display: flex; 
       background: var(--bg-panel); 
@@ -127,13 +129,13 @@
     .sub-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: bold; }
     .sub-tab-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.02); }
 
-    /* Content Area */
+    /* Layout Containers */
     .tab-content { display: none; flex-grow: 1; overflow-y: auto; padding: 15px; }
     .tab-content.active { display: block; }
     .settings-sub-content { display: none; }
     .settings-sub-content.active { display: block; }
 
-    /* UI Components */
+    /* Input Components */
     input, select, textarea { 
       width: 100%; 
       padding: 10px 12px; 
@@ -148,6 +150,7 @@
     }
     input:focus, select:focus { border-color: var(--accent); outline: none; background: rgba(0,0,0,0.3); }
     
+    /* Button Styles */
     .btn-allow { background-color: var(--success); color: white; border: none; padding: 10px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: all 0.2s; }
     .btn-allow:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3); }
     
@@ -157,6 +160,7 @@
     .btn-secondary { background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px; width: 100%; border-radius: 6px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; }
     .btn-secondary:hover { background: var(--hover-bg); border-color: var(--text-muted); }
 
+    /* Panel Components */
     .panel-box { 
       background: var(--bg-panel); 
       border: 1px solid var(--border-color); 
@@ -169,6 +173,7 @@
     .panel-box h4 { margin: 0 0 10px 0; font-size: 0.95em; color: var(--accent); font-weight: 600; }
     .panel-box p { font-size: 0.85em; color: var(--text-muted); margin-top: 0; margin-bottom: 15px; line-height: 1.5; }
 
+    /* Log Rows */
     .log-row { 
       padding: 12px; 
       border-bottom: 1px solid var(--border-color); 
@@ -188,16 +193,16 @@
     .badge-allow { background: rgba(40, 167, 69, 0.15); color: #2ecc71; border: 1px solid rgba(40, 167, 69, 0.3); }
     .badge-deny { background: rgba(220, 53, 69, 0.15); color: #e74c3c; border: 1px solid rgba(220, 53, 69, 0.3); }
 
-    /* Toggles & Checkboxes */
+    /* Form Labels */
     .checkbox-label { display: flex; align-items: center; gap: 10px; font-size: 0.9em; margin-bottom: 12px; cursor: pointer; color: var(--text-main); }
     .checkbox-label input { width: auto; margin: 0; cursor: pointer; }
 
-    /* Color Pickers */
+    /* Color Picker Enhancements */
     input[type="color"] { -webkit-appearance: none; border: none; width: 32px; height: 32px; padding: 0; border-radius: 6px; cursor: pointer; background: transparent; margin-bottom: 0; }
     input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
     input[type="color"]::-webkit-color-swatch { border: 1px solid var(--border-color); border-radius: 4px; }
 
-    /* Toggle Switch */
+    /* Modern Toggle Switch */
     .switch { position: relative; display: inline-block; width: 40px; height: 22px; margin: 0; }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border-color); transition: .3s; }
@@ -205,22 +210,22 @@
     .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
     input:checked + .slider { background-color: var(--accent); }
     input:checked + .slider:before { transform: translateX(18px); }
-    </style>
-    /* Helper styles for specific items */
-    .flex-center { display: flex; align-items: center; justify-content: center; }
-    .flex-between { display: flex; align-items: center; justify-content: space-between; }
+
+    /* TLD Letters jump menu */
+    #tlds-top { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; justify-content: center; }
+    .tld-jump-link { text-decoration: none; padding: 4px 10px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main); font-size: 0.8em; }
   </style>
 </head>
 <body>
   
-  <div class="header-container">
+  <div class="header-container flex-between">
     <h3>DNS Forge</h3>
     <div class="header-controls">
-      <button id="theme-toggle-btn" class="header-btn" title="Quick Toggle Light/Dark">🌗</button>
-      <button id="refresh-view-btn" class="header-btn" title="Refresh Active Tab">🔄</button>
-      <button id="sidebar-ui-btn" class="header-btn" title="Dock to Sidebar">🗂️</button>
-      <button id="popout-ui-btn" class="header-btn" title="Open in dedicated window">↗️</button>
-      <button id="pin-ui-btn" class="header-btn" title="Toggle Always on Top" style="display: none;">📌</button>
+      <button id="theme-toggle-btn" class="header-btn flex-center" title="Quick Toggle Light/Dark">🌗</button>
+      <button id="refresh-view-btn" class="header-btn flex-center" title="Refresh Active Tab">🔄</button>
+      <button id="sidebar-ui-btn" class="header-btn flex-center" title="Dock to Sidebar">🗂️</button>
+      <button id="popout-ui-btn" class="header-btn flex-center" title="Open in dedicated window">↗️</button>
+      <button id="pin-ui-btn" class="header-btn flex-center hidden" title="Toggle Always on Top">📌</button>
     </div>
   </div>
 
@@ -229,10 +234,11 @@
     <button class="tab-btn" data-tab="logs">📡 Logs</button>
     <button class="tab-btn" data-tab="lists">📋 Lists</button>
     <button class="tab-btn" data-tab="toggles">⚡ Blocks</button>
-    <button class="tab-btn" id="tab-btn-labs" data-tab="labs" style="display: none;">🧪 Labs</button>
+    <button class="tab-btn hidden" id="tab-btn-labs" data-tab="labs">🧪 Labs</button>
     <button class="tab-btn" data-tab="settings">⚙️ Options</button>
   </div>
 
+  <!-- Tab: Dashboard -->
   <div id="tab-dashboard" class="tab-content active">
     <div style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;" id="profile-status">
       <span style="display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; box-shadow: 0 0 6px var(--accent);"></span>
@@ -249,7 +255,7 @@
     <button id="snooze-btn" class="btn-allow" style="background-color: var(--warning);">⏳ Temp Allow (5m)</button>
     
     <div class="grid" style="margin-top: 15px;">
-      <div class="panel-box" style="text-align: center; margin-bottom: 0;">
+      <div class="panel-box flex-center" style="flex-direction: column; margin-bottom: 0;">
         <div style="font-size: 0.7em; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Page Grade</div>
         <div id="privacy-score" style="font-size: 2.2em; font-weight: 800; margin-top: 2px; color: var(--accent);">-</div>
       </div>
@@ -260,7 +266,7 @@
       </div>
     </div>
     
-    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin: 15px 0 8px;">
+    <div class="flex-between" style="margin: 15px 0 8px;">
       <div id="tab-log-header" style="font-size: 0.9em; font-weight: 700; color: var(--text-muted);">TAB REQUESTS</div>
       <button id="toggle-tab-tracking-btn" class="btn-secondary" style="width: auto; padding: 4px 10px; font-size: 0.75em; font-weight: 700;">⏸️ LIVE</button>
     </div>
@@ -269,6 +275,7 @@
     </div>
   </div>
 
+  <!-- Tab: Logs -->
   <div id="tab-logs" class="tab-content">
     <div style="display: flex; gap: 8px; margin-bottom: 8px;">
       <input type="text" id="log-search" placeholder="Search logs..." style="margin-bottom: 0; flex-grow: 1;">
@@ -276,11 +283,11 @@
     </div>
     
     <div id="status-filter-content" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; font-size: 0.85em; background: var(--bg-panel); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
-       <label class="checkbox-label" style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" value="status:allowed" checked> Allowed</label>
-       <label class="checkbox-label" style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" value="status:blocked" checked> Blocked</label>
+       <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" value="status:allowed" checked> Allowed</label>
+       <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" value="status:blocked" checked> Blocked</label>
        <div style="width: 1px; background: var(--border-color); margin: 0 4px;"></div>
-       <label class="checkbox-label" style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" value="reason:allowlist" checked> Allowlist</label>
-       <label class="checkbox-label" style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" value="reason:denylist" checked> Denylist</label>
+       <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" value="reason:allowlist" checked> Allowlist</label>
+       <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" value="reason:denylist" checked> Denylist</label>
     </div>
 
     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
@@ -296,6 +303,7 @@
     <div id="logs-container" class="dashboard-panel"></div>
   </div>
 
+  <!-- Tab: Lists -->
   <div id="tab-lists" class="tab-content">
     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
       <select id="list-type-select" style="margin-bottom: 0; flex-grow: 1;">
@@ -306,7 +314,7 @@
     </div>
     <input type="text" id="list-search-input" placeholder="Filter list..." style="margin-bottom: 12px;">
     
-    <div id="list-bulk-container" style="display: none; flex-direction: column; gap: 10px; margin-bottom: 15px; background: var(--bg-panel); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+    <div id="list-bulk-container" class="hidden" style="flex-direction: column; gap: 10px; margin-bottom: 15px; background: var(--bg-panel); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
       <textarea id="list-bulk-domains" rows="6" placeholder="domain.com&#10;another.com" style="margin-bottom: 0; font-family: monospace;"></textarea>
       <div style="display: flex; gap: 8px;">
         <button id="list-bulk-submit-btn" class="btn-allow">Bulk Add</button>
@@ -321,6 +329,7 @@
     <div id="list-items-container" class="dashboard-panel"></div>
   </div>
 
+  <!-- Tab: Toggles (Blocks) -->
   <div id="tab-toggles" class="tab-content" style="padding: 0;">
     <div class="sub-nav" id="blocks-sub-nav">
       <button class="sub-tab-btn active" data-sub="security">Security</button>
@@ -329,9 +338,9 @@
       <button class="sub-tab-btn" data-sub="parental">Parental</button>
       <button class="sub-tab-btn" data-sub="tlds">TLDs</button>
     </div>
-    <div id="blocks-search-container" style="padding: 12px 15px 5px; display: none; gap: 8px;">
+    <div id="blocks-search-container" class="hidden" style="padding: 12px 15px 5px; gap: 8px;">
        <input type="text" id="blocks-search-input" placeholder="Search entries..." style="margin-bottom: 0;">
-       <select id="blocks-sort-select" style="margin-bottom: 0; width: 130px; font-size: 0.85em; display: none;">
+       <select id="blocks-sort-select" class="hidden" style="margin-bottom: 0; width: 130px; font-size: 0.85em;">
           <option value="popularity">Popularity</option>
           <option value="name">Name</option>
           <option value="updated">Updated</option>
@@ -341,6 +350,7 @@
     <div id="toggles-container" class="dashboard-panel" style="padding: 15px;"></div>
   </div>
 
+  <!-- Tab: Labs -->
   <div id="tab-labs" class="tab-content">
     <div class="panel-box">
       <h4>Experimental Labs</h4>
@@ -349,6 +359,7 @@
     </div>
   </div>
 
+  <!-- Tab: Settings (Options) -->
   <div id="tab-settings" class="tab-content" style="padding: 0;">
     <div class="sub-nav" id="settings-sub-nav">
       <button class="sub-tab-btn active" data-sub="setup">Setup</button>
@@ -415,7 +426,7 @@
           <button id="meta-save-btn" class="btn-secondary" style="flex: 1; padding: 6px; font-size: 0.85em;">💾 Export</button>
           <button id="meta-load-btn" class="btn-secondary" style="flex: 1; padding: 6px; font-size: 0.85em;">📂 Import</button>
           <button id="meta-delete-btn" class="btn-deny" style="flex: 0 0 40px; padding: 6px; font-size: 0.85em;">🗑️</button>
-          <input type="file" id="meta-file-input" accept=".json" style="display: none;">
+          <input type="file" id="meta-file-input" accept=".json" class="hidden">
         </div>
         <div class="flex-between" style="font-size: 0.75em; color: var(--text-muted); padding: 0 4px;">
           <span id="meta-status-text">Ready</span>
@@ -439,7 +450,7 @@
           <button id="export-settings-btn" class="btn-allow" style="background-color: #5d6d7e;">📤 Backup All</button>
           <button id="import-settings-btn" class="btn-secondary">📥 Restore</button>
         </div>
-        <input type="file" id="import-settings-file" style="display: none;" accept=".json">
+        <input type="file" id="import-settings-file" class="hidden" accept=".json">
       </div>
     </div>
 
@@ -447,21 +458,21 @@
     <div id="settings-customize" class="settings-sub-content" style="padding: 15px;">
       <div class="panel-box">
         <h4>Website Customizations</h4>
-        <p>Enhance the official NextDNS dashboard withForge features.</p>
+        <p>Enhance the official NextDNS dashboard with Forge features.</p>
         
-        <label style="display:flex; justify-content:space-between; align-items:center; font-size:0.9em; margin-bottom:12px; cursor:pointer;">
-          <strong>Master Toggle</strong>
+        <div class="flex-between" style="margin-bottom:12px; cursor:pointer;">
+          <strong style="font-size:0.9em;">Master Toggle</strong>
           <div class="switch">
             <input type="checkbox" id="web-gui-master-toggle">
             <span class="slider round"></span>
           </div>
-        </label>
+        </div>
         
-        <div id="web-gui-features" style="margin-left: 5px; display: grid; gap: 10px; transition: opacity 0.3s;">
+        <div id="web-gui-features" style="margin-left: 5px; display: grid; gap: 10px; transition: opacity 0.3s; border-left: 2px solid var(--border-color); padding-left: 10px;">
           <div style="margin-bottom: 5px;">
             <strong style="display:block; margin-bottom:5px; font-size:0.85em; color:var(--text-muted); text-transform:uppercase;">TLD Options</strong>
             <a id="web-gui-security-link" href="#" target="_blank" style="font-size:0.75em; text-decoration:none; color:var(--accent); display:inline-block; margin-bottom:8px;">Security Page (TLDs) ↗</a>
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.8em; margin-bottom:8px; cursor:pointer;">
+            <label class="checkbox-label" style="font-size:0.8em; margin-bottom:8px;">
               <input type="checkbox" id="web-gui-tlds-toggle"> Rollup TLDs to Menu
             </label>
             <div style="display: flex; gap: 8px;">
@@ -472,8 +483,7 @@
           <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 2px 0;">
           <div style="margin-bottom: 5px;">
             <strong style="display:block; margin-bottom:5px; font-size:0.85em; color:var(--text-muted); text-transform:uppercase;">Other Features</strong>
-            <a id="web-gui-logs-link" href="#" target="_blank" style="font-size:0.75em; text-decoration:none; color:var(--accent); display:inline-block; margin-bottom:8px;">Open Official Logs ↗</a>
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.8em; margin-bottom:8px; cursor:pointer;">
+            <label class="checkbox-label" style="font-size:0.8em; margin-bottom:8px;">
                <input type="checkbox" id="web-gui-log-actions-toggle"> Logs Enhancements
             </label>
           </div>
@@ -512,7 +522,7 @@
         
         <div style="display: flex; gap: 8px; margin-top: 12px;">
           <input type="text" id="theme-name-input" placeholder="New theme name..." style="margin-bottom: 0; flex-grow: 1;">
-          <button id="save-theme-btn" class="btn-allow" style="width: 42px; padding: 0;">💾</button>
+          <button id="save-theme-btn" class="btn-allow flex-center" style="width: 42px; padding: 0;">💾</button>
         </div>
       </div>
     </div>

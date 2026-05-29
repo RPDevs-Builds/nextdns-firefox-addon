@@ -35,6 +35,7 @@ describe('Popup UI - Advanced Coverage Suite', () => {
       if (msg.type === 'GET_TAB_STATS') return { requests: {}, blockedCount: 0 };
       if (msg.type === 'GET_LOGS') {
         return {
+          success: true,
           data: [
             { domain: 'allowed.com', status: 'allowed', timestamp: 1716800000000 },
             { domain: 'blocked.com', status: 'blocked', timestamp: 1716800000000, reasons: [{ name: 'Deny List' }] },
@@ -65,7 +66,25 @@ describe('Popup UI - Advanced Coverage Suite', () => {
             Object.assign(mockStorage, obj);
             return Promise.resolve();
           })
+        },
+        local: {
+          get: jest.fn(keys => {
+            if (typeof keys === 'string') return Promise.resolve({ [keys]: mockStorage[keys] });
+            if (Array.isArray(keys)) {
+              let res = {};
+              keys.forEach(k => res[k] = mockStorage[k]);
+              return Promise.resolve(res);
+            }
+            return Promise.resolve(mockStorage);
+          }),
+          set: jest.fn(obj => {
+            Object.assign(mockStorage, obj);
+            return Promise.resolve();
+          })
         }
+      },
+      action: {
+        setPopup: jest.fn().mockResolvedValue({})
       },
       runtime: {
         sendMessage: mockRuntimeSendMessage,
@@ -89,6 +108,21 @@ describe('Popup UI - Advanced Coverage Suite', () => {
     global.alert = jest.fn();
     global.confirm = jest.fn().mockReturnValue(true);
     global.URL.createObjectURL = jest.fn().mockReturnValue('blob:test');
+
+    global.fetch = jest.fn().mockImplementation((url) => {
+      if (url.includes('blocks_meta.json')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ 
+            blocklists: [{ id: 'test', name: 'Test Blocklist', description: 'desc', entries: 100, updated: 'now' }],
+            categories: [],
+            services: [],
+            tlds: ['com']
+          })
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
   });
 
   test('Sub-nav Scoping', async () => {
@@ -111,19 +145,32 @@ describe('Popup UI - Advanced Coverage Suite', () => {
   test('Log Filter State interaction', async () => {
     require('../popup.js');
     document.dispatchEvent(new Event('DOMContentLoaded'));
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 300));
+
+    // Ensure tab is active so listeners are bound
+    const logsTab = document.querySelector('.tab-btn[data-tab="logs"]');
+    logsTab.click();
+    await new Promise(r => setTimeout(r, 300));
 
     // Force check all status filters to ensure logs render
-    document.querySelectorAll('#status-filter-content input').forEach(i => i.checked = true);
+    const filters = document.querySelectorAll('#status-filter-content input');
+    filters.forEach(i => {
+      i.checked = true;
+      i.setAttribute('checked', 'checked'); // Extra insurance for JSDOM
+    });
 
-    document.querySelector('.tab-btn[data-tab="logs"]').click();
-    await new Promise(r => setTimeout(r, 200));
+    // Re-render logs after checking filters
+    const statusFilters = document.getElementById("status-filter-content");
+    if (statusFilters) statusFilters.dispatchEvent(new Event('change'));
+    
+    await new Promise(r => setTimeout(r, 300));
 
     const logsContainer = document.getElementById('logs-container');
     expect(logsContainer).not.toBeNull();
     
     // We check for the presence of ANY log entry to verify the rendering engine is alive
-    expect(logsContainer.querySelectorAll('.log-row').length).toBeGreaterThan(0);
+    const rows = logsContainer.querySelectorAll('.log-row');
+    expect(rows.length).toBeGreaterThan(0);
   });
 
   test('Defensive Rendering Resilience', async () => {

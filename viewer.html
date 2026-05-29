@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>DNS Forge - Data Manager</title>
   <style>
+    /* CSS Variables for consistent theming (Sync with popup.html) */
     :root {
       --bg-main: #0f172a;
       --bg-panel: #1e293b;
@@ -14,117 +15,177 @@
       --deny: #ef4444;
       --allow: #22c55e;
     }
+
+    /* Base Styles */
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: var(--bg-main);
       color: var(--text-main);
       margin: 0;
       padding: 20px;
+      line-height: 1.5;
     }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    /* Layout Containers */
     .container {
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
     }
+
+    /* Helper Classes */
+    .flex-center { display: flex; align-items: center; justify-content: center; }
+    .flex-between { display: flex; align-items: center; justify-content: space-between; }
+    .hidden { display: none !important; }
+
+    /* Header Styling */
     .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
+      margin-bottom: 25px;
       border-bottom: 1px solid var(--border-color);
-      padding-bottom: 10px;
+      padding-bottom: 15px;
     }
+    .header h1 { margin: 0; font-size: 1.8em; color: var(--accent); }
+
+    /* Tab Navigation */
     .tabs {
       display: flex;
       gap: 10px;
-      margin-bottom: 20px;
+      margin-bottom: 25px;
+      flex-wrap: wrap;
     }
     .tab-btn {
-      padding: 8px 16px;
+      padding: 10px 18px;
       background: var(--bg-panel);
       border: 1px solid var(--border-color);
       color: var(--text-main);
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
     }
+    .tab-btn:hover { background: var(--border-color); }
     .tab-btn.active {
       background: var(--accent);
       border-color: var(--accent);
+      color: white;
+    }
+
+    /* Controls Styling */
+    .controls-row {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      align-items: center;
     }
     .search-bar {
-      width: 100%;
-      padding: 10px;
+      flex-grow: 1;
+      padding: 12px;
       background: var(--bg-panel);
       border: 1px solid var(--border-color);
       color: var(--text-main);
-      border-radius: 4px;
-      margin-bottom: 20px;
+      border-radius: 6px;
       box-sizing: border-box;
+      font-size: 1em;
     }
+    .search-bar:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+    /* List Item Components */
     .list-container {
       background: var(--bg-panel);
-      border-radius: 4px;
+      border-radius: 8px;
       border: 1px solid var(--border-color);
+      overflow: hidden;
     }
     .list-item {
-      padding: 15px;
+      padding: 15px 20px;
       border-bottom: 1px solid var(--border-color);
       display: flex;
       justify-content: space-between;
       align-items: center;
+      transition: background 0.2s;
     }
-    .list-item:last-child {
-      border-bottom: none;
-    }
+    .list-item:hover { background: rgba(255,255,255,0.02); }
+    .list-item:last-child { border-bottom: none; }
+
     .item-info {
       flex-grow: 1;
       padding-right: 20px;
     }
     .item-title {
-      font-weight: bold;
-      margin-bottom: 4px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.05em;
     }
     .item-desc {
       font-size: 0.9em;
       color: var(--text-muted);
-      font-style: italic;
     }
+
+    /* Button Components */
     .btn {
-      padding: 6px 12px;
-      border-radius: 4px;
+      padding: 8px 16px;
+      border-radius: 6px;
       border: none;
       cursor: pointer;
       font-size: 0.9em;
-      color: white;
+      font-weight: 600;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
-    .btn-edit { background: var(--accent); }
-    .btn-delete { background: var(--deny); }
-    .btn-add { background: var(--allow); margin-bottom: 20px; }
+    .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn-edit { background: var(--accent); color: white; }
+    .btn-delete { background: var(--deny); color: white; }
+    .btn-add { background: var(--allow); color: white; margin-bottom: 0; }
     
+    /* Modal Styling */
     .modal {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.8);
+      background: rgba(0,0,0,0.85);
+      z-index: 1000;
       display: none;
       justify-content: center;
       align-items: center;
+      backdrop-filter: blur(4px);
     }
     .modal-content {
       background: var(--bg-panel);
-      padding: 20px;
-      border-radius: 8px;
-      width: 400px;
-      max-width: 90%;
+      padding: 25px;
+      border-radius: 12px;
+      width: 450px;
+      max-width: 95%;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
     }
-    input, textarea {
+    .modal-content h2 { margin: 0 0 20px; font-size: 1.4em; color: var(--accent); }
+
+    /* Form Elements */
+    label { display: block; margin-bottom: 8px; font-size: 0.85em; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    input, textarea, select {
       width: 100%;
-      padding: 8px;
-      margin-bottom: 10px;
+      padding: 12px;
+      margin-bottom: 20px;
       background: var(--bg-main);
       border: 1px solid var(--border-color);
       color: var(--text-main);
-      border-radius: 4px;
+      border-radius: 6px;
       box-sizing: border-box;
+      font-size: 1em;
     }
+    input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+    /* TLD Letters jump menu */
+    #tlds-top { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; justify-content: center; }
+    .tld-jump-link { text-decoration: none; padding: 4px 10px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main); font-size: 0.8em; }
+    .tld-jump-link:hover { background: var(--accent); border-color: var(--accent); }
   </style>
 </head>
 <body>
@@ -133,7 +194,7 @@
       <h1>Data Manager</h1>
     </div>
 
-    <div class="tabs" style="flex-wrap: wrap;">
+    <div class="tabs">
       <button id="tab-domains" class="tab-btn">Domain Descriptions</button>
       <button id="tab-profiles" class="tab-btn">Profile Notes</button>
       <button id="tab-filters" class="tab-btn">Filtered Domains</button>
@@ -141,27 +202,35 @@
       <button id="tab-tlds" class="tab-btn">TLD Manager</button>
     </div>
 
-    <button id="add-btn" class="btn btn-add">+ Add New</button>
-    <input type="text" id="search-input" class="search-bar" placeholder="Search...">
+    <div class="controls-row">
+      <input type="text" id="search-input" class="search-bar" placeholder="Search entries...">
+      <button id="add-btn" class="btn btn-add">+ Add New Entry</button>
+    </div>
 
     <div id="list-container" class="list-container">
-      <!-- Items will be rendered here -->
+      <!-- Items dynamically rendered by viewer.js -->
     </div>
   </div>
 
+  <!-- Entry Edit/Add Modal -->
   <div id="edit-modal" class="modal">
     <div class="modal-content">
       <h2 id="modal-title">Edit Entry</h2>
-      <label id="label-key" style="display:block; margin-bottom:5px; font-size:0.9em;"></label>
-      <input type="text" id="input-key" placeholder="Domain or Profile ID">
-      <select id="select-profile" style="display:none; width:100%; padding:8px; margin-bottom:10px; background:var(--bg-main); border:1px solid var(--border-color); color:var(--text-main); border-radius:4px; box-sizing:border-box;">
-        <option value="">Loading profiles...</option>
-      </select>
-      <label style="display:block; margin-bottom:5px; font-size:0.9em;">Note</label>
-      <textarea id="input-note" rows="4" placeholder="Enter note..."></textarea>
-      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      
+      <div id="key-section">
+        <label id="label-key"></label>
+        <input type="text" id="input-key" placeholder="Key (e.g. domain.com)">
+        <select id="select-profile" class="hidden">
+          <option value="">Loading profiles...</option>
+        </select>
+      </div>
+
+      <label>Note / Value</label>
+      <textarea id="input-note" rows="4" placeholder="Enter description or value..."></textarea>
+      
+      <div class="flex-between" style="justify-content: flex-end; gap: 12px;">
         <button id="cancel-btn" class="btn btn-delete" style="background:#64748b;">Cancel</button>
-        <button id="save-btn" class="btn btn-edit">Save</button>
+        <button id="save-btn" class="btn btn-edit">Save Changes</button>
       </div>
     </div>
   </div>

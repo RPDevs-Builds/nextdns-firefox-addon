@@ -3,17 +3,23 @@ const INTERNAL_API = "https://api.nextdns.io/profiles";
 let webGuiConfig = { master: true, tlds: true, logs: true, desc: true, notes: true, filter: true };
 
 // Initialize config and listen for live changes
-browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]).then(res => {
+async function initConfig() {
+  const sync = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]);
+  const local = await browser.storage.local.get(["webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]);
+  const res = { ...local, ...sync };
+
   if (res.webGuiMaster !== undefined) webGuiConfig.master = res.webGuiMaster;
   if (res.webGuiTlds !== undefined) webGuiConfig.tlds = res.webGuiTlds;
   if (res.webGuiLogActions !== undefined) webGuiConfig.logs = res.webGuiLogActions;
   if (res.webGuiDesc !== undefined) webGuiConfig.desc = res.webGuiDesc;
   if (res.webGuiProfileNotes !== undefined) webGuiConfig.notes = res.webGuiProfileNotes;
   if (res.webGuiFilter !== undefined) webGuiConfig.filter = res.webGuiFilter;
-});
+}
+
+initConfig();
 
 browser.storage.onChanged.addListener((changes, area) => {
-  if (area === "sync") {
+  if (area === "sync" || area === "local") {
     if (changes.webGuiMaster) webGuiConfig.master = changes.webGuiMaster.newValue;
     if (changes.webGuiTlds) webGuiConfig.tlds = changes.webGuiTlds.newValue;
     if (changes.webGuiLogActions) webGuiConfig.logs = changes.webGuiLogActions.newValue;
@@ -50,6 +56,12 @@ browser.storage.onChanged.addListener((changes, area) => {
 let mutationTimer;
 const observer = new MutationObserver(() => {
   const path = window.location.pathname;
+  
+  // API Key Auto-Extraction (Quietly scrape if on account page)
+  if (path.endsWith('/account')) {
+    extractApiKey();
+  }
+
   clearTimeout(mutationTimer);
   mutationTimer = setTimeout(() => {
     // Inject profile note on all dashboard pages
@@ -83,6 +95,25 @@ const observer = new MutationObserver(() => {
   }, 500);
 });
 observer.observe(document.body, { childList: true, subtree: true });
+
+async function extractApiKey() {
+  const codeEls = Array.from(document.querySelectorAll('code'));
+  // API key is usually in a <code> block or near an element labeled "API Key"
+  const apiKeyEl = codeEls.find(el => /^[a-f0-9]{24}$/.test(el.textContent.trim()));
+  
+  if (apiKeyEl) {
+    const newKey = apiKeyEl.textContent.trim();
+    const { apiKey } = await browser.storage.sync.get("apiKey");
+    
+    if (newKey && newKey !== apiKey) {
+      await Promise.all([
+        browser.storage.sync.set({ apiKey: newKey }),
+        browser.storage.local.set({ apiKey: newKey })
+      ]);
+      console.log("[DNS Forge] API Key auto-extracted and updated.");
+    }
+  }
+}
 
 async function injectLogsSettingsControls() {
   if (document.getElementById('nxm-logs-filter-group')) return;

@@ -1,9 +1,14 @@
 # Project Instructions: Firefox NextDNS Add-on
 
 ## Architecture & State Management
-- **Persistence:** Use `browser.storage.sync` for user settings (API keys, profiles, themes, aliases).
-- **Caching:** The background script maintains a local `currentProfileData` cache of allow/deny lists to minimize API calls during high-frequency web requests. Trigger a sync via `updateProfileCache()` when lists are modified.
-- **Idempotency:** Always `await browser.menus.removeAll()` before creating context menus to prevent duplicates.
+- **Dual-Storage Pattern:** Critical settings (API Keys, Active Profiles, Themes) must be saved to both `browser.storage.sync` (for cross-device) and `browser.storage.local` (for session persistence/performance). Always use `Promise.all` for simultaneous writes.
+- **Persistence:** Use `browser.storage.sync` for user settings.
+- **Caching:** The background script maintains a local `currentProfileData` cache.
+
+## Testing & Environment
+- **Storage Mocking:** Jest tests require explicit mocking of both `local` and `sync` storage areas, as well as the `onChanged` listener. Update `jest.setup.js` immediately if new storage keys are added.
+- **Asynchronous UI:** When testing log rendering or metadata loads, always include a minimum `300ms` delay to allow JSDOM and async message handlers to complete.
+- **Functional Parity:** Before refactoring UI components, identify all "Legacy Listeners" (e.g., Tab Management, Context Menus) that are not part of the primary initialization flow to prevent functional regressions.
 
 ## UI & DOM Conventions
 - **Scoping:** Always scope sub-tab button selectors to their specific parent container (e.g., `#settings-sub-nav .sub-tab-btn`) to avoid event collision between different tab sections.

@@ -73,6 +73,25 @@ describe('Background Script - Full Coverage Suite', () => {
             Object.assign(mockStorage, obj);
             return Promise.resolve();
           })
+        },
+        local: {
+          get: jest.fn(keys => {
+            if (typeof keys === 'string') return Promise.resolve({ [keys]: mockStorage[keys] });
+            if (Array.isArray(keys)) {
+              let res = {};
+              keys.forEach(k => res[k] = mockStorage[k]);
+              return Promise.resolve(res);
+            }
+            return Promise.resolve(mockStorage);
+          }),
+          set: jest.fn(obj => {
+            Object.assign(mockStorage, obj);
+            return Promise.resolve();
+          })
+        },
+        onChanged: {
+          addListener: jest.fn(cb => storageListenerRef = cb),
+          removeListener: jest.fn()
         }
       },
       runtime: {
