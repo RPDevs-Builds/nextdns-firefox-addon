@@ -582,6 +582,8 @@ function initWebCustomizationUI(prefs) {
                         browser.storage.sync.set(obj),
                         browser.storage.local.set(obj)
                     ]);
+                    // Update internal toggle state for the UI refresh
+                    toggles[id] = e.target.checked;
                     updateUIState(masterToggle.checked);
                 };
             }
