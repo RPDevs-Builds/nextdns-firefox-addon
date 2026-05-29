@@ -82,7 +82,12 @@ const observer = new MutationObserver(() => {
       }
     } else if (path.endsWith('/privacy')) {
       scrapeBlocklists();
-      if (webGuiConfig.master && webGuiConfig.desc) injectDomainDescriptions();
+      if (webGuiConfig.master) {
+        if (webGuiConfig.tlds) { // Reusing tlds config for blocklists toggle for now or should I add a new one?
+          injectPrivacyButtons();
+        }
+        if (webGuiConfig.desc) injectDomainDescriptions();
+      }
     } else if (path.endsWith('/parentalcontrol')) {
       scrapeServices();
     } else if (path.endsWith('/logs')) {
@@ -513,6 +518,43 @@ function scrapeTLDs() {
 }
 
 // --- UI Injection ---
+async function injectPrivacyButtons() {
+  if (document.getElementById('nxm-privacy-controls')) return;
+  
+  const items = Array.from(document.querySelectorAll('.Privacy .list-group-item'));
+  const blocklistHeader = items.find(el => el.textContent.includes('Blocklists') && el.querySelector('h3, strong, div'));
+
+  if (blocklistHeader) {
+    const btnGroup = document.createElement('div');
+    btnGroup.id = 'nxm-privacy-controls';
+    btnGroup.style.display = 'inline-flex';
+    btnGroup.style.gap = '10px';
+    btnGroup.style.marginLeft = '15px';
+
+    btnGroup.innerHTML = `
+      <button id="nxm-toggle-blocklists" class="btn btn-secondary" style="background: #6c757d; border-color: #6c757d;">👁️ Toggle List</button>
+    `;
+    
+    // Find the right place to append (usually next to the title)
+    const title = blocklistHeader.querySelector('h3, strong, div');
+    if (title) {
+        title.style.display = 'inline-block';
+        blocklistHeader.appendChild(btnGroup);
+    }
+
+    const card = blocklistHeader.closest('.card');
+    if (card) {
+      const listGroup = card.querySelector('.list-group');
+      if (listGroup) {
+        listGroup.style.display = 'none'; 
+        document.getElementById('nxm-toggle-blocklists').onclick = () => {
+          listGroup.style.display = listGroup.style.display === 'none' ? '' : 'none';
+        };
+      }
+    }
+  }
+}
+
 async function injectPageButtons() {
   if (document.getElementById('nxm-tld-controls')) return;
   const buttons = Array.from(document.querySelectorAll('button'));
@@ -758,6 +800,14 @@ async function injectProfileNote() {
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "TOGGLE_TLD_LIST") {
     const toggleBtn = document.getElementById("nxm-toggle-table");
+    if (toggleBtn) {
+      toggleBtn.click();
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false, error: "Button not found on page." });
+    }
+  } else if (message.type === "TOGGLE_BLOCKLIST_LIST") {
+    const toggleBtn = document.getElementById("nxm-toggle-blocklists");
     if (toggleBtn) {
       toggleBtn.click();
       sendResponse({ success: true });

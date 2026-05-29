@@ -567,9 +567,16 @@ function initWebCustomizationUI(prefs) {
     };
 
     bindViewer("web-gui-tlds-manager-btn", "tlds");
+    bindViewer("web-gui-blocklists-manager-btn", "blocklists");
     bindViewer("web-gui-filter-viewer-btn", "filters");
     bindViewer("domain-desc-viewer-btn", "domains");
     bindViewer("profile-notes-viewer-btn", "profiles");
+
+    const securityLink = document.getElementById("web-gui-security-link");
+    if (securityLink && activeProfile) securityLink.href = `https://my.nextdns.io/${activeProfile}/security`;
+
+    const privacyLink = document.getElementById("web-gui-privacy-link");
+    if (privacyLink && activeProfile) privacyLink.href = `https://my.nextdns.io/${activeProfile}/privacy`;
 
     const showHideTldsBtn = document.getElementById("web-gui-tlds-show-hide-btn");
     if (showHideTldsBtn) {
@@ -581,6 +588,20 @@ function initWebCustomizationUI(prefs) {
                 });
             } else {
                 alert("Please open the NextDNS Security page first.");
+            }
+        };
+    }
+
+    const showHideBlocklistsBtn = document.getElementById("web-gui-blocklists-show-hide-btn");
+    if (showHideBlocklistsBtn) {
+        showHideBlocklistsBtn.onclick = async () => {
+            const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+            if (tab?.url.includes("my.nextdns.io")) {
+                browser.tabs.sendMessage(tab.id, { type: "TOGGLE_BLOCKLIST_LIST" }).catch(() => {
+                    alert("Please refresh the NextDNS page to enable customization features.");
+                });
+            } else {
+                alert("Please open the NextDNS Privacy page first.");
             }
         };
     }

@@ -10,8 +10,9 @@ let activeTab = 'domains';      // Currently active sub-tab ('domains', 'profile
 let currentData = {};           // Cache for the active tab's data (storage-based)
 let profilesList = [];          // List of available NextDNS profiles
 let activeProfile = null;       // Active profile ID for API calls
-let blocksMeta = { tlds: [] };  // Metadata for TLDs
+let blocksMeta = { tlds: [], blocklists: [] };  // Metadata for TLDs & Blocklists
 let activeTlds = new Set();     // Currently blocked TLDs
+let activeBlocklists = new Set(); // Currently blocked Blocklists
 
 // --- DOM References ---
 const listContainer = document.getElementById('list-container');
@@ -46,7 +47,7 @@ async function init() {
     // 2. Parse initial tab from URL
     const params = new URLSearchParams(window.location.search);
     const initialTab = params.get('tab');
-    if (['profiles', 'filters', 'hostnames', 'tlds'].includes(initialTab)) {
+    if (['profiles', 'filters', 'hostnames', 'tlds', 'blocklists'].includes(initialTab)) {
         activeTab = initialTab;
     }
     
@@ -86,9 +87,9 @@ function initEventListeners() {
     listContainer.onclick = async (e) => {
         const target = e.target;
         
-        // Handle TLD Toggles
+        // Handle API Toggles (TLDs, Blocklists)
         if (target.closest('.api-toggle-btn')) {
-            handleTldToggle(target.closest('.api-toggle-btn'));
+            handleApiToggle(target.closest('.api-toggle-btn'));
             return;
         }
         
@@ -117,7 +118,7 @@ async function refreshView() {
     });
     
     // Update Control visibility
-    addBtn.classList.toggle('hidden', activeTab === 'tlds');
+    addBtn.classList.toggle('hidden', ['tlds', 'blocklists'].includes(activeTab));
     
     // Update Labels
     const labelKey = document.getElementById('label-key');
@@ -126,6 +127,7 @@ async function refreshView() {
         'profiles': 'Profile ID',
         'hostnames': 'Device ID / IP',
         'tlds': 'TLD',
+        'blocklists': 'Blocklist',
         'filters': 'Filter Pattern'
     };
     if (labelKey) labelKey.textContent = labels[activeTab] || 'Key';
@@ -133,6 +135,8 @@ async function refreshView() {
     // Fetch Data based on tab
     if (activeTab === 'tlds') {
         await fetchTldData();
+    } else if (activeTab === 'blocklists') {
+        await fetchBlocklistData();
     } else {
         const storageKey = getStorageKey();
         const sync = await browser.storage.sync.get(storageKey);
@@ -160,6 +164,22 @@ async function fetchTldData() {
 }
 
 /**
+ * Fetch Metadata for Blocklist Manager
+ */
+async function fetchBlocklistData() {
+    const local = await browser.storage.local.get("scrapedMeta");
+    if (local.scrapedMeta?.blocklists) {
+        blocksMeta.blocklists = local.scrapedMeta.blocklists;
+    }
+    if (activeProfile) {
+        const res = await browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: activeProfile });
+        if (res?.success && res.data?.blocklists) {
+            activeBlocklists = new Set(res.data.blocklists.map(l => l.id));
+        }
+    }
+}
+
+/**
  * Render the main content list
  */
 function renderList() {
@@ -167,6 +187,11 @@ function renderList() {
     
     if (activeTab === 'tlds') {
         renderTlds(query);
+        return;
+    }
+
+    if (activeTab === 'blocklists') {
+        renderBlocklists(query);
         return;
     }
     
@@ -235,6 +260,44 @@ function renderTlds(query) {
             </div>
         </div>
     `).join('') || `<div style="text-align:center; padding:60px; opacity:0.5;">TLD list is empty. Try syncing metadata in Options.</div>`;
+    
+    listContainer.innerHTML = html;
+}
+
+/**
+ * Render Blocklist Manager Tab
+ */
+function renderBlocklists(query) {
+    let filtered = blocksMeta.blocklists.filter(b => 
+        b.name.toLowerCase().includes(query) || b.description.toLowerCase().includes(query)
+    );
+
+    let html = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; padding: 20px;">
+            ${filtered.map(b => {
+                const active = activeBlocklists.has(b.id);
+                return `
+                    <div class="panel-box" style="padding: 15px; display: flex; flex-direction: column; justify-content: space-between; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px;">
+                        <div>
+                            <div class="flex-between" style="margin-bottom: 8px;">
+                                <strong style="color: var(--accent);">${escapeHTML(b.name)}</strong>
+                                <span style="font-size: 0.75em; opacity: 0.6;">${b.entries_text || ''}</span>
+                            </div>
+                            <p style="font-size: 0.8em; margin: 0 0 10px; color: var(--text-muted); line-height: 1.4;">${escapeHTML(b.description)}</p>
+                        </div>
+                        <div class="flex-between" style="margin-top: auto; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05);">
+                            <span style="font-size: 0.7em; opacity: 0.5;">${b.updated_text || ''}</span>
+                            <button class="api-toggle-btn btn ${active ? 'btn-delete' : 'btn-add'}" 
+                                data-cat="privacy/blocklists" data-id="${b.id}" data-active="${active}" 
+                                style="padding:4px 12px; font-size: 0.8em;">${active ? 'REMOVE' : 'ENABLE'}</button>
+                        </div>
+                    </div>`;
+            }).join('')}
+        </div>`;
+
+    if (filtered.length === 0) {
+        html = `<div style="text-align:center; padding:60px; opacity:0.5;">No blocklists found matching your search.</div>`;
+    }
     
     listContainer.innerHTML = html;
 }
@@ -316,9 +379,9 @@ async function handleDelete(key) {
 }
 
 /**
- * TLD API Handler
+ * Generic API Toggle Handler (TLDs, Blocklists)
  */
-async function handleTldToggle(btn) {
+async function handleApiToggle(btn) {
     btn.disabled = true;
     btn.style.opacity = '0.5';
     
@@ -336,11 +399,14 @@ async function handleTldToggle(btn) {
     });
     
     if (res?.success) {
-        if (active) activeTlds.delete(id);
-        else activeTlds.add(id);
+        if (cat.includes('tlds')) {
+            if (active) activeTlds.delete(id); else activeTlds.add(id);
+        } else if (cat.includes('blocklists')) {
+            if (active) activeBlocklists.delete(id); else activeBlocklists.add(id);
+        }
         renderList();
     } else {
-        alert("Failed to update TLD setting.");
+        alert("Failed to update setting.");
         btn.disabled = false;
         btn.style.opacity = '1';
     }
