@@ -1,11 +1,12 @@
 {
   "name": "dns-forge-addon",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "Firefox extension for managing NextDNS blocklists and allowlists",
   "main": "background.js",
   "scripts": {
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "build": "web-ext build"
   },
   "devDependencies": {
     "@testing-library/dom": "^9.3.1",
@@ -13,7 +14,8 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "jest-fetch-mock": "latest",
-    "jest-webextension-mock": "latest"
+    "jest-webextension-mock": "latest",
+    "web-ext": "^8.0.0"
   },
   "jest": {
     "setupFilesAfterEnv": [
