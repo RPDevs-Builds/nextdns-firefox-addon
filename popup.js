@@ -474,6 +474,12 @@ async function initializeApp() {
         webGuiMaster: syncPrefs.webGuiMaster !== undefined ? syncPrefs.webGuiMaster : localPrefs.webGuiMaster
     };
 
+    // Auto-heal Local storage if Sync has the data (e.g. after reinstall)
+    if (syncPrefs.apiKey && !localPrefs.apiKey) {
+        await browser.storage.local.set(syncPrefs);
+        console.log("[Init] Healed local storage from sync.");
+    }
+
     isAutoRefreshDefault = prefs.autoRefreshDefault !== false;
     
     // Migration: Move old 'aliases' key to 'hostnameAliases'

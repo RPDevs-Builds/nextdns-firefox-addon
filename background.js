@@ -180,6 +180,25 @@ async function initializeBackground() {
     if (isInitialized) return;
     console.log("[Init] Starting DNS Forge Background Engine...");
     
+    // Auto-heal storage from Sync (e.g. after reinstall)
+    try {
+        const sync = await browser.storage.sync.get(["apiKey", "activeProfile", "activeProfileName", "webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]);
+        const local = await browser.storage.local.get(["apiKey", "activeProfile", "activeProfileName", "webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"]);
+        
+        const healObj = {};
+        for (let k in sync) {
+            if (sync[k] !== undefined && local[k] === undefined) {
+                healObj[k] = sync[k];
+            }
+        }
+        if (Object.keys(healObj).length > 0) {
+            await browser.storage.local.set(healObj);
+            console.log("[Init] Healed local storage from sync.");
+        }
+    } catch (e) {
+        console.warn("[Init] Storage heal failed:", e);
+    }
+
     // 1. Detect active profile & setup UI
     await detectActiveProfile();
     await applyIconAction();

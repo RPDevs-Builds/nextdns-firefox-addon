@@ -17,7 +17,7 @@ async function initConfig() {
   if (res.webGuiFilter !== undefined) webGuiConfig.filter = res.webGuiFilter;
 }
 
-initConfig();
+initConfig().then(evaluatePage);
 
 /**
  * Unified UI Cleanup
@@ -50,6 +50,12 @@ function cleanupUI() {
 
 function evaluatePage() {
     const path = window.location.pathname;
+
+    // API Key Auto-Extraction (Always check if on account page)
+    if (path.endsWith('/account')) {
+        extractApiKey();
+    }
+
     if (!webGuiConfig.master) {
         cleanupUI();
         return;
@@ -110,20 +116,30 @@ const observer = new MutationObserver(() => {
 observer.observe(document.body, { childList: true, subtree: true });
 
 async function extractApiKey() {
-  const codeEls = Array.from(document.querySelectorAll('code'));
-  // API key is usually in a <code> block or near an element labeled "API Key"
-  const apiKeyEl = codeEls.find(el => /^[a-f0-9]{24}$/.test(el.textContent.trim()));
+  const elements = [
+    ...Array.from(document.querySelectorAll('code')),
+    ...Array.from(document.querySelectorAll('input')),
+    ...Array.from(document.querySelectorAll('.api-key'))
+  ];
+  
+  // Find a 24-character hex string in textContent or value
+  const apiKeyEl = elements.find(el => {
+    const val = (el.tagName === 'INPUT' ? el.value : el.textContent).trim();
+    return /^[a-f0-9]{24}$/.test(val);
+  });
   
   if (apiKeyEl) {
-    const newKey = apiKeyEl.textContent.trim();
-    const { apiKey } = await browser.storage.sync.get("apiKey");
+    const newKey = (apiKeyEl.tagName === 'INPUT' ? apiKeyEl.value : apiKeyEl.textContent).trim();
+    const sync = await browser.storage.sync.get("apiKey");
+    const local = await browser.storage.local.get("apiKey");
+    const currentKey = sync.apiKey || local.apiKey;
     
-    if (newKey && newKey !== apiKey) {
+    if (newKey && newKey !== currentKey) {
       await Promise.all([
         browser.storage.sync.set({ apiKey: newKey }),
         browser.storage.local.set({ apiKey: newKey })
       ]);
-      console.log("[DNS Forge] API Key auto-extracted and updated.");
+      console.log("[DNS Forge] API Key auto-extracted and synced across all storage areas.");
     }
   }
 }
