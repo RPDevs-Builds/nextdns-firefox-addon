@@ -1,0 +1,22 @@
+{
+  "dashboard": {
+    "tldHeader": {
+      "selector": "h5",
+      "textMatches": "Block Top-Level Domains (TLDs)"
+    },
+    "blocklistHeader": {
+      "selector": "h5",
+      "textMatches": "Blocklists"
+    },
+    "logsHeader": {
+      "selector": ".Logs .list-group-item.bg-2 .d-md-flex"
+    },
+    "logRows": {
+      "selector": ".list-group-item"
+    },
+    "apiInputKey": {
+      "selector": "input.api-key, code, input[type='text']",
+      "patternMatches": "^[a-f0-9]{24}$"
+    }
+  }
+}
