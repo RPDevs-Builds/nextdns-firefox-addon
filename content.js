@@ -23,15 +23,22 @@ initConfig();
  * Unified UI Cleanup
  */
 function cleanupUI() {
-    document.getElementById('nxm-tld-controls')?.remove();
-    document.getElementById('nxm-modal-enable-all')?.remove();
-    document.getElementById('nxm-modal-disable-all')?.remove();
-    document.getElementById('nxm-privacy-controls')?.remove();
-    document.querySelectorAll('.nxm-log-actions').forEach(el => el.remove());
-    document.getElementById('nxm-logs-filter-group')?.remove();
-    document.querySelectorAll('.nxm-domain-desc').forEach(el => el.remove());
-    document.getElementById('nxm-profile-note')?.remove();
+    // Remove all Forge-injected UI components
+    const idsToRemove = [
+        'nxm-tld-controls', 'nxm-modal-enable-all', 'nxm-modal-disable-all', 
+        'nxm-privacy-controls', 'nxm-logs-filter-group', 'nxm-profile-note',
+        'nxm-progress-ui'
+    ];
+    idsToRemove.forEach(id => document.getElementById(id)?.remove());
+
+    document.querySelectorAll('.nxm-log-actions, .nxm-domain-desc').forEach(el => el.remove());
     
+    // Restore elements that were hidden by the extension
+    document.querySelectorAll('[data-nxm-hidden="true"]').forEach(el => {
+        el.style.display = "";
+        delete el.dataset.nxmHidden;
+    });
+
     // Restore filtered logs
     document.querySelectorAll('.list-group-item[style*="display: none"]').forEach(el => {
         if (el.dataset.nxmFiltered) {
@@ -41,53 +48,65 @@ function cleanupUI() {
     });
 }
 
+function evaluatePage() {
+    const path = window.location.pathname;
+    if (!webGuiConfig.master) {
+        cleanupUI();
+        return;
+    }
+
+    // Inject profile note on all dashboard pages
+    if (webGuiConfig.notes) injectProfileNote();
+
+    if (path.endsWith('/security')) {
+        scrapeTLDs(); 
+        if (webGuiConfig.tlds) {
+            injectPageButtons();
+            injectModalButtons();
+        }
+        if (webGuiConfig.desc) injectDomainDescriptions();
+    } else if (path.endsWith('/privacy')) {
+        scrapeBlocklists();
+        if (webGuiConfig.blocklists) {
+            injectPrivacyButtons();
+        }
+        if (webGuiConfig.desc) injectDomainDescriptions();
+    } else if (path.endsWith('/parentalcontrol')) {
+        scrapeServices();
+    } else if (path.endsWith('/logs')) {
+        if (webGuiConfig.logs) injectLogActions();
+        if (webGuiConfig.filter) applyLogFilters();
+        injectLogsSettingsControls();
+    }
+}
+
 browser.storage.onChanged.addListener((changes, area) => {
     if (area === "sync" || area === "local") {
-        if (changes.webGuiMaster) webGuiConfig.master = changes.webGuiMaster.newValue;
-        if (changes.webGuiTlds) webGuiConfig.tlds = changes.webGuiTlds.newValue;
-        if (changes.webGuiBlocklists) webGuiConfig.blocklists = changes.webGuiBlocklists.newValue;
-        if (changes.webGuiLogActions) webGuiConfig.logs = changes.webGuiLogActions.newValue;
-        if (changes.webGuiDesc) webGuiConfig.desc = changes.webGuiDesc.newValue;
-        if (changes.webGuiProfileNotes) webGuiConfig.notes = changes.webGuiProfileNotes.newValue;
-        if (changes.webGuiFilter) webGuiConfig.filter = changes.webGuiFilter.newValue;
+        let changed = false;
+        const keys = ["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"];
+        keys.forEach(k => {
+            if (changes[k]) {
+                const configKey = k.replace(/^webGui/, '').toLowerCase();
+                const map = { 'master': 'master', 'tlds': 'tlds', 'blocklists': 'blocklists', 'logactions': 'logs', 'desc': 'desc', 'profilenotes': 'notes', 'filter': 'filter' };
+                const targetKey = map[configKey] || configKey;
+                webGuiConfig[targetKey] = changes[k].newValue;
+                changed = true;
+            }
+        });
         
-        cleanupUI();
+        if (changed) {
+            cleanupUI();
+            evaluatePage();
+        }
     }
 });
 
 let mutationTimer;
 const observer = new MutationObserver(() => {
-    const path = window.location.pathname;
-
     clearTimeout(mutationTimer);
-    mutationTimer = setTimeout(() => {
-        if (!webGuiConfig.master) return;
-
-        // Inject profile note
-        if (webGuiConfig.notes) injectProfileNote();
-
-        if (path.endsWith('/security')) {
-            scrapeTLDs();
-            if (webGuiConfig.tlds) {
-                injectPageButtons();
-                injectModalButtons();
-            }
-            if (webGuiConfig.desc) injectDomainDescriptions();
-        } else if (path.endsWith('/privacy')) {
-            scrapeBlocklists();
-            if (webGuiConfig.blocklists) {
-                injectPrivacyButtons();
-            }
-            if (webGuiConfig.desc) injectDomainDescriptions();
-        } else if (path.endsWith('/logs')) {
-            if (webGuiConfig.logs) injectLogActions();
-            if (webGuiConfig.filter) applyLogFilters();
-            injectLogsSettingsControls();
-        }
-    }, 500);
+    mutationTimer = setTimeout(evaluatePage, 500);
 });
 
-observer.observe(document.body, { childList: true, subtree: true });
 observer.observe(document.body, { childList: true, subtree: true });
 
 async function extractApiKey() {
@@ -107,6 +126,15 @@ async function extractApiKey() {
       console.log("[DNS Forge] API Key auto-extracted and updated.");
     }
   }
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    cleanupUI,
+    evaluatePage,
+    webGuiConfig,
+    initConfig
+  };
 }
 
 async function injectLogsSettingsControls() {
@@ -536,8 +564,11 @@ async function injectPrivacyButtons() {
       const listGroup = card.querySelector('.list-group');
       if (listGroup) {
         listGroup.style.display = 'none'; 
+        listGroup.dataset.nxmHidden = "true";
         document.getElementById('nxm-toggle-blocklists').onclick = () => {
-          listGroup.style.display = listGroup.style.display === 'none' ? '' : 'none';
+          const isHidden = listGroup.style.display === 'none';
+          listGroup.style.display = isHidden ? '' : 'none';
+          if (isHidden) delete listGroup.dataset.nxmHidden; else listGroup.dataset.nxmHidden = "true";
         };
       }
     }
@@ -574,8 +605,11 @@ async function injectPageButtons() {
       const listGroup = card.querySelector('.list-group');
       if (listGroup) {
         listGroup.style.display = 'none'; 
+        listGroup.dataset.nxmHidden = "true";
         document.getElementById('nxm-toggle-table').onclick = () => {
-          listGroup.style.display = listGroup.style.display === 'none' ? '' : 'none';
+          const isHidden = listGroup.style.display === 'none';
+          listGroup.style.display = isHidden ? '' : 'none';
+          if (isHidden) delete listGroup.dataset.nxmHidden; else listGroup.dataset.nxmHidden = "true";
         };
       }
     }
