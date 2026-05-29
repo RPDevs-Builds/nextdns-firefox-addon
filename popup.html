@@ -460,12 +460,12 @@
         <h4>Website Customizations</h4>
         <p>Enhance the official NextDNS dashboard with Forge features.</p>
         
-        <div class="flex-between" style="margin-bottom:12px; cursor:pointer;">
-          <strong style="font-size:0.9em;">Enable Website Customizations</strong>
-          <div class="switch">
+        <div class="flex-between" style="margin-bottom:12px;">
+          <label for="web-gui-master-toggle" style="font-size:0.9em; font-weight:bold; cursor:pointer; flex: 1;">Enable Website Customizations</label>
+          <label class="switch">
             <input type="checkbox" id="web-gui-master-toggle">
             <span class="slider round"></span>
-          </div>
+          </label>
         </div>
         
         <div id="web-gui-features" style="margin-left: 5px; display: grid; gap: 10px; transition: opacity 0.3s; border-left: 2px solid var(--border-color); padding-left: 10px;">
@@ -473,11 +473,11 @@
             <strong style="display:block; margin-bottom:5px; font-size:0.85em; color:var(--text-muted); text-transform:uppercase;">TLD Options</strong>
             <a id="web-gui-security-link" href="#" target="_blank" style="font-size:0.75em; text-decoration:none; color:var(--accent); display:inline-block; margin-bottom:8px;">Security Page (TLDs) ↗</a>
             <div class="flex-between" style="margin-bottom:8px;">
-              <label style="font-size:0.8em; color:var(--text-main);">Rollup TLDs to Menu</label>
-              <div class="switch" style="transform: scale(0.8); transform-origin: right center;">
+              <label for="web-gui-tlds-toggle" style="font-size:0.8em; color:var(--text-main); cursor:pointer; flex: 1;">Rollup TLDs to Menu</label>
+              <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
                 <input type="checkbox" id="web-gui-tlds-toggle">
                 <span class="slider round"></span>
-              </div>
+              </label>
             </div>
             <div style="display: flex; gap: 8px;">
               <button id="web-gui-tlds-show-hide-btn" class="btn-secondary" style="flex: 1; padding: 4px; font-size: 0.75em;">Show/Hide TLDs</button>
@@ -489,11 +489,11 @@
             <strong style="display:block; margin-bottom:5px; font-size:0.85em; color:var(--text-muted); text-transform:uppercase;">Privacy Options</strong>
             <a id="web-gui-privacy-link" href="#" target="_blank" style="font-size:0.75em; text-decoration:none; color:var(--accent); display:inline-block; margin-bottom:8px;">Privacy Page (Blocklists) ↗</a>
             <div class="flex-between" style="margin-bottom:8px;">
-              <label style="font-size:0.8em; color:var(--text-main);">Rollup Blocklists to Menu</label>
-              <div class="switch" style="transform: scale(0.8); transform-origin: right center;">
+              <label for="web-gui-blocklists-toggle" style="font-size:0.8em; color:var(--text-main); cursor:pointer; flex: 1;">Rollup Blocklists to Menu</label>
+              <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
                 <input type="checkbox" id="web-gui-blocklists-toggle">
                 <span class="slider round"></span>
-              </div>
+              </label>
             </div>
             <div style="display: flex; gap: 8px;">
               <button id="web-gui-blocklists-show-hide-btn" class="btn-secondary" style="flex: 1; padding: 4px; font-size: 0.75em;">Show/Hide Blocklists</button>
