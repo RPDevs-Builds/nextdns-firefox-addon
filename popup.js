@@ -535,17 +535,46 @@ function initWebCustomizationUI(prefs) {
         "web-gui-profile-notes-toggle": prefs.webGuiProfileNotes !== false
     };
 
+    const featureButtons = {
+        "web-gui-tlds-toggle": ["web-gui-tlds-show-hide-btn", "web-gui-tlds-manager-btn"],
+        "web-gui-blocklists-toggle": ["web-gui-blocklists-show-hide-btn", "web-gui-blocklists-manager-btn"],
+        "web-gui-filter-toggle": ["web-gui-filter-viewer-btn"],
+        "web-gui-desc-toggle": ["domain-desc-viewer-btn"],
+        "web-gui-profile-notes-toggle": ["profile-notes-viewer-btn"]
+    };
+
+    const updateUIState = (masterOn) => {
+        featuresDiv.style.opacity = masterOn ? "1" : "0.5";
+        featuresDiv.style.pointerEvents = masterOn ? "auto" : "none";
+        
+        Object.keys(toggles).forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            
+            el.disabled = !masterOn;
+            const featureOn = el.checked && masterOn;
+            
+            // Update associated buttons
+            if (featureButtons[id]) {
+                featureButtons[id].forEach(btnId => {
+                    const btn = document.getElementById(btnId);
+                    if (btn) {
+                        btn.disabled = !featureOn;
+                        btn.style.opacity = featureOn ? "1" : "0.5";
+                    }
+                });
+            }
+        });
+    };
+
     if (masterToggle && featuresDiv) {
         const masterOn = prefs.webGuiMaster !== false;
         masterToggle.checked = masterOn;
-        featuresDiv.style.opacity = masterOn ? "1" : "0.5";
-        featuresDiv.style.pointerEvents = masterOn ? "auto" : "none";
 
         Object.keys(toggles).forEach(id => {
             const el = document.getElementById(id);
             if (el) {
                 el.checked = toggles[id];
-                el.disabled = !masterOn;
                 el.onchange = async (e) => {
                     const key = id.replace(/-toggle$/, '').replace(/^web-gui-/, 'webGui').replace(/-(.)/g, (_, c) => c.toUpperCase());
                     const obj = {}; obj[key] = e.target.checked;
@@ -553,23 +582,22 @@ function initWebCustomizationUI(prefs) {
                         browser.storage.sync.set(obj),
                         browser.storage.local.set(obj)
                     ]);
+                    updateUIState(masterToggle.checked);
                 };
             }
         });
 
         masterToggle.onchange = async (e) => {
             const checked = e.target.checked;
-            featuresDiv.style.opacity = checked ? "1" : "0.5";
-            featuresDiv.style.pointerEvents = checked ? "auto" : "none";
-            Object.keys(toggles).forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.disabled = !checked;
-            });
+            updateUIState(checked);
             await Promise.all([
                 browser.storage.sync.set({ webGuiMaster: checked }),
                 browser.storage.local.set({ webGuiMaster: checked })
             ]);
         };
+
+        // Initial State
+        updateUIState(masterOn);
     }
 
     // Link dynamic buttons to Viewer

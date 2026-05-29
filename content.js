@@ -98,7 +98,7 @@ const observer = new MutationObserver(() => {
     } else if (path.endsWith('/privacy')) {
       scrapeBlocklists();
       if (webGuiConfig.master) {
-        if (webGuiConfig.tlds) { // Reusing tlds config for blocklists toggle for now or should I add a new one?
+        if (webGuiConfig.blocklists) {
           injectPrivacyButtons();
         }
         if (webGuiConfig.desc) injectDomainDescriptions();
