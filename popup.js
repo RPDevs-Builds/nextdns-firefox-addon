@@ -622,8 +622,11 @@ function initWebCustomizationUI(prefs) {
 function updateDynamicLinks() {
     const logsLink = document.getElementById("web-gui-logs-link");
     const securityLink = document.getElementById("web-gui-security-link");
+    const privacyLink = document.getElementById("web-gui-privacy-link");
+    
     if (logsLink && activeProfile) logsLink.href = `https://my.nextdns.io/${activeProfile}/logs`;
     if (securityLink && activeProfile) securityLink.href = `https://my.nextdns.io/${activeProfile}/security`;
+    if (privacyLink && activeProfile) privacyLink.href = `https://my.nextdns.io/${activeProfile}/privacy`;
 }
 
 /**
