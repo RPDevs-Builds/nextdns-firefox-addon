@@ -339,19 +339,19 @@ const messageHandlers = {
         const h = await getHeaders();
         h["Accept"] = "application/json";
         try { 
-            const r = await fetch(`${API_BASE}/profiles/${msg.profileId}/logs`, { headers: h });
+            const r = await fetch(`${API_BASE}/profiles/${msg.profileId}/logs`, { headers: h, cache: 'no-store' });
             const json = await r.json();
             return { success: r.ok, data: json.data || json || [] };
         } catch(e) { return { success: false, data: [] }; }
     },
     GET_ANALYTICS: async (msg) => {
         const h = await getHeaders();
-        try { return await (await fetch(`${API_BASE}/profiles/${msg.profileId}/analytics/status`, { headers: h })).json(); } catch(e) { return { data: {} }; }
+        try { return await (await fetch(`${API_BASE}/profiles/${msg.profileId}/analytics/status`, { headers: h, cache: 'no-store' })).json(); } catch(e) { return { data: {} }; }
     },
     GET_PROFILE: async () => await detectActiveProfile(),
     GET_PROFILES_LIST: async () => {
         const h = await getHeaders();
-        try { return await (await fetch(`${API_BASE}/profiles`, { headers: h })).json(); } catch(e) { return null; }
+        try { return await (await fetch(`${API_BASE}/profiles`, { headers: h, cache: 'no-store' })).json(); } catch(e) { return null; }
     },
     CLEAR_LOGS: async (msg) => {
         const h = await getHeaders();
@@ -360,12 +360,12 @@ const messageHandlers = {
     },
     DOWNLOAD_LOGS_CSV: async (msg) => {
         const h = await getHeaders();
-        try { return await (await fetch(`${API_BASE}/profiles/${msg.profileId}/logs/download`, { headers: h })).text(); } catch(e) { return null; }
+        try { return await (await fetch(`${API_BASE}/profiles/${msg.profileId}/logs/download`, { headers: h, cache: 'no-store' })).text(); } catch(e) { return null; }
     },
     GET_ALL_SETTINGS: async (msg) => {
         const h = await getHeaders();
         try {
-            const r = await fetch(`${API_BASE}/profiles/${msg.profileId}`, { headers: h });
+            const r = await fetch(`${API_BASE}/profiles/${msg.profileId}`, { headers: h, cache: 'no-store' });
             if (!r.ok) return { success: false, error: r.statusText };
             const res = await r.json();
             const p = res.data || {};

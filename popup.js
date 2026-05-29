@@ -903,7 +903,7 @@ function renderPrivacyToggles() {
     html += TRACKING.map(i => renderToggleRow(i, 'privacy', !!lastBlocksData.privacy?.[i.id], 'boolean')).join('');
     html += '<hr style="border-top:1px solid var(--border-color); border-bottom:0; margin:10px 0;"><div style="font-weight:bold; margin:0 0 5px; font-size: 0.85em;">Native Tracking</div>';
     html += NATIVES.map(i => {
-        const isActive = lastBlocksData.natives?.some(n => n.id === i.id && n.active);
+        const isActive = lastBlocksData.natives?.some(n => n.id === i.id);
         return renderToggleRow(i, 'privacy/natives', isActive, 'list');
     }).join('');
     return html;
@@ -947,7 +947,7 @@ function renderParentalToggles(query) {
     
     html += '<hr style="border-top:1px solid var(--border-color); border-bottom:0; margin:10px 0;"><div style="font-weight:bold; margin:0 0 5px; font-size: 0.85em;">Categories</div>';
     html += (blocksMeta.categories || []).map(c => {
-        const isActive = lastBlocksData.categories?.some(cat => cat.id === c.id && cat.active);
+        const isActive = lastBlocksData.categories?.some(cat => cat.id === c.id);
         return renderToggleRow(c, 'parentalcontrol/categories', isActive, 'list');
     }).join('');
 
