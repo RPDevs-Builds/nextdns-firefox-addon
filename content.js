@@ -32,9 +32,11 @@ browser.storage.onChanged.addListener((changes, area) => {
       document.getElementById('nxm-tld-controls')?.remove();
       document.getElementById('nxm-modal-enable-all')?.remove();
       document.getElementById('nxm-modal-disable-all')?.remove();
+      document.getElementById('nxm-privacy-controls')?.remove();
     }
     if (!webGuiConfig.master || !webGuiConfig.logs) {
       document.querySelectorAll('.nxm-log-actions').forEach(el => el.remove());
+      document.getElementById('nxm-logs-filter-group')?.remove();
     }
     if (!webGuiConfig.master || !webGuiConfig.desc) {
       document.querySelectorAll('.nxm-domain-desc').forEach(el => el.remove());

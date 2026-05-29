@@ -459,14 +459,19 @@ async function initializeApp() {
         "webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc", 
         "webGuiProfileNotes", "webGuiFilter"
     ]);
-    const localPrefs = await browser.storage.local.get(["apiKey", "autoRefreshDefault"]);
+    const localPrefs = await browser.storage.local.get([
+        "apiKey", "autoRefreshDefault", "hostnameAliases",
+        "webGuiMaster", "webGuiTlds", "webGuiLogActions", "webGuiDesc", 
+        "webGuiProfileNotes", "webGuiFilter"
+    ]);
     
     // Falsy-safe merge: sync takes precedence ONLY if it has a non-empty value
     const prefs = {
         ...localPrefs,
         ...syncPrefs,
         apiKey: syncPrefs.apiKey || localPrefs.apiKey || "",
-        autoRefreshDefault: syncPrefs.autoRefreshDefault !== undefined ? syncPrefs.autoRefreshDefault : localPrefs.autoRefreshDefault
+        autoRefreshDefault: syncPrefs.autoRefreshDefault !== undefined ? syncPrefs.autoRefreshDefault : localPrefs.autoRefreshDefault,
+        webGuiMaster: syncPrefs.webGuiMaster !== undefined ? syncPrefs.webGuiMaster : localPrefs.webGuiMaster
     };
 
     isAutoRefreshDefault = prefs.autoRefreshDefault !== false;
@@ -543,7 +548,10 @@ function initWebCustomizationUI(prefs) {
                 el.onchange = async (e) => {
                     const key = id.replace(/-toggle$/, '').replace(/^web-gui-/, 'webGui').replace(/-(.)/g, (_, c) => c.toUpperCase());
                     const obj = {}; obj[key] = e.target.checked;
-                    await browser.storage.sync.set(obj);
+                    await Promise.all([
+                        browser.storage.sync.set(obj),
+                        browser.storage.local.set(obj)
+                    ]);
                 };
             }
         });
@@ -556,7 +564,10 @@ function initWebCustomizationUI(prefs) {
                 const el = document.getElementById(id);
                 if (el) el.disabled = !checked;
             });
-            await browser.storage.sync.set({ webGuiMaster: checked });
+            await Promise.all([
+                browser.storage.sync.set({ webGuiMaster: checked }),
+                browser.storage.local.set({ webGuiMaster: checked })
+            ]);
         };
     }
 
