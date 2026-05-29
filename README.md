@@ -17,9 +17,11 @@ This Firefox extension integrates natively with the [NextDNS API](https://nextdn
 - **Parental Controls:** 1-Click blocking for 40+ specific apps and categories (Porn, Gambling, Piracy).
 - **Security Toggles:** Control threat intelligence feeds, DGA, NRD, DDNS, and CSAM protections.
 
-### 📡 High-Performance Filtering
-- **Local Caching:** Background script maintains a local `Set` of allow/deny lists for O(1) lookup, significantly reducing latency compared to repeated API calls.
-- **Smart Notifications:** Throttled block alerts (10s per domain) prevent UI spam during high-frequency web requests.
+### 📡 High-Performance Filtering & Reliability
+- **Dual-Storage Persistence:** Critical settings (API Keys, Active Profiles) are mirrored across `browser.storage.sync` and `local` for cross-device availability and session performance.
+- **Auto-Heal Recovery:** Automatically restores settings from Firefox Sync after a fresh reinstall or addon reload.
+- **Local Caching:** Background script maintains a local `Set` of allow/deny lists for O(1) lookup, significantly reducing latency.
+- **Smart Notifications:** Throttled block alerts (10s per domain) prevent UI spam.
 - **Wildcard Support:** Intelligent parent-domain matching handles complex sub-domain structures automatically.
 
 ### 🗂️ Data & Portability
@@ -35,24 +37,40 @@ This Firefox extension integrates natively with the [NextDNS API](https://nextdn
 
 ## 🛠️ Engineering Standards (Refactor 2026)
 
-This extension underwent a comprehensive architectural overhaul in June 2026:
+This extension underwent a comprehensive architectural overhaul in 2026 to enforce a **Zero-Regression Mandate**:
+- **Legacy Regression Lock:** Every core feature is locked behind a comprehensive 26-test suite that runs on every commit.
+- **Website Customization Engine:** Real-time TLD and Blocklist rollups injected directly into the NextDNS dashboard with surgical DOM cleanup (no refresh required).
 - **Event Delegation:** Migrated all UI components to a global event delegation model to minimize DOM memory overhead.
 - **Security Hardening:** Implemented strict XSS prevention via `escapeHTML` sanitization for all dynamic DOM injections.
 - **Modular JavaScript:** Decoupled initialization logic into scoped phases (Theme, Navigation, Global Events) for better maintainability.
-- **Idempotent Operations:** Background logic ensures atomic state changes (e.g., idempotent context menu creation).
 
 ---
 
 ## 🧪 Development & Testing
 
-A comprehensive Jest suite covers critical logic:
-- **Filtering Logic:** Verification of complex domain matching and wildcard rules.
-- **UI Isolation:** Ensures state consistency across Sidebar, Popout, and Popup modes.
-- **API Resilience:** Stress tests against malformed or `null` API responses.
+A comprehensive Jest suite covers the entire lifecycle of the addon:
+- **Persistence & Recovery:** Verification of storage auto-heal and API key auto-extraction.
+- **Legacy Logic:** Audit of context menus, notifications, and profile detection.
+- **Website Customizations:** Real-time injection and surgical state restoration.
+- **Data Manager:** Reliable metadata loading and data parity.
 
-Run the tests:
+Run the full suite:
 ```bash
 npm test
+```
+
+---
+
+## 📦 Build Pipeline
+
+Every push to `main` triggers an automated GitHub Action that:
+1. Runs the full 26-test suite.
+2. Builds a production-ready `.xpi` file using `web-ext`.
+3. Uploads the build as a downloadable artifact.
+
+To build locally:
+```bash
+npm run build
 ```
 
 ---
