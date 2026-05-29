@@ -65,7 +65,8 @@ describe('Storage Persistence & Auto-Heal', () => {
       action: {
         setPopup: jest.fn().mockResolvedValue({}),
         setIcon: jest.fn().mockResolvedValue({}),
-        setBadgeText: jest.fn().mockResolvedValue({})
+        setBadgeText: jest.fn().mockResolvedValue({}),
+        onClicked: { addListener: jest.fn() }
       },
       runtime: {
         onMessage: { addListener: jest.fn() },

@@ -165,7 +165,7 @@ async function applyIconAction() {
     const sync = await browser.storage.sync.get("iconAction");
     const local = await browser.storage.local.get("iconAction");
     const iconAction = sync.iconAction || local.iconAction || "popup";
-    
+
     if (iconAction === "sidebar") {
         await browser.action.setPopup({ popup: "" });
     } else {
@@ -173,6 +173,19 @@ async function applyIconAction() {
     }
 }
 
+browser.action.onClicked.addListener(async () => {
+    const sync = await browser.storage.sync.get("iconAction");
+    const local = await browser.storage.local.get("iconAction");
+    const iconAction = sync.iconAction || local.iconAction || "popup";
+
+    if (iconAction === "sidebar") {
+        if (browser.sidebarAction && browser.sidebarAction.open) {
+            browser.sidebarAction.open();
+        } else if (browser.sidebarAction && browser.sidebarAction.toggle) {
+            browser.sidebarAction.toggle();
+        }
+    }
+});
 /**
  * Main Initialization Lifecycle
  */

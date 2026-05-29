@@ -45,7 +45,8 @@ describe('Legacy Logic Audit: Menus, Notifications, Profiles', () => {
       action: {
         setPopup: jest.fn().mockResolvedValue({}),
         setIcon: jest.fn().mockResolvedValue({}),
-        setBadgeText: jest.fn().mockResolvedValue({})
+        setBadgeText: jest.fn().mockResolvedValue({}),
+        onClicked: { addListener: jest.fn() }
       },
       menus: {
         removeAll: jest.fn().mockResolvedValue(),
