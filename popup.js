@@ -901,7 +901,14 @@ function renderPrivacyToggles() {
 
     let html = '<div style="font-weight:bold; margin:0 0 5px; font-size: 0.85em;">Tracking</div>';
     html += TRACKING.map(i => renderToggleRow(i, 'privacy', !!lastBlocksData.privacy?.[i.id], 'boolean')).join('');
-    html += '<hr style="border-top:1px solid var(--border-color); border-bottom:0; margin:10px 0;"><div style="font-weight:bold; margin:0 0 5px; font-size: 0.85em;">Native Tracking</div>';
+    
+    const privacyUrl = activeProfile ? `https://my.nextdns.io/${activeProfile}/privacy` : '#';
+    html += `<hr style="border-top:1px solid var(--border-color); border-bottom:0; margin:10px 0;">
+             <div class="flex-between" style="margin:0 0 5px;">
+                <div style="font-weight:bold; font-size: 0.85em;">Native Tracking Protection</div>
+                <a href="${privacyUrl}" target="_blank" class="tld-jump-link" style="font-size: 0.75em; padding: 2px 6px; text-decoration: none;">🌐 Privacy Page</a>
+             </div>`;
+
     html += NATIVES.map(i => {
         const isActive = lastBlocksData.natives?.some(n => n.id === i.id);
         return renderToggleRow(i, 'privacy/natives', isActive, 'list');
