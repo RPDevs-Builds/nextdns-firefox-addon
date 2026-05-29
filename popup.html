@@ -239,39 +239,59 @@
   </div>
 
   <!-- Tab: Dashboard -->
-  <div id="tab-dashboard" class="tab-content active">
-    <div style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;" id="profile-status">
-      <span style="display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; box-shadow: 0 0 6px var(--accent);"></span>
-      Profile: Detecting...
+  <div id="tab-dashboard" class="tab-content active" style="padding: 0;">
+    <div class="sub-nav" id="dashboard-sub-nav" style="background: var(--bg-main);">
+      <button class="sub-tab-btn active" data-sub="overview">Overview</button>
+      <button class="sub-tab-btn" data-sub="debugger">Debugger</button>
     </div>
-    
-    <label for="domain-input" style="font-size: 0.85em; margin-bottom: 6px; display: block; font-weight: 600; color: var(--text-muted);">TARGET DOMAIN</label>
-    <input type="text" id="domain-input" placeholder="Loading current domain...">
-    
-    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-      <button id="allow-btn" class="btn-allow">Allow</button>
-      <button id="deny-btn" class="btn-deny">Deny</button>
+
+    <div id="dashboard-overview" class="dashboard-sub-content active" style="padding: 15px;">
+        <div style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;" id="profile-status">
+          <span style="display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; box-shadow: 0 0 6px var(--accent);"></span>
+          Profile: Detecting...
+        </div>
+        
+        <label for="domain-input" style="font-size: 0.85em; margin-bottom: 6px; display: block; font-weight: 600; color: var(--text-muted);">TARGET DOMAIN</label>
+        <input type="text" id="domain-input" placeholder="Loading current domain...">
+        
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+          <button id="allow-btn" class="btn-allow">Allow</button>
+          <button id="deny-btn" class="btn-deny">Deny</button>
+        </div>
+        <button id="snooze-btn" class="btn-allow" style="background-color: var(--warning);">⏳ Temp Allow (5m)</button>
+        
+        <div class="grid" style="margin-top: 15px;">
+          <div class="panel-box flex-center" style="flex-direction: column; margin-bottom: 0;">
+            <div style="font-size: 0.7em; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Page Grade</div>
+            <div id="privacy-score" style="font-size: 2.2em; font-weight: 800; margin-top: 2px; color: var(--accent);">-</div>
+          </div>
+          <div class="panel-box" style="margin-bottom: 0;">
+            <div style="font-size: 0.7em; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">24h Queries</div>
+            <div id="stat-total" style="font-size: 1.2em; margin-top: 5px; font-weight: 700;">...</div>
+            <div style="font-size: 0.85em; color: var(--danger); font-weight: 600;">Block: <span id="stat-blocked">...</span></div>
+          </div>
+        </div>
+        
+        <div class="flex-between" style="margin: 15px 0 8px;">
+          <div id="tab-log-header" style="font-size: 0.9em; font-weight: 700; color: var(--text-muted);">TAB REQUESTS</div>
+          <button id="toggle-tab-tracking-btn" class="btn-secondary" style="width: auto; padding: 4px 10px; font-size: 0.75em; font-weight: 700;">⏸️ LIVE</button>
+        </div>
+        <div id="tab-log" style="background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; max-height: 150px; overflow-y: auto; font-size: 0.85em; font-family: monospace;">
+          Loading tab requests...
+        </div>
     </div>
-    <button id="snooze-btn" class="btn-allow" style="background-color: var(--warning);">⏳ Temp Allow (5m)</button>
-    
-    <div class="grid" style="margin-top: 15px;">
-      <div class="panel-box flex-center" style="flex-direction: column; margin-bottom: 0;">
-        <div style="font-size: 0.7em; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Page Grade</div>
-        <div id="privacy-score" style="font-size: 2.2em; font-weight: 800; margin-top: 2px; color: var(--accent);">-</div>
-      </div>
-      <div class="panel-box" style="margin-bottom: 0;">
-        <div style="font-size: 0.7em; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">24h Queries</div>
-        <div id="stat-total" style="font-size: 1.2em; margin-top: 5px; font-weight: 700;">...</div>
-        <div style="font-size: 0.85em; color: var(--danger); font-weight: 600;">Block: <span id="stat-blocked">...</span></div>
-      </div>
-    </div>
-    
-    <div class="flex-between" style="margin: 15px 0 8px;">
-      <div id="tab-log-header" style="font-size: 0.9em; font-weight: 700; color: var(--text-muted);">TAB REQUESTS</div>
-      <button id="toggle-tab-tracking-btn" class="btn-secondary" style="width: auto; padding: 4px 10px; font-size: 0.75em; font-weight: 700;">⏸️ LIVE</button>
-    </div>
-    <div id="tab-log" style="background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; max-height: 150px; overflow-y: auto; font-size: 0.85em; font-family: monospace;">
-      Loading tab requests...
+
+    <div id="dashboard-debugger" class="dashboard-sub-content" style="padding: 15px; display: none;">
+        <div class="panel-box">
+            <h4>Intelligent Debugger</h4>
+            <p>Correlating tab requests with NextDNS logs to identify which blocklist is breaking this page.</p>
+            <button id="run-debugger-btn" class="btn-allow" style="background-color: var(--accent);">🔍 Analyze This Page</button>
+        </div>
+        <div id="debugger-results" class="dashboard-panel" style="margin-top: 15px;">
+            <div style="text-align: center; color: var(--text-muted); padding: 20px;">
+                Ready to analyze.
+            </div>
+        </div>
     </div>
   </div>
 
@@ -366,6 +386,55 @@
       <button class="sub-tab-btn" data-sub="analytics">Analytics</button>
       <button class="sub-tab-btn" data-sub="manager">Data Management</button>
       <button class="sub-tab-btn" data-sub="customize">Customize</button>
+      <button class="sub-tab-btn" data-sub="schedules">Schedules</button>
+      <button class="sub-tab-btn" data-sub="audit">Audit</button>
+    </div>
+
+    <!-- ... existing sub-contents ... -->
+    <div id="settings-audit" class="settings-sub-content" style="padding: 15px; display: none;">
+        <div class="panel-box" style="text-align: center;">
+            <h4 style="margin-top: 0; color: var(--accent);">Security Auditor</h4>
+            <div id="audit-score-container" style="margin: 20px 0;">
+                <div id="audit-score-ring" style="font-size: 3em; font-weight: 800; color: var(--accent);">--</div>
+                <div style="font-size: 0.8em; color: var(--text-muted); text-transform: uppercase;">Profile Health Score</div>
+            </div>
+            <button id="run-audit-btn" class="btn-allow" style="background-color: var(--accent);">🛡️ Run Security Scan</button>
+        </div>
+        
+        <div id="audit-results" style="margin-top: 15px;">
+            <!-- Audit recommendations rendered here -->
+        </div>
+    </div>
+
+    <!-- ... existing sub-contents ... -->
+    <div id="settings-schedules" class="settings-sub-content" style="padding: 15px; display: none;">
+        <div class="panel-box">
+            <h4 style="margin-top: 0; color: var(--accent);">Automation Rules</h4>
+            <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 15px;">Schedule automatic changes to your profile settings.</p>
+            
+            <div id="rules-list" style="margin-bottom: 15px; max-height: 180px; overflow-y: auto;">
+                <!-- Rules rendered here -->
+            </div>
+
+            <hr style="border-color: var(--border-color); border-style: dashed; margin: 15px 0;">
+            
+            <h5 style="margin-bottom: 10px; font-size: 0.85em; text-transform: uppercase; color: var(--text-muted);">Add New Rule</h5>
+            <input type="text" id="rule-name" placeholder="Rule Name (e.g. Work Time)" style="margin-bottom: 8px; font-size: 0.8em; padding: 6px 10px;">
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <input type="time" id="rule-trigger" style="margin-bottom: 0; font-size: 0.8em; padding: 6px 10px;">
+                <select id="rule-action" style="margin-bottom: 0; width: 120px; font-size: 0.8em; padding: 6px 10px;">
+                    <option value="enable">Enable</option>
+                    <option value="disable">Disable</option>
+                </select>
+            </div>
+            <select id="rule-target" style="font-size: 0.8em; padding: 6px 10px;">
+                <option value="parentalControl/services:youtube">YouTube (Service)</option>
+                <option value="parentalControl/services:tiktok">TikTok (Service)</option>
+                <option value="security:dga">DGA Protection (Security)</option>
+                <option value="privacy:block-disguised-trackers">Block Disguised Trackers (Privacy)</option>
+            </select>
+            <button id="add-rule-btn" class="btn-allow" style="width: 100%; font-size: 0.85em; height: 32px; padding: 0;">➕ Save Rule</button>
+        </div>
     </div>
 
     <!-- Setup Sub-Tab -->

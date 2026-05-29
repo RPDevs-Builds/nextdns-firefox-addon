@@ -211,6 +211,10 @@ async function initializeBackground() {
     browser.alarms.create("ddns-check", { periodInMinutes: 60 });
     checkAndUpdateLinkedIP();
 
+    // 5. Start Automation Scheduler
+    browser.alarms.create("rule-engine", { periodInMinutes: 1 });
+    checkAutomationRules();
+
     isInitialized = true;
     console.log("[Init] Background Engine Ready.");
 }
@@ -385,6 +389,39 @@ const messageHandlers = {
             return r.success ? await r.response.json() : null;
         } catch(e) { return null; }
     },
+    DEBUG_TAB: async (msg) => {
+        const tabId = msg.tabId;
+        const profileId = msg.profileId;
+        const localRequests = tabRequests[tabId] || {};
+        const localDomains = Object.keys(localRequests);
+
+        if (localDomains.length === 0) return { success: true, correlations: [] };
+
+        try {
+            const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/logs`, { cache: 'no-store' });
+            if (!r.success) return { success: false, error: "Failed to fetch API logs" };
+            
+            const apiLogs = await r.response.json();
+            const correlations = [];
+
+            // Match API logs against local tab requests
+            (apiLogs.data || apiLogs || []).forEach(log => {
+                if (localDomains.includes(log.domain) && log.status === 'blocked') {
+                    correlations.push({
+                        domain: log.domain,
+                        status: log.status,
+                        reasons: log.reasons || [],
+                        timestamp: log.timestamp,
+                        device: log.deviceName || log.device || "Unknown"
+                    });
+                }
+            });
+
+            return { success: true, correlations };
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
+    },
     CLEAR_LOGS: async (msg) => {
         const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/logs`, { method: 'DELETE' });
         return { success: r.success };
@@ -441,8 +478,144 @@ const messageHandlers = {
             }
             return { success: r.success };
         } catch(e) { return { success: false, error: e.message }; }
+    },
+    CREATE_SNAPSHOT: async (msg) => {
+        const profileId = msg.profileId;
+        const name = msg.name || `Snapshot ${new Date().toLocaleString()}`;
+        
+        // 1. Fetch current config
+        const settingsRes = await messageHandlers.GET_ALL_SETTINGS({ profileId });
+        if (!settingsRes.success) return { success: false, error: "Failed to fetch current config" };
+
+        // 2. Load existing snapshots
+        const { profileSnapshots = {} } = await browser.storage.local.get("profileSnapshots");
+        if (!profileSnapshots[profileId]) profileSnapshots[profileId] = [];
+
+        // 3. Add new snapshot
+        const snapshot = {
+            id: Date.now().toString(),
+            name,
+            timestamp: Date.now(),
+            config: settingsRes.data
+        };
+        profileSnapshots[profileId].unshift(snapshot);
+
+        // Limit to last 10 snapshots per profile
+        if (profileSnapshots[profileId].length > 10) profileSnapshots[profileId].pop();
+
+        await browser.storage.local.set({ profileSnapshots });
+        return { success: true, snapshot };
+    },
+    LIST_SNAPSHOTS: async (msg) => {
+        const { profileSnapshots = {} } = await browser.storage.local.get("profileSnapshots");
+        return { success: true, snapshots: profileSnapshots[msg.profileId] || [] };
+    },
+    DELETE_SNAPSHOT: async (msg) => {
+        const { profileSnapshots = {} } = await browser.storage.local.get("profileSnapshots");
+        if (profileSnapshots[msg.profileId]) {
+            profileSnapshots[msg.profileId] = profileSnapshots[msg.profileId].filter(s => s.id !== msg.snapshotId);
+            await browser.storage.local.set({ profileSnapshots });
+        }
+        return { success: true };
+    },
+    LIST_RULES: async () => {
+        const { forgeRules = [] } = await browser.storage.sync.get("forgeRules");
+        return { success: true, rules: forgeRules };
+    },
+    SAVE_RULE: async (msg) => {
+        const { forgeRules = [] } = await browser.storage.sync.get("forgeRules");
+        const newRule = { id: Date.now().toString(), ...msg.rule, active: true };
+        forgeRules.push(newRule);
+        await browser.storage.sync.set({ forgeRules });
+        return { success: true, rule: newRule };
+    },
+    DELETE_RULE: async (msg) => {
+        const { forgeRules = [] } = await browser.storage.sync.get("forgeRules");
+        const updated = forgeRules.filter(r => r.id !== msg.ruleId);
+        await browser.storage.sync.set({ forgeRules: updated });
+        return { success: true };
+    },
+    RUN_AUDIT: async (msg) => {
+        const profileId = msg.profileId;
+        const configRes = await messageHandlers.GET_ALL_SETTINGS({ profileId });
+        if (!configRes.success) return { success: false, error: "Failed to fetch config" };
+
+        const config = configRes.data;
+        const recommendations = [];
+        let score = 100;
+
+        // 1. Check Security Defaults
+        const securityChecks = {
+            dga: { name: "DGA Protection", score: 10 },
+            nrd: { name: "Block Newly Registered Domains", score: 10 },
+            parkedDomains: { name: "Block Parked Domains", score: 5 },
+            csam: { name: "Block CSAM", score: 15 }
+        };
+
+        for (let [id, check] of Object.entries(securityChecks)) {
+            if (!config.security[id]) {
+                score -= check.score;
+                recommendations.push({
+                    type: "security",
+                    severity: "high",
+                    message: `${check.name} is disabled. Enabling this is highly recommended for safety.`,
+                    fix: { category: "security", id, action: "add", settingType: "boolean" }
+                });
+            }
+        }
+
+        // 2. Check for Deprecated Lists
+        try {
+            const auditDataUrl = browser.runtime.getURL("data/deprecated_lists.json");
+            const auditDataRes = await fetch(auditDataUrl);
+            const auditData = await auditDataRes.json();
+
+            (config.blocklists || []).forEach(list => {
+                const dep = auditData.deprecated.find(d => d.id === list.id);
+                if (dep) {
+                    score -= 5;
+                    recommendations.push({
+                        type: "blocklist",
+                        severity: "medium",
+                        message: `List [${list.name}] is deprecated: ${dep.reason}`,
+                        fix: { category: "privacy/blocklists", id: list.id, action: "delete" }
+                    });
+                }
+            });
+        } catch (e) { console.warn("Audit metadata load failed", e); }
+
+        return { success: true, score: Math.max(0, score), recommendations };
     }
 };
+
+/**
+ * Automation Rule Engine
+ */
+async function checkAutomationRules() {
+    const { forgeRules = [] } = await browser.storage.sync.get("forgeRules");
+    if (forgeRules.length === 0) return;
+
+    const now = new Date();
+    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    for (const rule of forgeRules) {
+        if (!rule.active) continue;
+        
+        if (rule.trigger === currentTime) {
+            console.log(`[Scheduler] Rule matched: ${rule.name} (${rule.action} ${rule.targetId})`);
+            const activeProfile = await storage.get("activeProfile");
+            if (!activeProfile) continue;
+
+            await messageHandlers.TOGGLE_SETTING({
+                profileId: activeProfile,
+                category: rule.category,
+                id: rule.targetId,
+                action: rule.action === 'enable' ? 'add' : 'delete',
+                settingType: rule.settingType || 'id'
+            });
+        }
+    }
+}
 
 /**
  * Global Message Listener
@@ -469,6 +642,8 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
         }
     } else if (alarm.name === "ddns-check") {
         checkAndUpdateLinkedIP();
+    } else if (alarm.name === "rule-engine") {
+        checkAutomationRules();
     }
 });
 

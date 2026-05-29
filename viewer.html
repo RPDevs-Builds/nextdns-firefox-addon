@@ -202,6 +202,7 @@
       <button id="tab-hostnames" class="tab-btn">Device Aliases</button>
       <button id="tab-tlds" class="tab-btn">TLD Manager</button>
       <button id="tab-backup" class="tab-btn">Backup & Cloning</button>
+      <button id="tab-snapshots" class="tab-btn">Snapshots</button>
     </div>
 
     <div class="controls-row" id="main-controls">
@@ -211,6 +212,31 @@
 
     <div id="list-container" class="list-container">
       <!-- Items dynamically rendered by viewer.js -->
+    </div>
+
+    <!-- Phase 4.2: Profile Snapshots UI -->
+    <div id="snapshots-container" class="hidden">
+        <div class="panel-box" style="margin-bottom: 20px; background: var(--bg-panel); padding: 25px; border-radius: 8px; border: 1px solid var(--border-color);">
+            <div class="flex-between">
+                <div>
+                    <h2 style="color: var(--accent); margin-top: 0;">Profile Snapshots</h2>
+                    <p style="color: var(--text-muted); font-size: 0.9em;">Take local snapshots of your configuration to track changes and roll back if needed.</p>
+                </div>
+                <button id="create-snapshot-btn" class="btn btn-add" style="height: 40px;">📸 Take Snapshot</button>
+            </div>
+            
+            <div id="snapshots-list" style="margin-top: 20px;">
+                <!-- Snapshots rendered here -->
+            </div>
+        </div>
+
+        <div id="snapshot-diff-container" class="panel-box hidden" style="background: #111; border: 1px solid var(--accent);">
+            <div class="flex-between">
+                <h3 style="margin-top: 0; color: var(--accent);">Snapshot Diff Viewer</h3>
+                <button id="close-diff-btn" class="btn-delete" style="padding: 2px 8px;">&times;</button>
+            </div>
+            <div id="diff-content" style="font-family: monospace; font-size: 0.85em; white-space: pre-wrap; max-height: 300px; overflow-y: auto; color: #ccc;"></div>
+        </div>
     </div>
 
     <!-- Phase 3.1: Profile Cloning UI -->

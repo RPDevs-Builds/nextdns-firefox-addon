@@ -84,6 +84,16 @@ describe('Data Manager (Viewer) Audit', () => {
             <div id="cloning-log"></div>
         </div>
 
+        <!-- Phase 4.2: Profile Snapshots UI -->
+        <div id="snapshots-container" class="hidden">
+            <button id="create-snapshot-btn"></button>
+            <div id="snapshots-list"></div>
+            <div id="snapshot-diff-container" class="hidden">
+                <button id="close-diff-btn"></button>
+                <div id="diff-content"></div>
+            </div>
+        </div>
+
         <div id="edit-modal" class="modal">
             <h2 id="modal-title"></h2>
             <div id="key-section">

@@ -1,0 +1,11 @@
+{
+    "deprecated": [
+        { "id": "fanboy-social", "name": "Fanboy's Social Blocking List", "reason": "Merged into Fanboy's Annoyance List" },
+        { "id": "easylist-cookie", "name": "EasyList Cookie List", "reason": "Redundant if using Fanboy's Annoyance" },
+        { "id": "disconnect-social", "name": "Disconnect Social", "reason": "No longer maintained" }
+    ],
+    "recommended": [
+        { "id": "oisd", "name": "OISD", "description": "Highly recommended general purpose blocklist." },
+        { "id": "nextdns-recommended", "name": "NextDNS Ads & Trackers", "description": "The baseline for NextDNS users." }
+    ]
+}

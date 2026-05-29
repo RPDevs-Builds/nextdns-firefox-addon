@@ -119,13 +119,20 @@ async function refreshView() {
     
     // Update Control visibility
     const isBackup = activeTab === 'backup';
-    addBtn.classList.toggle('hidden', ['tlds', 'blocklists', 'backup'].includes(activeTab));
-    document.getElementById('main-controls').classList.toggle('hidden', isBackup);
-    listContainer.classList.toggle('hidden', isBackup);
+    const isSnapshots = activeTab === 'snapshots';
+    addBtn.classList.toggle('hidden', ['tlds', 'blocklists', 'backup', 'snapshots'].includes(activeTab));
+    document.getElementById('main-controls').classList.toggle('hidden', isBackup || isSnapshots);
+    listContainer.classList.toggle('hidden', isBackup || isSnapshots);
     document.getElementById('backup-container').classList.toggle('hidden', !isBackup);
+    document.getElementById('snapshots-container').classList.toggle('hidden', !isSnapshots);
     
     if (isBackup) {
         setupBackupTab();
+        return;
+    }
+    
+    if (isSnapshots) {
+        loadSnapshots();
         return;
     }
 
@@ -137,7 +144,8 @@ async function refreshView() {
         'hostnames': 'Device ID / IP',
         'tlds': 'TLD',
         'blocklists': 'Blocklist',
-        'filters': 'Filter Pattern'
+        'filters': 'Filter Pattern',
+        'snapshots': 'Snapshot'
     };
     if (labelKey) labelKey.textContent = labels[activeTab] || 'Key';
 
@@ -154,6 +162,116 @@ async function refreshView() {
     }
 
     renderList();
+}
+
+/**
+ * Phase 4.2: Profile Snapshots Logic
+ */
+async function loadSnapshots() {
+    if (!activeProfile) return;
+    const res = await browser.runtime.sendMessage({ type: "LIST_SNAPSHOTS", profileId: activeProfile });
+    const list = document.getElementById('snapshots-list');
+    
+    if (!res.snapshots || res.snapshots.length === 0) {
+        list.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">No snapshots yet. Take one before making changes!</div>';
+    } else {
+        list.innerHTML = res.snapshots.map((s, i) => `
+            <div class="list-item" style="border-left: 4px solid var(--accent); padding-left: 15px;">
+                <div class="item-info">
+                    <strong>${escapeHTML(s.name)}</strong>
+                    <div class="item-note" style="font-size: 0.8em;">${new Date(s.timestamp).toLocaleString()} • ${s.id}</div>
+                </div>
+                <div class="item-actions">
+                    ${i > 0 ? `<button class="btn btn-edit compare-btn" data-id="${s.id}" style="background: var(--bg-panel); color: var(--accent); border: 1px solid var(--accent);">Diff</button>` : ''}
+                    <button class="btn btn-add restore-btn" data-id="${s.id}">Restore</button>
+                    <button class="btn btn-delete delete-snapshot-btn" data-id="${s.id}">Delete</button>
+                </div>
+            </div>
+        `).join('');
+
+        // Event Listeners
+        list.querySelectorAll('.compare-btn').forEach(btn => {
+            btn.onclick = () => compareSnapshots(btn.getAttribute('data-id'), res.snapshots);
+        });
+        list.querySelectorAll('.restore-btn').forEach(btn => {
+            btn.onclick = () => restoreSnapshot(btn.getAttribute('data-id'), res.snapshots);
+        });
+        list.querySelectorAll('.delete-snapshot-btn').forEach(btn => {
+            btn.onclick = async () => {
+                if (confirm("Delete this snapshot permanently?")) {
+                    await browser.runtime.sendMessage({ type: "DELETE_SNAPSHOT", profileId: activeProfile, snapshotId: btn.getAttribute('data-id') });
+                    loadSnapshots();
+                }
+            };
+        });
+    }
+
+    document.getElementById('create-snapshot-btn').onclick = async () => {
+        const name = prompt("Enter snapshot name:", `Manual Snapshot ${new Date().toLocaleTimeString()}`);
+        if (name === null) return;
+        const btn = document.getElementById('create-snapshot-btn');
+        btn.disabled = true; btn.textContent = "Taking...";
+        await browser.runtime.sendMessage({ type: "CREATE_SNAPSHOT", profileId: activeProfile, name });
+        btn.disabled = false; btn.textContent = "📸 Take Snapshot";
+        loadSnapshots();
+    };
+}
+
+function compareSnapshots(id, snapshots) {
+    const s1 = snapshots.find(s => s.id === id);
+    const s2 = snapshots[0]; // Always compare against the latest
+    if (!s1 || !s2) return;
+
+    const diffContainer = document.getElementById('snapshot-diff-container');
+    const diffContent = document.getElementById('diff-content');
+    
+    diffContainer.classList.remove('hidden');
+    document.getElementById('close-diff-btn').onclick = () => diffContainer.classList.add('hidden');
+
+    const config1 = s1.config;
+    const config2 = s2.config;
+    
+    let diffStr = `Comparing [${s1.name}] (Old) vs [${s2.name}] (Current)\n\n`;
+    
+    const categories = ['security', 'privacy', 'parentalcontrol'];
+    categories.forEach(cat => {
+        const c1 = config1[cat] || {};
+        const c2 = config2[cat] || {};
+        const allKeys = new Set([...Object.keys(c1), ...Object.keys(c2)]);
+        
+        let catDiff = "";
+        allKeys.forEach(k => {
+            if (c1[k] !== c2[k]) {
+                catDiff += `${c1[k] ? '+' : '-'} ${k}: ${c1[k]} -> ${c2[k]}\n`;
+            }
+        });
+        if (catDiff) diffStr += `[${cat.toUpperCase()}]\n${catDiff}\n`;
+    });
+
+    diffContent.textContent = diffStr || "No differences found in boolean settings.";
+}
+
+async function restoreSnapshot(id, snapshots) {
+    const s = snapshots.find(s => s.id === id);
+    if (!s || !confirm(`Roll back to snapshot [${s.name}]? This will overwrite your current settings.`)) return;
+
+    // Use the existing cloning logic but from the snapshot config
+    const logEl = document.getElementById('cloning-log');
+    logEl.classList.remove('hidden');
+    logEl.innerHTML = "<div>[System] Restoring Snapshot...</div>";
+    
+    // Switch to Backup tab to see the log
+    document.getElementById('tab-backup').click();
+    
+    const log = (msg) => { logEl.innerHTML += `<div>${msg}</div>`; logEl.scrollTop = logEl.scrollHeight; };
+
+    try {
+        const config = s.config;
+        log("Restoration logic initiated...");
+        alert("Snapshot rollback initiated! (Feature implementation in progress)");
+    } catch (e) {
+        log("[Error] " + e.message);
+    }
 }
 
 /**
