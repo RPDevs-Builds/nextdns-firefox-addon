@@ -148,13 +148,10 @@ async function refreshView() {
 }
 
 /**
- * Fetch Metadata for TLD Manager
+ * Fetch Metadata for TLD Manager (with Fallbacks)
  */
 async function fetchTldData() {
-    const local = await browser.storage.local.get("scrapedMeta");
-    if (local.scrapedMeta?.tlds) {
-        blocksMeta.tlds = local.scrapedMeta.tlds;
-    }
+    await loadMetadataIfNeeded();
     if (activeProfile) {
         const res = await browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: activeProfile });
         if (res?.success && res.data?.tlds) {
@@ -164,18 +161,44 @@ async function fetchTldData() {
 }
 
 /**
- * Fetch Metadata for Blocklist Manager
+ * Fetch Metadata for Blocklist Manager (with Fallbacks)
  */
 async function fetchBlocklistData() {
-    const local = await browser.storage.local.get("scrapedMeta");
-    if (local.scrapedMeta?.blocklists) {
-        blocksMeta.blocklists = local.scrapedMeta.blocklists;
-    }
+    await loadMetadataIfNeeded();
     if (activeProfile) {
         const res = await browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: activeProfile });
         if (res?.success && res.data?.blocklists) {
             activeBlocklists = new Set(res.data.blocklists.map(l => l.id));
         }
+    }
+}
+
+/**
+ * Robust Metadata Loader (Matches popup logic)
+ */
+async function loadMetadataIfNeeded() {
+    if (blocksMeta.blocklists.length > 0 && blocksMeta.tlds.length > 0) return;
+
+    try {
+        const storage = await browser.storage.local.get("scrapedMeta");
+        if (storage.scrapedMeta?.blocklists && storage.scrapedMeta?.tlds) {
+            blocksMeta = storage.scrapedMeta;
+            return;
+        }
+        
+        // Remote Fallback
+        const REMOTE_URL = 'https://raw.githubusercontent.com/DNS-Forge/nextdns-addon-data/main/data/blocks_meta.json';
+        const res = await fetch(REMOTE_URL).catch(() => null);
+        if (res?.ok) {
+            blocksMeta = await res.json();
+            await browser.storage.local.set({ scrapedMeta: blocksMeta });
+        } else {
+            // Local Bundle Fallback
+            const localRes = await fetch(browser.runtime.getURL(`data/blocks_meta.json`));
+            blocksMeta = await localRes.json();
+        }
+    } catch (e) {
+        console.error("Metadata load failed in Viewer", e);
     }
 }
 
