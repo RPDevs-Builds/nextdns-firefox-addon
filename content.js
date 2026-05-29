@@ -19,101 +19,75 @@ async function initConfig() {
 
 initConfig();
 
-browser.storage.onChanged.addListener((changes, area) => {
-  if (area === "sync" || area === "local") {
-    if (changes.webGuiMaster) webGuiConfig.master = changes.webGuiMaster.newValue;
-    if (changes.webGuiTlds) webGuiConfig.tlds = changes.webGuiTlds.newValue;
-    if (changes.webGuiBlocklists) webGuiConfig.blocklists = changes.webGuiBlocklists.newValue;
-    if (changes.webGuiLogActions) webGuiConfig.logs = changes.webGuiLogActions.newValue;
-    if (changes.webGuiDesc) webGuiConfig.desc = changes.webGuiDesc.newValue;
-    if (changes.webGuiProfileNotes) webGuiConfig.notes = changes.webGuiProfileNotes.newValue;
-    if (changes.webGuiFilter) webGuiConfig.filter = changes.webGuiFilter.newValue;
+/**
+ * Unified UI Cleanup
+ */
+function cleanupUI() {
+    document.getElementById('nxm-tld-controls')?.remove();
+    document.getElementById('nxm-modal-enable-all')?.remove();
+    document.getElementById('nxm-modal-disable-all')?.remove();
+    document.getElementById('nxm-privacy-controls')?.remove();
+    document.querySelectorAll('.nxm-log-actions').forEach(el => el.remove());
+    document.getElementById('nxm-logs-filter-group')?.remove();
+    document.querySelectorAll('.nxm-domain-desc').forEach(el => el.remove());
+    document.getElementById('nxm-profile-note')?.remove();
     
-    const path = window.location.pathname;
-
-    // Force a UI re-evaluation if user toggles live
-    if (!webGuiConfig.master || !webGuiConfig.tlds) {
-      document.getElementById('nxm-tld-controls')?.remove();
-      document.getElementById('nxm-modal-enable-all')?.remove();
-      document.getElementById('nxm-modal-disable-all')?.remove();
-    } else if (webGuiConfig.master && webGuiConfig.tlds && path.endsWith('/security')) {
-      injectPageButtons();
-      injectModalButtons();
-    }
-
-    if (!webGuiConfig.master || !webGuiConfig.blocklists) {
-      document.getElementById('nxm-privacy-controls')?.remove();
-    } else if (webGuiConfig.master && webGuiConfig.blocklists && path.endsWith('/privacy')) {
-      injectPrivacyButtons();
-    }
-
-    if (!webGuiConfig.master || !webGuiConfig.logs) {
-      document.querySelectorAll('.nxm-log-actions').forEach(el => el.remove());
-      document.getElementById('nxm-logs-filter-group')?.remove();
-    }
-    if (!webGuiConfig.master || !webGuiConfig.desc) {
-      document.querySelectorAll('.nxm-domain-desc').forEach(el => el.remove());
-    }
-    if (!webGuiConfig.master || !webGuiConfig.notes) {
-      document.getElementById('nxm-profile-note')?.remove();
-    }
-    if (!webGuiConfig.master || !webGuiConfig.filter) {
-      document.querySelectorAll('.list-group-item[style*="display: none"]').forEach(el => {
+    // Restore filtered logs
+    document.querySelectorAll('.list-group-item[style*="display: none"]').forEach(el => {
         if (el.dataset.nxmFiltered) {
-          el.style.display = "";
-          delete el.dataset.nxmFiltered;
+            el.style.display = "";
+            delete el.dataset.nxmFiltered;
         }
-      });
+    });
+}
+
+browser.storage.onChanged.addListener((changes, area) => {
+    if (area === "sync" || area === "local") {
+        if (changes.webGuiMaster) webGuiConfig.master = changes.webGuiMaster.newValue;
+        if (changes.webGuiTlds) webGuiConfig.tlds = changes.webGuiTlds.newValue;
+        if (changes.webGuiBlocklists) webGuiConfig.blocklists = changes.webGuiBlocklists.newValue;
+        if (changes.webGuiLogActions) webGuiConfig.logs = changes.webGuiLogActions.newValue;
+        if (changes.webGuiDesc) webGuiConfig.desc = changes.webGuiDesc.newValue;
+        if (changes.webGuiProfileNotes) webGuiConfig.notes = changes.webGuiProfileNotes.newValue;
+        if (changes.webGuiFilter) webGuiConfig.filter = changes.webGuiFilter.newValue;
+        
+        cleanupUI();
     }
-  }
 });
 
 let mutationTimer;
 const observer = new MutationObserver(() => {
-  const path = window.location.pathname;
-  
-  // API Key Auto-Extraction (Quietly scrape if on account page)
-  if (path.endsWith('/account')) {
-    extractApiKey();
-  }
+    const path = window.location.pathname;
 
-  clearTimeout(mutationTimer);
-  mutationTimer = setTimeout(() => {
-    // Inject profile note on all dashboard pages
-    if (webGuiConfig.master && webGuiConfig.notes) {
-      injectProfileNote();
-    }
+    clearTimeout(mutationTimer);
+    mutationTimer = setTimeout(() => {
+        if (!webGuiConfig.master) return;
 
-    if (path.endsWith('/security')) {
-      scrapeTLDs(); // Passive scraper always runs
-      
-      // Only inject UI if both master and feature toggles are enabled
-      if (webGuiConfig.master) {
-        if (webGuiConfig.tlds) {
-          injectPageButtons();
-          injectModalButtons();
+        // Inject profile note
+        if (webGuiConfig.notes) injectProfileNote();
+
+        if (path.endsWith('/security')) {
+            scrapeTLDs();
+            if (webGuiConfig.tlds) {
+                injectPageButtons();
+                injectModalButtons();
+            }
+            if (webGuiConfig.desc) injectDomainDescriptions();
+        } else if (path.endsWith('/privacy')) {
+            scrapeBlocklists();
+            if (webGuiConfig.blocklists) {
+                injectPrivacyButtons();
+            }
+            if (webGuiConfig.desc) injectDomainDescriptions();
+        } else if (path.endsWith('/logs')) {
+            if (webGuiConfig.logs) injectLogActions();
+            if (webGuiConfig.filter) applyLogFilters();
+            injectLogsSettingsControls();
         }
-        if (webGuiConfig.desc) injectDomainDescriptions();
-      }
-    } else if (path.endsWith('/privacy')) {
-      scrapeBlocklists();
-      if (webGuiConfig.master) {
-        if (webGuiConfig.blocklists) {
-          injectPrivacyButtons();
-        }
-        if (webGuiConfig.desc) injectDomainDescriptions();
-      }
-    } else if (path.endsWith('/parentalcontrol')) {
-      scrapeServices();
-    } else if (path.endsWith('/logs')) {
-      if (webGuiConfig.master) {
-        if (webGuiConfig.logs) injectLogActions();
-        if (webGuiConfig.filter) applyLogFilters();
-        injectLogsSettingsControls();
-      }
-    }
-  }, 500);
+    }, 500);
 });
+
+observer.observe(document.body, { childList: true, subtree: true });
 observer.observe(document.body, { childList: true, subtree: true });
 
 async function extractApiKey() {
