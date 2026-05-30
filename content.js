@@ -192,7 +192,13 @@ function applyDeviceAliases(root) {
     elements.forEach(el => {
         const id = el.textContent.trim();
         if (hostnameAliases[id]) {
-            el.innerHTML = `<span title="ID: ${id}" style="border-bottom: 1px dashed var(--accent); cursor: help;">${hostnameAliases[id]}</span>`;
+            el.textContent = "";
+            const span = document.createElement('span');
+            span.title = `ID: ${id}`;
+            span.style.borderBottom = '1px dashed var(--accent)';
+            span.style.cursor = 'help';
+            span.textContent = hostnameAliases[id];
+            el.appendChild(span);
         }
     });
 }
@@ -881,7 +887,14 @@ async function injectProfileNote() {
   const container = document.createElement('div');
   container.id = 'nxm-profile-note';
   container.style.cssText = 'font-size: 0.85em; color: #4facf7; margin-left: 20px; display: flex; align-items: center; gap: 8px; cursor: pointer;';
-  container.innerHTML = `<span>📝</span><span style="font-style:italic;">${note || 'Add Profile Note'}</span>`;
+  container.textContent = "";
+  const icon = document.createElement('span');
+  icon.textContent = "📝";
+  const noteSpan = document.createElement('span');
+  noteSpan.style.fontStyle = 'italic';
+  noteSpan.textContent = note || 'Add Profile Note';
+  container.appendChild(icon);
+  container.appendChild(noteSpan);
   header.appendChild(container);
   container.onclick = async () => {
     const newNote = prompt(`Note for Profile ${profileId}:`, note);

@@ -1,4 +1,0 @@
-
-> dns-forge-addon@0.9.3 lint:addon
-> node .tools/addons-linter/bin/addons-linter . --output=json
-

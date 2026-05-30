@@ -165,6 +165,18 @@ async function refreshView() {
 }
 
 /**
+ * Helper to safely set HTML from a string (AMO compliance)
+ */
+function setSafeHTML(el, html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    el.innerHTML = '';
+    while (doc.body.firstChild) {
+        el.appendChild(doc.body.firstChild);
+    }
+}
+
+/**
  * Phase 4.2: Profile Snapshots Logic
  */
 async function loadSnapshots() {
@@ -173,9 +185,9 @@ async function loadSnapshots() {
     const list = document.getElementById('snapshots-list');
     
     if (!res.snapshots || res.snapshots.length === 0) {
-        list.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">No snapshots yet. Take one before making changes!</div>';
+        setSafeHTML(list, '<div style="text-align: center; color: var(--text-muted); padding: 20px;">No snapshots yet. Take one before making changes!</div>');
     } else {
-        list.innerHTML = res.snapshots.map((s, i) => `
+        const html = res.snapshots.map((s, i) => `
             <div class="list-item" style="border-left: 4px solid var(--accent); padding-left: 15px;">
                 <div class="item-info">
                     <strong>${escapeHTML(s.name)}</strong>
@@ -188,6 +200,7 @@ async function loadSnapshots() {
                 </div>
             </div>
         `).join('');
+        setSafeHTML(list, html);
 
         // Event Listeners
         list.querySelectorAll('.compare-btn').forEach(btn => {
@@ -258,12 +271,20 @@ async function restoreSnapshot(id, snapshots) {
     // Use the existing cloning logic but from the snapshot config
     const logEl = document.getElementById('cloning-log');
     logEl.classList.remove('hidden');
-    logEl.innerHTML = "<div>[System] Restoring Snapshot...</div>";
+    logEl.textContent = "";
+    const startMsg = document.createElement('div');
+    startMsg.textContent = "[System] Restoring Snapshot...";
+    logEl.appendChild(startMsg);
     
     // Switch to Backup tab to see the log
     document.getElementById('tab-backup').click();
     
-    const log = (msg) => { logEl.innerHTML += `<div>${msg}</div>`; logEl.scrollTop = logEl.scrollHeight; };
+    const log = (msg) => { 
+        const div = document.createElement('div');
+        div.textContent = msg;
+        logEl.appendChild(div);
+        logEl.scrollTop = logEl.scrollHeight; 
+    };
 
     try {
         const config = s.config;
@@ -279,9 +300,10 @@ async function restoreSnapshot(id, snapshots) {
  */
 async function setupBackupTab() {
     const cloneTarget = document.getElementById('clone-target-profile');
-    cloneTarget.innerHTML = profilesList.map(p => 
+    const html = profilesList.map(p => 
         `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`
     ).join('');
+    setSafeHTML(cloneTarget, html);
 
     document.getElementById('export-profile-btn').onclick = handleExportProfile;
     document.getElementById('import-profile-btn').onclick = () => document.getElementById('import-profile-file').click();
@@ -322,9 +344,17 @@ async function handleImportProfile(e) {
 
     const logEl = document.getElementById('cloning-log');
     logEl.classList.remove('hidden');
-    logEl.innerHTML = "<div>[System] Starting Import...</div>";
+    logEl.textContent = "";
+    const startMsg = document.createElement('div');
+    startMsg.textContent = "[System] Starting Import...";
+    logEl.appendChild(startMsg);
     
-    const log = (msg) => { logEl.innerHTML += `<div>${msg}</div>`; logEl.scrollTop = logEl.scrollHeight; };
+    const log = (msg) => { 
+        const div = document.createElement('div');
+        div.textContent = msg;
+        logEl.appendChild(div);
+        logEl.scrollTop = logEl.scrollHeight; 
+    };
 
     try {
         const reader = new FileReader();
@@ -469,7 +499,7 @@ function renderList() {
         </div>
     `).join('') || `<div style="text-align:center; padding:60px; opacity:0.5;">No items found in ${activeTab}.</div>`;
     
-    listContainer.innerHTML = html;
+    setSafeHTML(listContainer, html);
 }
 
 /**
@@ -509,7 +539,7 @@ function renderTlds(query) {
         </div>
     `).join('') || `<div style="text-align:center; padding:60px; opacity:0.5;">TLD list is empty. Try syncing metadata in Options.</div>`;
     
-    listContainer.innerHTML = html;
+    setSafeHTML(listContainer, html);
 }
 
 /**
@@ -547,7 +577,7 @@ function renderBlocklists(query) {
         html = `<div style="text-align:center; padding:60px; opacity:0.5;">No blocklists found matching your search.</div>`;
     }
     
-    listContainer.innerHTML = html;
+    setSafeHTML(listContainer, html);
 }
 
 /**
@@ -678,15 +708,13 @@ async function fetchProfiles() {
         const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
         if (res && res.data) {
             profilesList = res.data;
-            selectProfile.innerHTML = profilesList.map(p => 
-                `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`
-            ).join('');
+            const html = profilesList.map(p => `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`).join('');
+            setSafeHTML(selectProfile, html);
         } else if (Array.isArray(res)) {
             // Handle different API response shapes
             profilesList = res;
-            selectProfile.innerHTML = profilesList.map(p => 
-                `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`
-            ).join('');
+            const html = profilesList.map(p => `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`).join('');
+            setSafeHTML(selectProfile, html);
         }
     } catch (e) { console.warn("Failed to fetch profiles for modal", e); }
 }

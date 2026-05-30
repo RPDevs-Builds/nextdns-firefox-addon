@@ -40,7 +40,10 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "{56fda99b-4dd4-4a4a-a413-00ff1c2cffd8}"
+      "id": "{56fda99b-4dd4-4a4a-a413-00ff1c2cffd8}",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   },
   "sidebar_action": {

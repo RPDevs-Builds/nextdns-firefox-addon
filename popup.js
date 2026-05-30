@@ -54,6 +54,19 @@ function escapeHTML(str) {
 }
 
 /**
+ * Helper to safely set HTML from a string (AMO compliance)
+ */
+function setSafeHTML(el, html) {
+    if (!el) return;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    el.innerHTML = '';
+    while (doc.body.firstChild) {
+        el.appendChild(doc.body.firstChild);
+    }
+}
+
+/**
  * Main Entry Point
  */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -517,14 +530,14 @@ function initTabNavigation() {
 
 async function runIntelligentDebugger() {
     const resultsContainer = document.getElementById('debugger-results');
-    resultsContainer.innerHTML = '<div style="text-align: center; padding: 20px;">Fetching logs and correlating...</div>';
+    setSafeHTML(resultsContainer, '<div style="text-align: center; padding: 20px;">Fetching logs and correlating...</div>');
 
     const tabs = await browser.tabs.query({ active: true, currentWindow: true });
     if (tabs.length === 0) return;
     const tabId = tabs[0].id;
 
     if (!activeProfile) {
-        resultsContainer.innerHTML = '<div class="alert alert-warning">No active profile detected.</div>';
+        setSafeHTML(resultsContainer, '<div class="alert alert-warning">No active profile detected.</div>');
         return;
     }
 
@@ -535,16 +548,21 @@ async function runIntelligentDebugger() {
     });
 
     if (!res.success) {
-        resultsContainer.innerHTML = `<div style="color:var(--danger); padding:10px;">Error: ${escapeHTML(res.error)}</div>`;
+        resultsContainer.textContent = "";
+        const errDiv = document.createElement('div');
+        errDiv.style.color = 'var(--danger)';
+        errDiv.style.padding = '10px';
+        errDiv.textContent = `Error: ${res.error}`;
+        resultsContainer.appendChild(errDiv);
         return;
     }
 
     if (res.correlations.length === 0) {
-        resultsContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">No blocked domains correlated from this tab.</div>';
+        setSafeHTML(resultsContainer, '<div style="text-align: center; color: var(--text-muted); padding: 20px;">No blocked domains correlated from this tab.</div>');
         return;
     }
 
-    resultsContainer.innerHTML = '';
+    resultsContainer.textContent = '';
     res.correlations.forEach(c => {
         const row = document.createElement('div');
         row.className = 'panel-box';
@@ -553,7 +571,7 @@ async function runIntelligentDebugger() {
         
         const reasons = c.reasons.map(r => `<span class="badge-deny" style="padding: 1px 4px; font-size: 0.7em; border-radius: 3px;">${escapeHTML(r.name || r)}</span>`).join(' ');
         
-        row.innerHTML = `
+        const html = `
             <div class="flex-between">
                 <strong style="font-family: monospace; font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px;">${escapeHTML(c.domain)}</strong>
                 <button class="btn-allow debug-allow-btn" data-domain="${escapeHTML(c.domain)}" style="width: auto; padding: 2px 8px; font-size: 0.7em;">Allow</button>
@@ -561,6 +579,7 @@ async function runIntelligentDebugger() {
             <div style="margin-top: 5px; display: flex; flex-wrap: wrap; gap: 4px;">${reasons}</div>
             <div style="font-size: 0.7em; color: var(--text-muted); margin-top: 5px;">${new Date(c.timestamp).toLocaleTimeString()} • ${escapeHTML(c.device)}</div>
         `;
+        setSafeHTML(row, html);
         
         row.querySelector('.debug-allow-btn').onclick = async (e) => {
             const btn = e.target;
@@ -632,10 +651,11 @@ async function initializeApp() {
         activeProfile = profile.id;
         const profStatus = document.getElementById("profile-status");
         if (profStatus) {
-            profStatus.innerHTML = `
+            const html = `
                 <span style="display:inline-block; width:8px; height:8px; background:var(--success); border-radius:50%; box-shadow: 0 0 6px var(--success);"></span>
                 Profile: ${escapeHTML(profile.name)}
             `;
+            setSafeHTML(profStatus, html);
             // Phase 3.3: "Protected" Status Indicator
             checkProtectionStatus(activeProfile);
         }
@@ -656,13 +676,24 @@ async function checkProtectionStatus(profileId) {
         const data = await res.json();
         const statusEl = document.getElementById('profile-status');
         if (!statusEl) return;
-        
         if (data.status === 'ok' && (data.profile === profileId || data.fingerprint === profileId)) {
-            statusEl.innerHTML += ` <span class="status-badge badge-allow" style="font-size:0.6em; padding:1px 4px;">PROTECTED</span>`;
+            const badge = document.createElement('span');
+            badge.className = 'status-badge badge-allow';
+            badge.style.fontSize = '0.6em';
+            badge.style.padding = '1px 4px';
+            badge.textContent = 'PROTECTED';
+            statusEl.appendChild(document.createTextNode(' '));
+            statusEl.appendChild(badge);
         } else {
-            statusEl.innerHTML += ` <span class="status-badge badge-deny" style="font-size:0.6em; padding:1px 4px;">UNPROTECTED</span>`;
-            statusEl.title = data.status === 'ok' ? `Connected to different profile: ${data.profile}` : "Not using NextDNS";
+            const badge = document.createElement('span');
+            badge.className = 'status-badge badge-deny';
+            badge.style.fontSize = '0.6em';
+            badge.style.padding = '1px 4px';
+            badge.textContent = 'UNPROTECTED';
+            statusEl.appendChild(document.createTextNode(' '));
+            statusEl.appendChild(badge);
         }
+        statusEl.title = data.status === 'ok' ? `Connected to different profile: ${data.profile}` : "Not using NextDNS";
     } catch (e) {
         console.warn("Protection check failed", e);
     }
@@ -824,7 +855,7 @@ function renderLogs() {
     if (!container) return;
     
     if (!Array.isArray(cachedLogs) || cachedLogs.length === 0) {
-        container.innerHTML = "<div style='text-align:center; padding:20px; color:var(--text-muted); font-size:0.9em;'>No logs found.</div>";
+        setSafeHTML(container, "<div style='text-align:center; padding:20px; color:var(--text-muted); font-size:0.9em;'>No logs found.</div>");
         return;
     }
 
@@ -875,17 +906,18 @@ function renderLogs() {
         const name = hostnameAliases[log.device?.id || log.clientIp] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
         const timeStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "---";
 
-        row.innerHTML = `
+        const html = `
             <div class="flex-between" style="font-size:0.75em; color:var(--text-muted);">
                 <span>🕒 ${timeStr} | 📱 ${escapeHTML(name)}</span>
                 <span style="font-weight:700;">${isBlocked ? 'BLOCKED' : 'ALLOWED'}</span>
             </div>
             <div style="font-weight:700; margin-top:2px; word-break:break-all;">${escapeHTML(log.name || log.domain)}</div>
         `;
+        setSafeHTML(row, html);
         fragment.appendChild(row);
     });
     
-    container.innerHTML = "";
+    container.textContent = "";
     container.appendChild(fragment);
 
     // Update Device Filter options if needed
@@ -905,7 +937,10 @@ function updateDeviceFilterOptions() {
     devices.forEach(id => {
         const log = cachedLogs.find(l => (l.device?.id || l.clientIp) === id);
         const name = hostnameAliases[id] || log.device?.name || id;
-        dropdown.insertAdjacentHTML('beforeend', `<option value="${id}">${escapeHTML(name)}</option>`);
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = name;
+        dropdown.appendChild(opt);
     });
 }
 
@@ -939,9 +974,20 @@ function populateThemeDropdown() {
     const deleteBtn = document.getElementById("delete-theme-btn");
     if (!select) return;
     
-    select.innerHTML = `<option value="default-dark">🌙 Default Dark</option><option value="default-light">☀️ Default Light</option>`;
-    Object.keys(PRESET_THEMES).forEach(t => select.insertAdjacentHTML('beforeend', `<option value="${t}">✨ ${t}</option>`));
-    Object.keys(savedThemes).forEach(t => select.insertAdjacentHTML('beforeend', `<option value="${t}">🎨 ${t}</option>`));
+    const html = `<option value="default-dark">🌙 Default Dark</option><option value="default-light">☀️ Default Light</option>`;
+    setSafeHTML(select, html);
+    Object.keys(PRESET_THEMES).forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = `✨ ${t}`;
+        select.appendChild(opt);
+    });
+    Object.keys(savedThemes).forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = `🎨 ${t}`;
+        select.appendChild(opt);
+    });
     
     select.value = activeThemeId;
     if (deleteBtn) deleteBtn.style.display = savedThemes[activeThemeId] ? 'block' : 'none';
@@ -1082,7 +1128,7 @@ async function loadToggles() {
         case 'parental': html = renderParentalToggles(query); break;
         case 'tlds': html = renderTldsGrid(query); break;
     }
-    container.innerHTML = html;
+    setSafeHTML(container, html);
 }
 
 function renderSecurityToggles() {
@@ -1277,11 +1323,12 @@ function renderManagerList() {
     const query = input.value.toLowerCase();
     const filtered = cachedListItems.filter(i => i.id.toLowerCase().includes(query));
     
-    container.innerHTML = filtered.map(i => `
+    const html = filtered.map(i => `
         <div class="list-item flex-between" style="background:var(--bg-panel); padding:8px 12px; border-radius:6px; margin-bottom:5px; border:1px solid var(--border-color);">
             <span style="font-family:monospace;">${escapeHTML(i.id)}</span>
             <button class="btn-deny" style="width:auto; padding:4px 8px;" data-delete="${escapeHTML(i.id)}">❌</button>
         </div>`).join('') || "<div style='text-align:center; opacity:0.5; padding:20px;'>List is empty.</div>";
+    setSafeHTML(container, html);
 }
 
 async function deleteListItem(domain) {
@@ -1298,9 +1345,14 @@ async function fetchProfiles() {
     const select = document.getElementById("setting-profile-select");
     const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
     if (select) {
-        select.innerHTML = '<option value="">Auto-Detect (Default)</option>';
+        setSafeHTML(select, '<option value="">Auto-Detect (Default)</option>');
         if (res?.data) {
-            res.data.forEach(p => select.insertAdjacentHTML('beforeend', `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`));
+            res.data.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `${p.name} (${p.id})`;
+                select.appendChild(opt);
+            });
             const { overrideProfileId } = await browser.storage.sync.get("overrideProfileId");
             if (overrideProfileId) select.value = overrideProfileId;
         }
@@ -1312,7 +1364,7 @@ async function loadAnalytics() {
     const res = await browser.runtime.sendMessage({ type: "GET_ANALYTICS", profileId: activeProfile });
     const container = document.getElementById("analytics-overview");
     if (res?.data && container) {
-        container.innerHTML = `
+        const html = `
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                 <div class="panel-box" style="margin-bottom:0;">
                     <div style="font-size:0.7em; color:var(--text-muted);">QUERIES</div>
@@ -1323,7 +1375,8 @@ async function loadAnalytics() {
                     <div style="font-size:1.2em; font-weight:700; color:var(--danger);">${res.data.blockedQueries.toLocaleString()}</div>
                 </div>
             </div>`;
-    } else if (container) container.innerHTML = "No analytics data.";
+        setSafeHTML(container, html);
+    } else if (container) container.textContent = "No analytics data.";
 }
 
 // Re-map dashboard actions
@@ -1513,9 +1566,9 @@ async function updateDashboardTabInfo() {
     const container = document.getElementById("tab-log");
     if (container) {
         if (domains.length === 0) {
-            container.innerHTML = "<div style='opacity:0.5; padding:10px;'>No requests captured for this tab yet.</div>";
+            setSafeHTML(container, "<div style='opacity:0.5; padding:10px;'>No requests captured for this tab yet.</div>");
         } else {
-            container.innerHTML = domains.map(d => {
+            const html = domains.map(d => {
                 const r = requests[d];
                 const color = r.status === 'blocked' ? 'var(--danger)' : (r.reason === 'Allow List' ? 'var(--success)' : 'inherit');
                 return `<div style="padding:4px; color:${color}; font-size:0.9em; border-bottom:1px solid rgba(255,255,255,0.05);">
@@ -1523,6 +1576,7 @@ async function updateDashboardTabInfo() {
                     <span style="font-size:0.8em; opacity:0.6; margin-left:5px;">${escapeHTML(r.reason === 'Default' ? '' : `[${r.reason}]`)}</span>
                 </div>`;
             }).join('');
+            setSafeHTML(container, html);
         }
     }
     
@@ -1559,9 +1613,9 @@ async function loadRules() {
     if (!list) return;
 
     if (!res.rules || res.rules.length === 0) {
-        list.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.8em; padding: 10px;">No rules scheduled.</div>';
+        setSafeHTML(list, '<div style="text-align: center; color: var(--text-muted); font-size: 0.8em; padding: 10px;">No rules scheduled.</div>');
     } else {
-        list.innerHTML = res.rules.map(r => `
+        const html = res.rules.map(r => `
             <div class="flex-between" style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 4px; margin-bottom: 5px; border-left: 3px solid ${r.action === 'enable' ? 'var(--success)' : 'var(--danger)'};">
                 <div style="font-size: 0.85em;">
                     <strong>${escapeHTML(r.name)}</strong>
@@ -1570,6 +1624,7 @@ async function loadRules() {
                 <button class="btn-deny delete-rule-btn" data-id="${r.id}" style="width: auto; padding: 2px 6px; font-size: 0.75em;">🗑️</button>
             </div>
         `).join('');
+        setSafeHTML(list, html);
 
         list.querySelectorAll('.delete-rule-btn').forEach(btn => {
             btn.onclick = async () => {
@@ -1593,14 +1648,15 @@ async function runSecurityAudit() {
     scoreRing.style.color = res.score > 80 ? 'var(--success)' : (res.score > 50 ? 'var(--warning)' : 'var(--danger)');
 
     if (res.recommendations.length === 0) {
-        resultsList.innerHTML = '<div class="alert alert-success" style="font-size:0.85em;">Excellent! No security issues found.</div>';
+        setSafeHTML(resultsList, '<div class="alert alert-success" style="font-size:0.85em;">Excellent! No security issues found.</div>');
     } else {
-        resultsList.innerHTML = res.recommendations.map(rec => `
+        const html = res.recommendations.map(rec => `
             <div class="panel-box" style="border-left: 3px solid ${rec.severity === 'high' ? 'var(--danger)' : 'var(--warning)'}; margin-bottom: 10px; padding: 10px;">
                 <div style="font-size: 0.85em; margin-bottom: 8px;">${escapeHTML(rec.message)}</div>
                 <button class="btn-allow fix-audit-btn" data-fix='${JSON.stringify(rec.fix)}' style="width: auto; padding: 3px 10px; font-size: 0.75em;">Apply Fix</button>
             </div>
         `).join('');
+        setSafeHTML(resultsList, html);
 
         resultsList.querySelectorAll('.fix-audit-btn').forEach(btn => {
             btn.onclick = async () => {
