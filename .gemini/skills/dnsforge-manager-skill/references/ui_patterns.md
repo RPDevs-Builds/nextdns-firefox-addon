@@ -23,3 +23,13 @@ Settings and Blocks use a horizontal scrollable sub-nav (`.sub-nav`).
 ## Theme Engine
 - **CSS Variables:** All colors must use `--bg-main`, `--bg-panel`, etc.
 - **Persistence:** Sync to `browser.storage.sync` under `activeTheme` and `customThemes`.
+
+## Data Manager (Full Screen)
+- **Container:** `viewer.html` / `viewer.js`.
+- **Functionality:** CRUD for Rewrites, Snapshots, Comparison, and Profile Notes.
+- **Comparison Pattern:** Diff logic iterates over category keys and set-based list comparisons.
+
+## Dashboard Customization
+- **Mobile CSS:** Throttled injection of `@media` queries into the NextDNS dashboard.
+- **Collapsible Sections:** Attaches `click` listeners to `h4/h5` headers; toggles `display` of sibling elements until next header.
+- **Mutation Performance:** Throttled `evaluatePage` (100ms) within a `MutationObserver`.

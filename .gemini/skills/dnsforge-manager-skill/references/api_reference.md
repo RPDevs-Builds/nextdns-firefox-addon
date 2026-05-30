@@ -28,13 +28,20 @@
 ### Settings Toggles
 - `PATCH /profiles/{profileId}/{category}`: Toggle boolean settings.
   - Body: `{ "settingId": true/false }`
-- `POST /profiles/{profileId}/{category}`: Add item to a list-based category (e.g., parentalControl/services).
+- `POST /profiles/{profileId}/{category}`: Add item to a list-based category (e.g., parentalcontrol/services).
   - Body: `{ "id": "serviceId", "active": true }`
 - `DELETE /profiles/{profileId}/{category}/{id}`: Remove item from a list-based category.
 
 ## Categories
-- `security`: Booleans like `threatIntelligenceFeeds`, `aiThreatDetection`.
-- `privacy`: Booleans like `disguisedTrackers`.
-- `privacy/natives`: List of tracking natives (Windows, macOS, etc.).
-- `parentalControl/services`: List of blocked services (TikTok, Facebook).
-- `parentalControl`: Booleans like `safeSearch`.
+- `security`: Booleans (`threatIntelligenceFeeds`, `aiThreatDetection`, `dga`, `nrd`, `googleSafeBrowsing`, `cryptojacking`, `rebinding`, `idnHomographs`, `typosquatting`, `parkedDomains`, `csam`).
+- `privacy`: Booleans (`disguisedTrackers`, `allowAffiliate`).
+- `privacy/blocklists`: List of active blocklist IDs.
+- `privacy/natives`: List of tracking natives (Windows, Apple, etc.).
+- `parentalcontrol/services`: List of blocked services (TikTok, Facebook).
+- `parentalcontrol/categories`: List of blocked categories (Porn, Gambling).
+- `parentalcontrol`: Booleans (`safeSearch`, `youtubeRestrictedMode`).
+- `security/tlds`: List of blocked TLDs.
+- `settings`: Expert toggles (`ecs`, `cnameFlattening`, `cacheBoost`, `web3`).
+
+## Mirror Mode (Internal)
+Extension logic replicates `TOGGLE_SETTING` calls across `mirrorProfiles` defined in `sync` storage. Non-recursive via `_mirrored` flag.
