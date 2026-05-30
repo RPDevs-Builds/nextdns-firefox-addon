@@ -67,6 +67,55 @@ function setSafeHTML(el, html) {
 }
 
 /**
+ * Global Message Listener (Phase 5.1)
+ */
+browser.runtime.onMessage.addListener((msg) => {
+    if (msg.type === "LIVE_LOG") {
+        handleLiveLog(msg.log);
+    }
+});
+
+function handleLiveLog(log) {
+    if (!log) return;
+    
+    // 1. Update cached logs for filtering/viewing
+    cachedLogs.unshift(log);
+    if (cachedLogs.length > 200) cachedLogs.pop();
+
+    // 2. If Logs tab is active, update the view
+    if (activeTab === 'dashboard') {
+        const container = document.getElementById("logs-container");
+        if (container) {
+            // Prepend new log row if it matches current search
+            const fragment = document.createDocumentFragment();
+            const row = document.createElement('div');
+            row.className = 'log-row';
+            const isBlocked = log.status === 'blocked';
+            row.style.color = isBlocked ? 'var(--danger)' : 'var(--success)';
+            
+            const name = hostnameAliases[log.device?.id || log.clientIp] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
+            const timeStr = new Date(log.timestamp).toLocaleTimeString();
+
+            const html = `
+                <div class="flex-between" style="font-size:0.75em; color:var(--text-muted);">
+                    <span>🕒 ${timeStr} | 📱 ${escapeHTML(name)}</span>
+                    <span style="font-weight:700;">${isBlocked ? 'BLOCKED' : 'ALLOWED'}</span>
+                </div>
+                <div style="font-weight:700; margin-top:2px; word-break:break-all;">${escapeHTML(log.name || log.domain)}</div>
+            `;
+            setSafeHTML(row, html);
+            
+            // Limit prepend to top if search matches
+            const query = (document.getElementById("log-search")?.value || "").toLowerCase();
+            if (!query || (log.name || log.domain || '').toLowerCase().includes(query)) {
+                container.prepend(row);
+                if (container.children.length > 100) container.lastElementChild.remove();
+            }
+        }
+    }
+}
+
+/**
  * Main Entry Point
  */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -659,7 +708,15 @@ async function initializeApp() {
             // Phase 3.3: "Protected" Status Indicator
             checkProtectionStatus(activeProfile);
         }
+
+        // Start SSE stream for active profile
+        browser.runtime.sendMessage({ type: "START_STREAM", profileId: activeProfile });
     }
+
+    // Stop stream when window closes (cleanup)
+    window.addEventListener("unload", () => {
+        browser.runtime.sendMessage({ type: "STOP_STREAM" });
+    });
 
     // Update dynamic links based on active profile
     updateDynamicLinks();
@@ -1124,6 +1181,7 @@ async function loadToggles() {
     switch (activeBlocksSubTab) {
         case 'security': html = renderSecurityToggles(); break;
         case 'privacy': html = renderPrivacyToggles(); break;
+        case 'performance': html = renderPerformanceToggles(); break;
         case 'blocklists': html = renderBlocklistsGrid(query); break;
         case 'parental': html = renderParentalToggles(query); break;
         case 'tlds': html = renderTldsGrid(query); break;
@@ -1149,6 +1207,35 @@ function renderSecurityToggles() {
         ]
     };
     return SETTING_GROUPS.items.map(i => renderToggleRow(i, 'security', !!lastBlocksData.security?.[i.id], 'boolean')).join('');
+}
+
+function renderPerformanceToggles() {
+    const SETTING_GROUPS = {
+        items: [
+            { id: 'ecs', label: 'EDNS Client Subnet (ECS)', note: 'Improves global CDN performance.' },
+            { id: 'cnameFlattening', label: 'CNAME Flattening', note: 'Speeds up resolution of CNAME chains.' },
+            { id: 'cacheBoost', label: 'Cache Boost', note: 'Forces minimum TTL to reduce lookups.' },
+            { id: 'web3', label: 'Web3 Support', note: 'Enables .eth and .crypto resolution.' }
+        ]
+    };
+
+    return `
+        <div class="panel-section">
+            <h4 style="margin-top:0;">Expert Performance</h4>
+            ${SETTING_GROUPS.items.map(s => `
+                <div class="flex-between" style="margin-bottom:12px;">
+                    <div>
+                        <div style="font-size:0.9em;">${s.label}</div>
+                        <div style="font-size:0.7em; color:var(--text-muted);">${s.note}</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-${s.id}" class="api-toggle" data-cat="settings" data-id="${s.id}" ${lastBlocksData.settings?.[s.id] ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            `).join('')}
+        </div>
+    `;
 }
 
 function renderPrivacyToggles() {
@@ -1361,20 +1448,39 @@ async function fetchProfiles() {
 }
 
 async function loadAnalytics() {
-    const res = await browser.runtime.sendMessage({ type: "GET_ANALYTICS", profileId: activeProfile });
+    const [summary, series] = await Promise.all([
+        browser.runtime.sendMessage({ type: "GET_ANALYTICS", profileId: activeProfile }),
+        browser.runtime.sendMessage({ type: "GET_ANALYTICS", profileId: activeProfile, series: true })
+    ]);
+
     const container = document.getElementById("analytics-overview");
-    if (res?.data && container) {
+    if (summary?.data && container) {
+        // Simple Trend Analysis (Last 5 intervals)
+        const sData = series?.data || [];
+        let trendHtml = "";
+        if (sData.length > 5) {
+            const recent = sData.slice(-5).reduce((acc, curr) => acc + curr.queries, 0);
+            const previous = sData.slice(-10, -5).reduce((acc, curr) => acc + curr.queries, 0);
+            const diff = recent - previous;
+            const percent = previous > 0 ? Math.round((diff / previous) * 100) : 0;
+            const color = diff > 0 ? 'var(--danger)' : 'var(--success)';
+            trendHtml = `<div style="font-size:0.75em; color:${color}; margin-top:5px;">
+                ${diff > 0 ? '📈' : '📉'} ${Math.abs(percent)}% ${diff > 0 ? 'increase' : 'decrease'} in activity
+            </div>`;
+        }
+
         const html = `
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                 <div class="panel-box" style="margin-bottom:0;">
                     <div style="font-size:0.7em; color:var(--text-muted);">QUERIES</div>
-                    <div style="font-size:1.2em; font-weight:700;">${res.data.queries.toLocaleString()}</div>
+                    <div style="font-size:1.2em; font-weight:700;">${summary.data.queries.toLocaleString()}</div>
                 </div>
                 <div class="panel-box" style="margin-bottom:0;">
                     <div style="font-size:0.7em; color:var(--text-muted);">BLOCKED</div>
-                    <div style="font-size:1.2em; font-weight:700; color:var(--danger);">${res.data.blockedQueries.toLocaleString()}</div>
+                    <div style="font-size:1.2em; font-weight:700; color:var(--danger);">${summary.data.blockedQueries.toLocaleString()}</div>
                 </div>
-            </div>`;
+            </div>
+            ${trendHtml}`;
         setSafeHTML(container, html);
     } else if (container) container.textContent = "No analytics data.";
 }

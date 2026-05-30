@@ -145,15 +145,23 @@ async function refreshView() {
         'tlds': 'TLD',
         'blocklists': 'Blocklist',
         'filters': 'Filter Pattern',
-        'snapshots': 'Snapshot'
+        'snapshots': 'Snapshot',
+        'rewrites': 'Domain Name'
     };
     if (labelKey) labelKey.textContent = labels[activeTab] || 'Key';
+
+    const inputNote = document.getElementById('input-note');
+    if (inputNote) {
+        inputNote.placeholder = (activeTab === 'rewrites') ? 'IP Address (e.g. 1.2.3.4)' : 'Notes...';
+    }
 
     // Fetch Data based on tab
     if (activeTab === 'tlds') {
         await fetchTldData();
     } else if (activeTab === 'blocklists') {
         await fetchBlocklistData();
+    } else if (activeTab === 'rewrites') {
+        await fetchRewritesData();
     } else {
         const storageKey = getStorageKey();
         const sync = await browser.storage.sync.get(storageKey);
@@ -616,6 +624,20 @@ function openAddModal() {
     editModal.style.display = 'flex';
 }
 
+async function fetchRewritesData() {
+    if (!activeProfile) return;
+    const res = await browser.runtime.sendMessage({ type: "LIST_REWRITES", profileId: activeProfile });
+    if (res.success) {
+        currentData = {};
+        res.data.forEach(r => {
+            currentData[r.name] = r.content;
+        });
+    }
+}
+
+/**
+ * Global Actions (Delete/Save)
+ */
 async function handleSave() {
     const key = (activeTab === 'profiles' && !selectProfile.classList.contains('hidden')) 
         ? selectProfile.value 
@@ -624,35 +646,46 @@ async function handleSave() {
     const note = inputNote.value.trim();
     if (!key) return alert('Please enter or select a key.');
 
-    const storageKey = getStorageKey();
-    const storage = await browser.storage.sync.get(storageKey);
-    const data = storage[storageKey] || {};
+    if (activeTab === 'rewrites') {
+        if (!activeProfile) return alert("Profile not detected.");
+        await browser.runtime.sendMessage({ type: "SAVE_REWRITE", profileId: activeProfile, name: key, content: note });
+    } else {
+        const storageKey = getStorageKey();
+        const storage = await browser.storage.sync.get(storageKey);
+        const data = storage[storageKey] || {};
+        
+        data[key] = note || (activeTab === 'filters' ? "Hidden" : "");
+        
+        const saveObj = {};
+        saveObj[storageKey] = data;
+        await Promise.all([
+            browser.storage.sync.set(saveObj),
+            browser.storage.local.set(saveObj)
+        ]);
+    }
     
-    data[key] = note || (activeTab === 'filters' ? "Hidden" : "");
-    
-    const saveObj = {};
-    saveObj[storageKey] = data;
-    await Promise.all([
-        browser.storage.sync.set(saveObj),
-        browser.storage.local.set(saveObj)
-    ]);
     editModal.style.display = 'none';
     refreshView();
 }
 
 async function handleDelete(key) {
     if (!confirm(`Permanently remove entry for "${key}"?`)) return;
-    const storageKey = getStorageKey();
-    const storage = await browser.storage.sync.get(storageKey);
-    const data = storage[storageKey] || {};
-    delete data[key];
-    
-    const saveObj = {};
-    saveObj[storageKey] = data;
-    await Promise.all([
-        browser.storage.sync.set(saveObj),
-        browser.storage.local.set(saveObj)
-    ]);
+
+    if (activeTab === 'rewrites') {
+        await browser.runtime.sendMessage({ type: "DELETE_REWRITE", profileId: activeProfile, name: key });
+    } else {
+        const storageKey = getStorageKey();
+        const storage = await browser.storage.sync.get(storageKey);
+        const data = storage[storageKey] || {};
+        delete data[key];
+        
+        const saveObj = {};
+        saveObj[storageKey] = data;
+        await Promise.all([
+            browser.storage.sync.set(saveObj),
+            browser.storage.local.set(saveObj)
+        ]);
+    }
     refreshView();
 }
 

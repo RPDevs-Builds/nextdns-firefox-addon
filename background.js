@@ -181,6 +181,54 @@ browser.action.onClicked.addListener(async () => {
     }
 });
 /**
+ * SSE Log Streaming Manager
+ */
+const logStreamManager = {
+    eventSource: null,
+    currentProfileId: null,
+
+    async start(profileId) {
+        if (this.eventSource && this.currentProfileId === profileId) return { success: true };
+        this.stop();
+
+        const apiKey = await storage.get("apiKey");
+        if (!apiKey) return { success: false, error: "API Key required" };
+
+        this.currentProfileId = profileId;
+        const url = `${API_BASE}/profiles/${profileId}/logs/stream?api_key=${apiKey}`;
+        
+        try {
+            this.eventSource = new EventSource(url);
+            
+            this.eventSource.onmessage = (event) => {
+                try {
+                    const log = JSON.parse(event.data);
+                    // Broadcast to all active extension components
+                    browser.runtime.sendMessage({ type: "LIVE_LOG", log }).catch(() => {});
+                } catch (e) {}
+            };
+
+            this.eventSource.onerror = (err) => {
+                console.warn("[SSE] Stream error:", err);
+                this.stop();
+            };
+
+            return { success: true };
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
+    },
+
+    stop() {
+        if (this.eventSource) {
+            this.eventSource.close();
+            this.eventSource = null;
+            this.currentProfileId = null;
+        }
+    }
+};
+
+/**
  * Main Initialization Lifecycle
  */
 async function initializeBackground() {
@@ -377,10 +425,26 @@ const messageHandlers = {
         } catch(e) { return { success: false, data: [] }; }
     },
     GET_ANALYTICS: async (msg) => {
+        const { profileId, series = false } = msg;
+        const seriesSuffix = series ? ';series' : '';
         try { 
-            const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/analytics/status`, { cache: 'no-store' });
-            return r.success ? await r.response.json() : { data: {} };
-        } catch(e) { return { data: {} }; }
+            const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/analytics/status${seriesSuffix}`, { cache: 'no-store' });
+            if (!r.success) return { success: false, data: {} };
+            const json = await r.response.json();
+            
+            if (series) return { success: true, data: json.data || [] };
+
+            const total = (json.data || []).reduce((acc, curr) => acc + (curr.queries || 0), 0);
+            const blocked = (json.data || []).find(d => d.status === 'blocked')?.queries || 0;
+            return { 
+                success: true, 
+                data: { 
+                    queries: total, 
+                    blockedQueries: blocked, 
+                    blockedPercent: total > 0 ? Math.round((blocked / total) * 100) : 0 
+                } 
+            };
+        } catch(e) { return { success: false, data: {} }; }
     },
     GET_PROFILE: async () => await detectActiveProfile(),
     GET_PROFILES_LIST: async () => {
@@ -518,6 +582,13 @@ const messageHandlers = {
         }
         return { success: true };
     },
+    START_STREAM: async (msg) => {
+        return logStreamManager.start(msg.profileId);
+    },
+    STOP_STREAM: async () => {
+        logStreamManager.stop();
+        return { success: true };
+    },
     LIST_RULES: async () => {
         const { forgeRules = [] } = await browser.storage.sync.get("forgeRules");
         return { success: true, rules: forgeRules };
@@ -534,6 +605,25 @@ const messageHandlers = {
         const updated = forgeRules.filter(r => r.id !== msg.ruleId);
         await browser.storage.sync.set({ forgeRules: updated });
         return { success: true };
+    },
+    LIST_REWRITES: async (msg) => {
+        const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/rewrites`, { cache: 'no-store' });
+        if (!r.success) return { success: false, error: "Failed to fetch rewrites" };
+        const data = await r.response.json();
+        return { success: true, data: data.data || [] };
+    },
+    SAVE_REWRITE: async (msg) => {
+        const { profileId, name, content } = msg;
+        const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/rewrites`, { 
+            method: 'POST', 
+            body: JSON.stringify({ name, content }) 
+        });
+        return { success: r.success };
+    },
+    DELETE_REWRITE: async (msg) => {
+        const { profileId, name } = msg;
+        const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/rewrites/${name}`, { method: 'DELETE' });
+        return { success: r.success };
     },
     RUN_AUDIT: async (msg) => {
         const profileId = msg.profileId;
