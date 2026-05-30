@@ -6,28 +6,30 @@ DNS Forge is a high-performance Firefox extension designed for advanced [NextDNS
 
 ## 🚀 Key Features
 
-### 🧠 Intelligence & Diagnostics (Phase 4)
-- **Forge Debugger:** Identifies exactly which blocklist (OISD, NextDNS, etc.) is breaking a website by correlating active tab requests with real-time NextDNS logs.
-- **Security Auditor:** Proactively scans your profile for security gaps (e.g., disabled DGA or CSAM protection) and deprecated blocklists, providing an actionable "Health Score."
-- **Automation Scheduler:** Create time-based rules to enable/disable services (e.g., "Block TikTok at 10 PM") or security settings automatically using background alarms.
-- **Profile Snapshots:** Full configuration "Undo" button. Take snapshots of your settings, view visual diffs, and roll back changes with one click.
+### 🧠 Intelligence & Diagnostics (Phase 4 & 5)
+- **SSE Live Feed:** Zero-latency log streaming via Server-Sent Events. See DNS queries in real-time in the Dashboard and Debugger.
+- **Forge Debugger:** Identifies exactly which blocklist is breaking a website by correlating tab requests with live logs.
+- **Security Auditor:** Scans your profile for security gaps and deprecated blocklists with an actionable "Health Score."
+- **Automation Scheduler:** Time-based rules to enable/disable services or security settings automatically.
+- **Profile Snapshots:** Configuration versioning with visual diffs and one-click restoration.
 
 ### 🔍 Unified Dashboard & UI
-- **Real-Time Request Tracking:** Visualizes every request made by the active tab with parent-domain matching and privacy grading.
-- **Network Error Suppressor:** Replaces intrusive NextDNS dashboard modals with non-intrusive toast notifications during stream timeouts.
-- **Dashboard Enhancements:** Injected on-page search/filters for Blocklists, TLDs, and Logs. Added "Bulk Delete" and "Select All" functionality.
-- **Device Aliasing:** Automatically replaces cryptic device IDs in logs and analytics with friendly nicknames.
+- **Analytics Trends:** Visual activity trend indicators (e.g., "📈 15% increase") based on time-series analysis.
+- **Real-Time Request Tracking:** Visualizes active tab requests with privacy grading.
+- **Network Error Suppressor:** Replaces intrusive dashboard modals with toast notifications during timeouts.
+- **Device Aliasing:** Friendly nicknames for cryptic device IDs in logs and analytics.
 
 ### ⚡ Advanced Management
-- **Intelligent TLD & Blocklist Manager:** Manage 1,300+ TLDs and 80+ blocklists with alphabetical jump-links and advanced sorting.
-- **Profile Quick-Switcher:** Instant profile switching via a dropdown in the dashboard navigation bar.
-- **Dynamic IP (DDNS) Automation:** Detects WAN IP changes and automatically updates your profile's "Linked IP" hourly.
-- **Full Configuration Cloning:** Export snapshots and clone them to other profiles via the Centralized Data Manager.
+- **DNS Rewrites Manager:** Full CRUD support for custom domain-to-IP mappings directly from the browser.
+- **Expert Performance Panel:** Advanced toggles for ECS (EDNS Client Subnet), CNAME Flattening, and Cache Boost.
+- **Intelligent TLD & Blocklist Manager:** Manage 1,300+ TLDs and 80+ blocklists with alphabetical sorting.
+- **Profile Quick-Switcher:** Instant profile switching via a dashboard navigation dropdown.
+- **Configuration Cloning:** Export and clone snapshots between profiles via the Data Manager.
 
 ### 📡 Reliability & Architecture
 - **Centralized Storage Manager:** Synchronous memory cache with automatic healing from `sync` to `local` storage.
 - **Robust API Client:** Integrated exponential backoff retry logic and global rate-limiting awareness.
-- **100% AMO Compliance:** Fully hardened against XSS and security vulnerabilities, passing all Mozilla automated review checks.
+- **100% AMO Compliance:** Fully hardened against XSS and security vulnerabilities, passing all Mozilla reviews.
 
 ---
 
@@ -35,16 +37,16 @@ DNS Forge is a high-performance Firefox extension designed for advanced [NextDNS
 
 This extension enforces a **Zero-Regression Mandate** via architectural isolation:
 - **Modular Domains:** Logic is isolated into `I/O Parsers`, `API Clients`, and `Formatters`.
-- **Linter Integration:** Integrated Mozilla `addons-linter` with a 4GB memory-boosted execution script for deep analysis.
-- **Security Hardening:** Mandatory GPG signing for all commits and strict XSS prevention via `setSafeHTML` sanitization.
-- **Performance Optimized:** High-performance `MutationObserver` for real-time DOM injections and efficient event delegation.
+- **Linter Integration:** Integrated Mozilla `addons-linter` for deep security and compliance analysis.
+- **Security Hardening:** Mandatory GPG signing and strict XSS prevention via `setSafeHTML` sanitization.
+- **Performance Optimized:** High-performance `MutationObserver` for real-time DOM injections.
 
 ---
 
 ## 🧪 Development & Testing
 
 A comprehensive Jest suite covers the entire lifecycle of the addon:
-- **Intelligent Logic:** Verification of the Debugger, Scheduler, and Security Auditor.
+- **Intelligent Logic:** Debugger, Scheduler, Auditor, and SSE streaming verification.
 - **Persistence & Recovery:** Storage auto-heal and API key extraction.
 - **UI & Customization:** Real-time dashboard injection and surgical cleanup.
 
@@ -69,12 +71,11 @@ Every push to `main` triggers a GitHub Action that:
 
 ---
 
-## 🗺️ Roadmap (Phase 5)
+## 🗺️ Roadmap (Future)
 
-- [ ] **SSE Live Feed:** Integrate Server-Sent Events for zero-latency log streaming in the Debugger.
-- [ ] **DNS Rewrites Manager:** CRUD support for custom local DNS mappings.
-- [ ] **Analytics Sparklines:** Time-series visualization for 24h/30d activity trends.
-- [ ] **Expert Performance Panel:** Toggles for ECS, CNAME Flattening, and Cache Boost.
+- [ ] **Cross-Profile Diff:** Compare two different active profiles in real-time.
+- [ ] **Exportable Security Reports:** Generate PDF/JSON audit reports for compliance.
+- [ ] **Collaborative Profiles:** Support for managing shared team configurations.
 
 ---
 
