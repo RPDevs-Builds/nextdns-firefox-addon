@@ -17,8 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Background Scheduler:** Rule-based automation for toggling services and settings.
 - **Security Auditor:** Automated scans for deprecated blocklists and security gaps.
 - **Intelligent Debugger:** Correlation engine for identifying broken websites.
+- **Linked IP (DDNS) Support:** Automatic detection and update of your linked IP for dynamic connections.
 - **DNS Rewrites Manager:** Full CRUD support for custom domain-to-IP mappings.
 - **Expert Performance Panel:** High-level resolution toggles (ECS, CNAME, Cache Boost).
+- **Version Bumper:** Automated synchronization of version strings across all manifest and metadata files.
 
 ### Changed
 - **Architectural Componentization:** Fully modular ES architecture for background logic and UI.
