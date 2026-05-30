@@ -82,6 +82,14 @@ Upon receiving `addons-linter` data, the AI must automatically execute the follo
 2.  **Validation Instructions:** State the command required to re-verify the fixes (e.g., `npx addons-linter ./ext-dir`).
 3.  **Flag Unstudied Unknowns:** If the linter throws an undocumented error code or flags a pattern that contradicts current MDN documentation, explicitly flag this as an anomaly requiring manual Mozilla developer documentation review.
 
+## Phase 6 Retrospective: Professional Ecosystem & ESM
+- **ESM Test Pathing:** Avoid `import.meta.url` in test files if the environment relies on standard Babel/Jest transforms; prefer `path.resolve('src/...')` for absolute pathing relative to the project root to ensure cross-environment compatibility.
+- **Testing Injectable Data:** Design UI rendering functions (e.g., `loadToggles`, `renderLogs`) to accept an optional `override` parameter for their data source. This allows isolated unit testing without requiring complex global state orchestration.
+- **API Casing Rigor:** NextDNS API category endpoints are strictly lowercase (e.g., `parentalcontrol`, not `parentalControl`). Always cross-reference the endpoint casing in `api_reference.md` before applying changes.
+- **Jest Isolation:** When integrating external tools (like `addons-linter`) into the project tree, always exclude their paths from the test runner via `modulePathIgnorePatterns` in `package.json` to prevent execution of unrelated dependency tests.
+- **Componentized State:** When splitting monolithic files, ensure every module that relies on persistent state explicitly imports and initializes the `StorageManager`. Never assume a global singleton exists unless explicitly declared in an index.
+
 ## NextDNS API Integration
-- **Category Normalization:** The NextDNS API is case-sensitive. Use `parentalControl` (not `parentalcontrol`).
+- **Category Normalization:** The NextDNS API is case-sensitive and uses lowercase for categories. Use `parentalcontrol` (not `parentalControl`).
 - **Throttling:** Background notifications for blocks are throttled to once per 10 seconds per unique domain.
+
