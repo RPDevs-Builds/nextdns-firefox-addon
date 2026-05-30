@@ -14,6 +14,7 @@
     "@babel/preset-env": "^7.29.7",
     "@testing-library/dom": "^9.3.1",
     "@testing-library/jest-dom": "^6.1.4",
+    "addons-linter": "file:.tools/addons-linter",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "jest-fetch-mock": "latest",
@@ -28,7 +29,7 @@
       "**/tests/?(*.)+(spec|test).[tj]s?(x)"
     ],
     "modulePathIgnorePatterns": [
-        "<rootDir>/.tools/"
+      "<rootDir>/.tools/"
     ]
   }
 }
