@@ -115,7 +115,7 @@ describe('Data Manager (Viewer) Audit', () => {
   });
 
   test('Viewer: Loads scraped metadata preferentially', async () => {
-    require('../viewer.js');
+    require('../src/viewer.js');
     
     await new Promise(r => setTimeout(r, 400));
 
@@ -126,7 +126,7 @@ describe('Data Manager (Viewer) Audit', () => {
   test('Viewer: Falls back to bundled JSON if scraped data is missing', async () => {
     mockStorage.scrapedMeta = null;
     
-    require('../viewer.js');
+    require('../src/viewer.js');
 
     await new Promise(r => setTimeout(r, 400));
 

@@ -5,6 +5,8 @@
  * Performance & Security Refactor - June 2026
  */
 
+import { storage } from './storage.js';
+
 // --- Global State ---
 let activeTab = 'domains';      // Currently active sub-tab ('domains', 'profiles', 'filters', 'hostnames', 'tlds')
 let currentData = {};           // Cache for the active tab's data (storage-based)
@@ -25,6 +27,87 @@ const selectProfile = document.getElementById('select-profile');
 const inputNote = document.getElementById('input-note');
 const saveBtn = document.getElementById('save-btn');
 const cancelBtn = document.getElementById('cancel-btn');
+
+function initComparisonTab() {
+    const selects = ['compare-base-profile', 'compare-target-profile'];
+    selects.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.options.length === 0) {
+            profilesList.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `${p.name} (${p.id})`;
+                el.appendChild(opt);
+            });
+        }
+    });
+    document.getElementById('run-comparison-btn').onclick = runComparison;
+}
+
+async function runComparison() {
+    const baseId = document.getElementById('compare-base-profile').value;
+    const targetId = document.getElementById('compare-target-profile').value;
+    const results = document.getElementById('comparison-results');
+    
+    if (baseId === targetId) return alert("Please select two different profiles.");
+    
+    setSafeHTML(results, '<div style="text-align:center; padding:20px;">Fetching configurations...</div>');
+
+    const [baseRes, targetRes] = await Promise.all([
+        browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: baseId }),
+        browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: targetId })
+    ]);
+
+    if (!baseRes.success || !targetRes.success) return alert("Failed to fetch configurations.");
+
+    const base = baseRes.data;
+    const target = targetRes.data;
+    const diffs = [];
+
+    const cats = ['security', 'privacy', 'settings'];
+    cats.forEach(cat => {
+        const baseKeys = Object.keys(base[cat] || {});
+        const targetKeys = Object.keys(target[cat] || {});
+        const allKeys = new Set([...baseKeys, ...targetKeys]);
+        
+        allKeys.forEach(key => {
+            const bVal = base[cat]?.[key];
+            const tVal = target[cat]?.[key];
+            if (bVal !== tVal) diffs.push({ cat, key, base: bVal, target: tVal });
+        });
+    });
+
+    const lists = ['blocklists', 'tlds', 'natives', 'services', 'categories'];
+    lists.forEach(list => {
+        const baseIds = new Set((base[list] || []).map(i => i.id || i));
+        const targetIds = new Set((target[list] || []).map(i => i.id || i));
+        
+        baseIds.forEach(id => { if (!targetIds.has(id)) diffs.push({ cat: list, key: id, base: true, target: false }); });
+        targetIds.forEach(id => { if (!baseIds.has(id)) diffs.push({ cat: list, key: id, base: false, target: true }); });
+    });
+
+    if (diffs.length === 0) {
+        setSafeHTML(results, '<div class="alert alert-success">Configurations are identical!</div>');
+        return;
+    }
+
+    const html = diffs.map(d => `
+        <div class="panel-box" style="margin-bottom:8px; padding:10px;">
+            <div class="flex-between">
+                <div>
+                    <span class="badge" style="background:var(--accent); font-size:0.7em;">${escapeHTML(d.cat.toUpperCase())}</span>
+                    <strong style="margin-left:8px; font-size:0.9em;">${escapeHTML(d.key)}</strong>
+                </div>
+                <div style="font-size:0.85em;">
+                    <span style="color:${d.base ? 'var(--success)' : 'var(--danger)'};">${d.base ? 'ON' : 'OFF'}</span>
+                    <span style="margin:0 10px; opacity:0.5;">➡️</span>
+                    <span style="color:${d.target ? 'var(--success)' : 'var(--danger)'};">${d.target ? 'ON' : 'OFF'}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    setSafeHTML(results, html);
+}
 
 /**
  * Robust HTML escaping to prevent XSS
@@ -120,11 +203,13 @@ async function refreshView() {
     // Update Control visibility
     const isBackup = activeTab === 'backup';
     const isSnapshots = activeTab === 'snapshots';
-    addBtn.classList.toggle('hidden', ['tlds', 'blocklists', 'backup', 'snapshots'].includes(activeTab));
-    document.getElementById('main-controls').classList.toggle('hidden', isBackup || isSnapshots);
-    listContainer.classList.toggle('hidden', isBackup || isSnapshots);
+    const isComparison = activeTab === 'comparison';
+    addBtn.classList.toggle('hidden', ['tlds', 'blocklists', 'backup', 'snapshots', 'comparison'].includes(activeTab));
+    document.getElementById('main-controls').classList.toggle('hidden', isBackup || isSnapshots || isComparison);
+    listContainer.classList.toggle('hidden', isBackup || isSnapshots || isComparison);
     document.getElementById('backup-container').classList.toggle('hidden', !isBackup);
     document.getElementById('snapshots-container').classList.toggle('hidden', !isSnapshots);
+    document.getElementById('comparison-container').classList.toggle('hidden', !isComparison);
     
     if (isBackup) {
         setupBackupTab();
@@ -133,6 +218,11 @@ async function refreshView() {
     
     if (isSnapshots) {
         loadSnapshots();
+        return;
+    }
+
+    if (isComparison) {
+        initComparisonTab();
         return;
     }
 

@@ -72,7 +72,7 @@ describe('Legacy Logic Audit: Menus, Notifications, Profiles', () => {
   });
 
   test('Context Menus: Correctly formatted API payload for Denylist', async () => {
-    const backgroundJs = fs.readFileSync(path.resolve(__dirname, '../background.js'), 'utf8');
+    const backgroundJs = fs.readFileSync(path.resolve(__dirname, '../src/background.js'), 'utf8');
     global.storage = require('../src/storage.js');
     global.apiClient = require('../src/apiClient.js');
     global.apiClient.setStorage(global.storage);
@@ -105,14 +105,14 @@ describe('Legacy Logic Audit: Menus, Notifications, Profiles', () => {
   test('Notifications: Throttling logic prevents spam', async () => {
     // We need to access the internal throttle function or trigger it via the listener
     // Since it's internal to background.js, we'll verify it via side-effects
-    const backgroundJs = fs.readFileSync(path.resolve(__dirname, '../background.js'), 'utf8');
+    const backgroundJs = fs.readFileSync(path.resolve(__dirname, '../src/background.js'), 'utf8');
     global.storage = require('../src/storage.js');
     global.apiClient = require('../src/apiClient.js');
     global.apiClient.setStorage(global.storage);
     eval(backgroundJs);
 
     // Mock the notification call
-    const background = require('../background.js');
+    const background = require('../src/background.js');
     
     // If background.js doesn't export it, we can't test it directly unless we trigger the request listener
     // But we can check if it exists in the script
@@ -121,7 +121,7 @@ describe('Legacy Logic Audit: Menus, Notifications, Profiles', () => {
   });
 
   test('Profile Detection: Fallback to /profiles API when TEST_URL fails', async () => {
-    const backgroundJs = fs.readFileSync(path.resolve(__dirname, '../background.js'), 'utf8');
+    const backgroundJs = fs.readFileSync(path.resolve(__dirname, '../src/background.js'), 'utf8');
     global.storage = require('../src/storage.js');
     global.apiClient = require('../src/apiClient.js');
     global.apiClient.setStorage(global.storage);

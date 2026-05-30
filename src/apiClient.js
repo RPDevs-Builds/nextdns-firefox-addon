@@ -58,5 +58,4 @@ class APIClient {
     }
 }
 
-const apiClient = new APIClient();
-if (typeof module !== 'undefined') module.exports = apiClient;
+export const apiClient = new APIClient();

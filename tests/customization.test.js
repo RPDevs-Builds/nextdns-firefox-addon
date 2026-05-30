@@ -103,7 +103,7 @@ describe('Website Customization Engine', () => {
     delete window.location;
     window.location = { pathname: '/abcd/security' };
 
-    const content = require('../content.js');
+    const content = require('../src/content.js');
     global.evaluatePage = content.evaluatePage;
     global.cleanupUI = content.cleanupUI;
     

@@ -101,7 +101,7 @@ describe('Storage Persistence & Auto-Heal', () => {
   });
 
   test('Background: Heals local storage from sync on startup', async () => {
-    const backgroundJs = fs.readFileSync(path.resolve(__dirname, '../background.js'), 'utf8');
+    const backgroundJs = fs.readFileSync(path.resolve(__dirname, '../src/background.js'), 'utf8');
     global.storage = require('../src/storage.js');
     global.apiClient = require('../src/apiClient.js');
     global.apiClient.setStorage(global.storage);
@@ -129,7 +129,7 @@ describe('Storage Persistence & Auto-Heal', () => {
     
     // Require popup.js (it will run initializeApp)
     global.storage = require('../src/storage.js');
-    require('../popup.js');
+    require('../src/popup.js');
     document.dispatchEvent(new Event('DOMContentLoaded'));
     
     await new Promise(r => setTimeout(r, 100));
@@ -148,7 +148,7 @@ describe('Storage Persistence & Auto-Heal', () => {
     delete window.location;
     window.location = { pathname: '/abcd/account' };
 
-    const content = require('../content.js');
+    const content = require('../src/content.js');
     await content.evaluatePage();
     
     await new Promise(r => setTimeout(r, 100));

@@ -1,0 +1,33 @@
+{
+    "presets": [
+        {
+            "id": "max-privacy",
+            "name": "🛡️ Max Privacy",
+            "description": "Aggressive blocklists, DGA protection, and no affiliate links.",
+            "settings": {
+                "security": { "dga": true, "nrd": true, "threatIntelligenceFeeds": true, "aiThreatDetection": true },
+                "privacy": { "disguisedTrackers": true, "allowAffiliate": false },
+                "blocklists": ["oisd", "nextdns-recommended"]
+            }
+        },
+        {
+            "id": "family-safe",
+            "name": "👨‍👩‍👧 Family Safe",
+            "description": "Blocks adult content, gambling, and dangerous TLDs.",
+            "settings": {
+                "parentalcontrol": { "safeSearch": true, "youtubeRestrictedMode": true },
+                "categories": ["porn", "gambling", "dating"],
+                "tlds": ["zip", "mov", "app"]
+            }
+        },
+        {
+            "id": "performance",
+            "name": "⚡ Performance Boost",
+            "description": "Minimal blocking with ECS and Cache Boost enabled.",
+            "settings": {
+                "settings": { "ecs": true, "cacheBoost": true, "cnameFlattening": true },
+                "security": { "dga": false, "nrd": false }
+            }
+        }
+    ]
+}

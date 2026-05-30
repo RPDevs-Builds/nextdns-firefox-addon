@@ -234,6 +234,7 @@
     <button class="tab-btn" data-tab="logs">📡 Logs</button>
     <button class="tab-btn" data-tab="lists">📋 Lists</button>
     <button class="tab-btn" data-tab="toggles">⚡ Blocks</button>
+    <button class="tab-btn" data-tab="presets">🪄 Presets</button>
     <button class="tab-btn hidden" id="tab-btn-labs" data-tab="labs">🧪 Labs</button>
     <button class="tab-btn" data-tab="settings">⚙️ Options</button>
   </div>
@@ -380,6 +381,15 @@
     </div>
   </div>
 
+  <!-- Tab: Presets -->
+  <div id="tab-presets" class="tab-content">
+    <h3 style="margin-top:0;">Configuration Presets</h3>
+    <p style="font-size:0.8em; color:var(--text-muted); margin-bottom:15px;">Apply recommended settings with one click.</p>
+    <div id="presets-list">
+        <!-- Presets rendered here -->
+    </div>
+  </div>
+
   <!-- Tab: Settings (Options) -->
   <div id="tab-settings" class="tab-content" style="padding: 0;">
     <div class="sub-nav" id="settings-sub-nav">
@@ -482,11 +492,21 @@
 
     <!-- Data Management Sub-Tab -->
     <div id="settings-manager" class="settings-sub-content" style="padding: 15px;">
-      <div class="panel-box" style="text-align: center; border-color: var(--accent);">
+      <div class="panel-box">
+        <h4>Mirror Mode</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Replicate settings changes to other profiles automatically.</p>
+        <div id="mirror-profiles-list" style="margin-bottom: 10px; max-height: 100px; overflow-y: auto;">
+          <!-- Populated by main.js -->
+        </div>
+        <button id="save-mirror-btn" class="btn-allow" style="width: 100%; height: 32px; padding: 0; font-size: 0.85em;">💾 Save Mirror Config</button>
+      </div>
+
+      <div class="panel-box" style="text-align: center; border-color: var(--accent); margin-top: 15px;">
         <h4 style="color: var(--text-main);">Centralized Data Manager</h4>
         <p>Edit Domain Descriptions, Profile Notes, Log Filters, and Device Aliases in a full-screen window.</p>
         <button id="launch-full-manager-btn" class="btn-allow" style="background-color: var(--accent);">🚀 Launch Manager</button>
       </div>
+
 
       <div class="panel-box">
         <h4>Meta Data Management</h4>
@@ -618,7 +638,6 @@
     </div>
   </div>
 
-  <script src="src/storage.js"></script>
-  <script src="popup.js"></script>
+  <script type="module" src="ui/main.js"></script>
 </body>
 </html>

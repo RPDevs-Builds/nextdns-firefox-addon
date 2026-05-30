@@ -68,7 +68,7 @@ describe('Intelligent Debugger (Phase 4.1)', () => {
             set: jest.fn()
         };
 
-        const bgJs = fs.readFileSync(path.resolve(__dirname, '../background.js'), 'utf8');
+        const bgJs = fs.readFileSync(path.resolve(__dirname, '../src/background.js'), 'utf8');
         bg = eval(`(function() { 
             ${bgJs}; 
             return { messageHandlers, requestListener }; 

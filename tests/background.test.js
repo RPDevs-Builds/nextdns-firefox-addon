@@ -123,7 +123,7 @@ describe('Background Script - Full Coverage Suite', () => {
     global.apiClient = require('../src/apiClient.js');
     global.apiClient.setStorage(global.storage);
 
-    bg = require('../background.js');
+    bg = require('../src/background.js');
   });
 
   test('Initialization sequence', async () => {

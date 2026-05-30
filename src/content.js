@@ -1,11 +1,30 @@
 const INTERNAL_API = "https://api.nextdns.io/profiles";
 
+const MOBILE_CSS = `
+    @media (max-width: 600px) {
+        .container { width: 100% !important; padding: 10px !important; }
+        .navbar-brand { font-size: 1.1rem !important; }
+        .nav-link { padding: 0.5rem !important; }
+        .list-group-item { padding: 10px !important; }
+        .btn-sm { padding: 4px 8px !important; font-size: 0.75rem !important; }
+        .nxm-profile-note { margin: 10px 0 !important; }
+    }
+    .nxm-collapsible-header { cursor: pointer; user-select: none; }
+    .nxm-collapsible-header:hover { background: rgba(255,255,255,0.05); }
+    .nxm-collapse-btn { font-size: 0.8em; opacity: 0.6; }
+`;
+
 let webGuiConfig = { master: true, tlds: true, blocklists: true, logs: true, desc: true, notes: true, filter: true };
 let domSelectors = null;
 let hostnameAliases = {};
 
 // Initialize config and listen for live changes
 async function initConfig() {
+  const style = document.createElement('style');
+  style.id = 'nxm-mobile-css';
+  style.textContent = MOBILE_CSS;
+  document.head.appendChild(style);
+
   try {
     const url = browser.runtime.getURL("src/domSelectors.json");
     const res = await fetch(url);
@@ -27,7 +46,35 @@ async function initConfig() {
   if (res.webGuiFilter !== undefined) webGuiConfig.filter = res.webGuiFilter;
   
   hostnameAliases = res.hostnameAliases || {};
+  
+  setupSectionCollapsing();
 }
+
+function setupSectionCollapsing() {
+    const headers = document.querySelectorAll('h4, h5');
+    headers.forEach(header => {
+        if (header.dataset.nxmProcessed) return;
+        header.dataset.nxmProcessed = "true";
+        header.classList.add('nxm-collapsible-header');
+        
+        const btn = document.createElement('span');
+        btn.className = 'nxm-collapse-btn';
+        btn.style.marginLeft = '10px';
+        btn.textContent = '▼';
+        header.appendChild(btn);
+
+        header.onclick = () => {
+            let next = header.nextElementSibling;
+            const isHidden = next && next.style.display === 'none';
+            btn.textContent = isHidden ? '▼' : '▶';
+            while (next && !['H4', 'H5'].includes(next.tagName)) {
+                next.style.display = isHidden ? '' : 'none';
+                next = next.nextElementSibling;
+            }
+        };
+    });
+}
+
 
 initConfig().then(evaluatePage);
 
@@ -159,7 +206,7 @@ browser.storage.onChanged.addListener((changes, area) => {
 
 let mutationTimer;
 const observer = new MutationObserver((mutations) => {
-    // Phase 2.1: The "Network Error" Suppressor
+    // 1. Core suppression & aliasing
     for (const mutation of mutations) {
         if (mutation.addedNodes.length) {
             mutation.addedNodes.forEach(node => {
@@ -169,19 +216,21 @@ const observer = new MutationObserver((mutations) => {
                             node.style.display = 'none';
                             node.style.opacity = '0';
                             console.warn("[DNS Forge] Suppressed NextDNS Network Error modal.");
-                            // Show non-intrusive toast instead
                             showToast("Reconnecting to NextDNS...");
                         }
                     }
-                    // Phase 3.4: Device Nickname Aliasing
                     applyDeviceAliases(node);
                 }
             });
         }
     }
 
+    // 2. Throttled logic for UI enhancements
     clearTimeout(mutationTimer);
-    mutationTimer = setTimeout(evaluatePage, 500);
+    mutationTimer = setTimeout(() => {
+        evaluatePage();
+        setupSectionCollapsing();
+    }, 100);
 });
 
 function applyDeviceAliases(root) {

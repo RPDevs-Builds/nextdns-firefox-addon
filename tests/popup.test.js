@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const html = fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf8');
+const html = fs.readFileSync(path.resolve(__dirname, '../src/popup.html'), 'utf8');
 
 describe('Popup UI - Advanced Coverage Suite', () => {
   let mockStorage;
@@ -130,7 +130,7 @@ describe('Popup UI - Advanced Coverage Suite', () => {
 
   test('Sub-nav Scoping', async () => {
     global.storage = require('../src/storage.js');
-    require('../popup.js');
+    require('../src/popup.js');
     document.dispatchEvent(new Event('DOMContentLoaded'));
     await new Promise(r => setTimeout(r, 100));
 
@@ -148,7 +148,7 @@ describe('Popup UI - Advanced Coverage Suite', () => {
 
   test('Log Filter State interaction', async () => {
     global.storage = require('../src/storage.js');
-    require('../popup.js');
+    require('../src/popup.js');
     document.dispatchEvent(new Event('DOMContentLoaded'));
     await new Promise(r => setTimeout(r, 300));
 
@@ -187,7 +187,7 @@ describe('Popup UI - Advanced Coverage Suite', () => {
     });
 
     global.storage = require('../src/storage.js');
-    require('../popup.js');
+    require('../src/popup.js');
     document.dispatchEvent(new Event('DOMContentLoaded'));
     await new Promise(r => setTimeout(r, 100));
 

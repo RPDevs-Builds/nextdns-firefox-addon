@@ -54,5 +54,4 @@ class StorageManager {
     }
 }
 
-const storage = new StorageManager();
-if (typeof module !== 'undefined') module.exports = storage;
+export const storage = new StorageManager();

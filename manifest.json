@@ -20,16 +20,17 @@
   ],
   "optional_host_permissions": [],
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "src/popup.html",
     "default_icon": "icons/icon-48.png"
   },
   "background": {
-    "scripts": ["src/storage.js", "src/apiClient.js", "background.js"]
+    "type": "module",
+    "scripts": ["src/background/main.js"]
   },
   "content_scripts": [
     {
       "matches": ["https://my.nextdns.io/*"],
-      "js": ["content.js"]
+      "js": ["src/content.js"]
     }
   ],
   "web_accessible_resources": [
@@ -48,7 +49,7 @@
   },
   "sidebar_action": {
     "default_title": "DNS Forge",
-    "default_panel": "popup.html?mode=sidebar",
+    "default_panel": "src/popup.html?mode=sidebar",
     "default_icon": {
       "16": "icons/icon-16.png",
       "48": "icons/icon-48.png"

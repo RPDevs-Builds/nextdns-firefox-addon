@@ -203,6 +203,7 @@
       <button id="tab-tlds" class="tab-btn">TLD Manager</button>
       <button id="tab-backup" class="tab-btn">Backup & Cloning</button>
       <button id="tab-snapshots" class="tab-btn">Snapshots</button>
+      <button id="tab-comparison" class="tab-btn">Profile Comparison</button>
       <button id="tab-rewrites" class="tab-btn">DNS Rewrites</button>
     </div>
 
@@ -268,6 +269,28 @@
     </div>
   </div>
 
+  <!-- Phase 6.3: Profile Comparison UI -->
+  <div id="comparison-container" class="hidden">
+      <div class="panel-box" style="margin-bottom: 20px; background: var(--bg-panel); padding: 25px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <div class="flex-between" style="margin-bottom: 20px;">
+              <div style="flex: 1;">
+                  <label>Base Profile</label>
+                  <select id="compare-base-profile"></select>
+              </div>
+              <div style="padding: 0 20px; font-size: 1.5em; opacity: 0.5;">🆚</div>
+              <div style="flex: 1;">
+                  <label>Target Profile</label>
+                  <select id="compare-target-profile"></select>
+              </div>
+          </div>
+          <button id="run-comparison-btn" class="btn btn-edit" style="width: 100%; justify-content: center;">🔍 Compare Profiles</button>
+      </div>
+
+      <div id="comparison-results" class="list-container">
+          <!-- Diff results rendered here -->
+      </div>
+  </div>
+
   <!-- Entry Edit/Add Modal -->
   <div id="edit-modal" class="modal">
     <div class="modal-content">
@@ -291,6 +314,6 @@
     </div>
   </div>
 
-  <script src="viewer.js"></script>
+  <script type="module" src="viewer.js"></script>
 </body>
 </html>

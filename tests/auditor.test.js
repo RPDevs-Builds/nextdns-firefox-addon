@@ -66,7 +66,7 @@ describe('Security Auditor (Phase 4.4)', () => {
             return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
         });
 
-        const bgJs = fs.readFileSync(path.resolve(__dirname, '../background.js'), 'utf8');
+        const bgJs = fs.readFileSync(path.resolve(__dirname, '../src/background.js'), 'utf8');
         bg = eval(`(function() { 
             ${bgJs}; 
             return { messageHandlers }; 
