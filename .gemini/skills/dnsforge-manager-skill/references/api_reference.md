@@ -10,6 +10,7 @@
 - `GET /profiles`: List all profiles.
 - `GET /profiles/{profileId}`: Get detailed profile configuration.
 - `DELETE /profiles/{profileId}/logs`: Clear all logs.
+- `POST /profiles/{profileId}/linked-ip/{ip}`: Update Linked IP for DDNS.
 
 ### Allowlist / Denylist
 - `GET /profiles/{profileId}/{listType}`: List entries.
