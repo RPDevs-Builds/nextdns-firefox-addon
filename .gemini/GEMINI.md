@@ -32,6 +32,10 @@ Manual testing is insufficient. All features must be locked behind automated ass
 - **Hardware Interaction:** I acknowledge that initiating a signed commit will trigger the user's FIDO2/GPG hardware key. I will wait for the user to perform the physical touch/password entry required to finalize the signature.
 
 ## Development Heuristics (Meta-Optimization)
+- **Scoped Linting:** To prevent performance timeouts, always execute `addons-linter` on a compiled `.xpi` artifact or a clean source directory. Avoid scanning the root if `node_modules` is present.
+- **Schema Rigor:** When fixing `manifest.json` errors flagged by the linter (e.g., `data_collection_permissions`), prioritize searching the linter's own message source code (`.tools/addons-linter/src/messages/`) to identify the exact expected JSON structure.
+- **XSS Prevention:** Prefer `textContent` or `setSafeHTML` helper (utilizing `DOMParser`) over `innerHTML` for all dynamic data injections.
+- **Mock DOM Parity:** When adding new top-level UI containers to `viewer.html` or `popup.html`, immediately update the corresponding mock DOM in `tests/viewer.test.js` and `tests/popup.test.js` to prevent selector-related regressions.
 - **Infrastructure Sync:** When refactoring core utilities (e.g., `storage.js`, `apiClient.js`), perform a mandatory audit of all test mocks (`tests/*.test.js`). Ensure they implement the full new interface, including events (`onChanged`) and initialization methods (`init`).
 - **Tool Verification:** Never assume a tool exists based on naming symmetry (e.g., `exit_plan_mode` is invalid). Always check the system prompt or `/help`.
 - **Context Management:** When performing batch edits, limit parallel tool calls to 5 per turn to prevent output truncation and ensure atomic verification of changes.
