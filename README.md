@@ -23,13 +23,16 @@ DNS Forge is a high-performance Firefox extension designed for advanced [NextDNS
 - **Device Aliasing:** Automatically replaces cryptic device IDs in logs and analytics with friendly nicknames.
 
 ### ⚡ Advanced Management
+- **Mirror Mode (Phase 6):** Automatically replicate setting changes across multiple selected profiles in real-time.
 - **DNS Rewrites Manager:** Full CRUD support for custom domain-to-IP mappings (e.g., `nas.local` → `192.168.1.50`) directly from the browser.
+- **Config Presets:** One-click deployment of optimized settings (e.g., "Max Privacy", "Family Safe") via the new Presets engine.
+- **Profile Comparison Tool:** Perform deep diffs between two profiles to identify discrepancies in security and privacy configurations.
 - **Expert Performance Panel:** Fine-tune resolution speed with toggles for **ECS (EDNS Client Subnet)**, **CNAME Flattening**, **Cache Boost**, and **Web3 Support**.
 - **Intelligent TLD & Blocklist Manager:** Manage 1,300+ TLDs and 80+ blocklists with alphabetical jump-links and advanced sorting.
 - **Profile Quick-Switcher:** Instant profile switching via a dropdown in the dashboard navigation bar.
-- **Configuration Cloning:** Export snapshots and clone them to other profiles via the Centralized Data Manager.
 
 ### 📡 Reliability & Architecture
+- **Modular Componentization (Phase 6):** Fully decoupled architecture with ES modules for background logic (`src/background/`) and UI components (`src/ui/`).
 - **Centralized Storage Manager:** Synchronous memory cache with automatic healing from `sync` to `local` storage.
 - **Robust API Client:** Integrated exponential backoff retry logic and global rate-limiting awareness.
 - **100% AMO Compliance:** Fully hardened against XSS via `setSafeHTML` (DOMParser) and strict manifest permissions.
@@ -42,13 +45,14 @@ This extension enforces a **Zero-Regression Mandate** via architectural isolatio
 - **Modular Domains:** Logic is isolated into `I/O Parsers`, `API Clients`, and `Formatters`.
 - **Linter Integration:** Integrated Mozilla `addons-linter` targeting XPI artifacts for 100% compliance verification.
 - **Security Hardening:** Mandatory GPG signing for all commits and strict XSS prevention.
-- **Performance Optimized:** High-performance `MutationObserver` for real-time DOM injections and efficient event delegation.
+- **Performance Optimized:** High-performance `MutationObserver` for real-time DOM injections, mobile-responsive CSS, and section collapsing.
 
 ---
 
 ## 🧪 Development & Testing
 
 A comprehensive Jest suite covers the entire lifecycle of the addon:
+- **ESM-Native Suite:** Entire test codebase (35+ tests) migrated to ESM for consistency with the core engine.
 - **Intelligent Logic:** Verification of the Debugger, Scheduler, Auditor, and SSE streaming.
 - **Persistence & Recovery:** Storage auto-heal and API key extraction.
 - **UI & Customization:** Real-time dashboard injection and surgical cleanup.
@@ -76,9 +80,10 @@ Every push to `main` triggers a GitHub Action that:
 
 ## 🗺️ Roadmap (Future)
 
-- [ ] **Cross-Profile Diff:** Compare two different active profiles in real-time.
 - [ ] **Exportable Security Reports:** Generate PDF/JSON audit reports for compliance.
 - [ ] **Collaborative Profiles:** Support for managing shared team configurations.
+- [ ] **Internationalization (i18n):** Localization support for global users.
+- [ ] **Custom Presets:** Ability for users to save their own configuration templates.
 
 ---
 

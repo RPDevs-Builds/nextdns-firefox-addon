@@ -1,4 +1,4 @@
-name: Build Extension
+name: Extension Pipeline
 on:
   push:
     branches: [ main ]
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  pipeline:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,14 +21,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Tests
+      - name: Run Jest Tests
         run: npm test
 
       - name: Build XPI
         run: npm run build
 
+      - name: AMO Compliance Lint
+        run: npm run lint:addon
+
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dns-forge-extension
+          name: dns-forge-v${{ github.sha }}
           path: web-ext-artifacts/*.xpi

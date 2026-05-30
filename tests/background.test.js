@@ -2,17 +2,20 @@
  * @jest-environment jsdom
  */
 
+import { jest, beforeEach, test, expect, describe } from '@jest/globals';
+
 describe('Background Script - Full Coverage Suite', () => {
   let blockingListenerRef;
   let tabUpdatedListenerRef;
   let tabRemovedListenerRef;
   let messageHandlerRef;
   let menuClickListenerRef;
+  let storageListenerRef;
   let mockStorage;
   let fetchMock;
   let bg;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.resetModules();
     jest.clearAllMocks();
 
@@ -119,11 +122,13 @@ describe('Background Script - Full Coverage Suite', () => {
       }
     };
 
-    global.storage = require('../src/storage.js');
-    global.apiClient = require('../src/apiClient.js');
+    const { storage } = await import('../src/storage.js');
+    const { apiClient } = await import('../src/apiClient.js');
+    global.storage = storage;
+    global.apiClient = apiClient;
     global.apiClient.setStorage(global.storage);
-
-    bg = require('../src/background.js');
+    
+    bg = await import('../src/background.js');
   });
 
   test('Initialization sequence', async () => {
@@ -223,9 +228,9 @@ describe('Background Script - Full Coverage Suite', () => {
 
     // Toggle Service (POST)
     const srvAddRes = await new Promise(resolve => {
-      messageHandlerRef({ type: 'TOGGLE_SETTING', profileId: 'profile123', category: 'parentalControl/services', id: 'tiktok', action: 'add' }, {}, resolve);
+      messageHandlerRef({ type: 'TOGGLE_SETTING', profileId: 'profile123', category: 'parentalcontrol/services', id: 'tiktok', action: 'add', settingType: 'list' }, {}, resolve);
     });
     expect(srvAddRes.success).toBe(true);
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/parentalControl/services'), expect.objectContaining({ method: 'POST' }));
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/parentalcontrol/services'), expect.objectContaining({ method: 'POST' }));
   });
 });

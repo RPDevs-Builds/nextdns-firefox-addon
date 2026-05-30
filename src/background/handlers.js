@@ -253,7 +253,8 @@ export const messageHandlers = {
             const auditDataRes = await fetch(auditDataUrl);
             const auditData = await auditDataRes.json();
 
-            (config.blocklists || []).forEach(list => {
+            const activeBlocklists = config.privacy?.blocklists || config.blocklists || [];
+            activeBlocklists.forEach(list => {
                 const dep = auditData.deprecated.find(d => d.id === list.id);
                 if (dep) {
                     score -= 5;

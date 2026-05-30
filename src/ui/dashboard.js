@@ -43,11 +43,12 @@ export function handleLiveLog(log) {
     }
 }
 
-export function renderLogs() {
+export function renderLogs(logsOverride = null) {
     const container = document.getElementById("logs-container");
     if (!container) return;
     
-    if (!Array.isArray(state.cachedLogs) || state.cachedLogs.length === 0) {
+    const logs = logsOverride !== null ? logsOverride : state.cachedLogs;
+    if (!Array.isArray(logs) || logs.length === 0) {
         setSafeHTML(container, "<div style='text-align:center; padding:20px; color:var(--text-muted); font-size:0.9em;'>No logs found.</div>");
         return;
     }
@@ -56,7 +57,7 @@ export function renderLogs() {
     const deviceFilter = document.getElementById("log-device-filter")?.value;
     const activeFilters = Array.from(document.querySelectorAll('#status-filter-content input:checked')).map(cb => cb.value);
 
-    const filtered = state.cachedLogs.filter(log => {
+    const filtered = logs.filter(log => {
         if (!log) return false;
         const domain = (log.name || log.domain || '').toLowerCase();
         const id = log.device?.id || log.clientIp;

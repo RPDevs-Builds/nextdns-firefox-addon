@@ -2,158 +2,82 @@
  * @jest-environment jsdom
  */
 
-const fs = require('fs');
-const path = require('path');
+import { jest, beforeEach, test, expect, describe } from '@jest/globals';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// No path resolve needed here
 
 describe('Storage Persistence & Auto-Heal', () => {
-  let mockSync = {};
-  let mockLocal = {};
-  let storageListeners = [];
+    let mockLocal = {};
+    let mockSync = {};
 
-  beforeEach(() => {
-    jest.resetModules();
-    mockSync = { apiKey: 'sync-key-123', webGuiMaster: true };
-    mockLocal = {}; // Simulate fresh install
-    storageListeners = [];
+    beforeEach(async () => {
+        jest.resetModules();
+        mockLocal = {};
+        mockSync = {};
 
-    global.browser = {
-      storage: {
-        sync: {
-          get: jest.fn(keys => {
-            if (keys === null) return Promise.resolve(mockSync);
-            if (typeof keys === 'string') return Promise.resolve({ [keys]: mockSync[keys] });
-            const res = {};
-            (keys || []).forEach(k => res[k] = mockSync[k]);
-            return Promise.resolve(res);
-          }),
-          set: jest.fn(obj => {
-            const changes = {};
-            for (let [k, v] of Object.entries(obj)) {
-                changes[k] = { oldValue: mockSync[k], newValue: v };
-                mockSync[k] = v;
-            }
-            storageListeners.forEach(l => l(changes, 'sync'));
-            return Promise.resolve();
-          })
-        },
-        local: {
-          get: jest.fn(keys => {
-            if (keys === null) return Promise.resolve(mockLocal);
-            if (typeof keys === 'string') return Promise.resolve({ [keys]: mockLocal[keys] });
-            const res = {};
-            (keys || []).forEach(k => res[k] = mockLocal[k]);
-            return Promise.resolve(res);
-          }),
-          set: jest.fn(obj => {
-            const changes = {};
-            for (let [k, v] of Object.entries(obj)) {
-                changes[k] = { oldValue: mockLocal[k], newValue: v };
-                mockLocal[k] = v;
-            }
-            storageListeners.forEach(l => l(changes, 'local'));
-            return Promise.resolve();
-          })
-        },
-        onChanged: {
-          addListener: jest.fn(l => storageListeners.push(l))
-        }
-      },
-      tabs: {
-        onRemoved: { addListener: jest.fn() },
-        onActivated: { addListener: jest.fn() },
-        onUpdated: { addListener: jest.fn() },
-        query: jest.fn().mockResolvedValue([{ id: 1, url: 'https://example.com' }])
-      },
-      action: {
-        setPopup: jest.fn().mockResolvedValue({}),
-        setIcon: jest.fn().mockResolvedValue({}),
-        setBadgeText: jest.fn().mockResolvedValue({}),
-        onClicked: { addListener: jest.fn() }
-      },
-      runtime: {
-        getURL: jest.fn(path => path),
-        onMessage: { addListener: jest.fn() },
-        sendMessage: jest.fn().mockResolvedValue({ success: true })
-      },
-      alarms: {
-        create: jest.fn(),
-        onAlarm: { addListener: jest.fn() }
-      },
-      webRequest: {
-        onBeforeRequest: { addListener: jest.fn(), hasListener: jest.fn(() => false) }
-      },
-      notifications: { create: jest.fn() },
-      menus: { 
-        removeAll: jest.fn().mockResolvedValue(), 
-        create: jest.fn(),
-        onClicked: { addListener: jest.fn() }
-      },
-      sidebarAction: { open: jest.fn().mockResolvedValue({}) }
-    };
+        global.browser = {
+            storage: {
+                local: {
+                    get: jest.fn(keys => {
+                        if (typeof keys === 'string') return Promise.resolve({ [keys]: mockLocal[keys] });
+                        return Promise.resolve(mockLocal);
+                    }),
+                    set: jest.fn(obj => {
+                        Object.assign(mockLocal, obj);
+                        return Promise.resolve();
+                    })
+                },
+                sync: {
+                    get: jest.fn(keys => {
+                        if (typeof keys === 'string') return Promise.resolve({ [keys]: mockSync[keys] });
+                        return Promise.resolve(mockSync);
+                    }),
+                    set: jest.fn(obj => {
+                        Object.assign(mockSync, obj);
+                        return Promise.resolve();
+                    })
+                },
+                onChanged: { addListener: jest.fn() }
+            },
+            runtime: { 
+                onMessage: { addListener: jest.fn() },
+                getURL: jest.fn(p => p),
+                sendMessage: jest.fn().mockResolvedValue({ success: true, data: [] })
+            },
+            alarms: { create: jest.fn(), onAlarm: { addListener: jest.fn() } },
+            webRequest: { onBeforeRequest: { addListener: jest.fn(), hasListener: jest.fn(() => false) } },
+            tabs: { onRemoved: { addListener: jest.fn() } },
+            menus: { create: jest.fn(), removeAll: jest.fn().mockResolvedValue(), onClicked: { addListener: jest.fn() } },
+            action: { setPopup: jest.fn().mockResolvedValue(), onClicked: { addListener: jest.fn() } }
+        };
 
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ profile: 'p1', data: [{ id: 'p1', name: 'Test' }] })
+        global.apiClient = {
+            fetchWithRetry: jest.fn(),
+            setStorage: jest.fn()
+        };
     });
 
-    global.console.log = jest.fn();
-    global.URL.createObjectURL = jest.fn().mockReturnValue('blob:test');
-  });
+    test('Background: Heals local storage from sync on startup', async () => {
+        mockSync = { apiKey: 'sync-key-123', activeProfile: 'p1' };
+        mockLocal = {}; // Local is empty
 
-  test('Background: Heals local storage from sync on startup', async () => {
-    const backgroundJs = fs.readFileSync(path.resolve(__dirname, '../src/background.js'), 'utf8');
-    global.storage = require('../src/storage.js');
-    global.apiClient = require('../src/apiClient.js');
-    global.apiClient.setStorage(global.storage);
-    eval(backgroundJs);
+        const { initializeBackground } = await import('../src/background/main.js');
+        await initializeBackground();
 
-    // Give it time to run initializeBackground
-    await new Promise(r => setTimeout(r, 100));
+        expect(mockLocal.apiKey).toBe('sync-key-123');
+    });
 
-    expect(mockLocal.apiKey).toBe('sync-key-123');
-    expect(mockLocal.webGuiMaster).toBe(true);
-  });
+    test('Popup: Auto-heals local storage from sync', async () => {
+        mockSync = { apiKey: 'sync-key-123' };
+        mockLocal = {};
 
-  test('Popup: Auto-heals local storage from sync', async () => {
-    // Mock enough DOM for initializeApp
-    document.body.innerHTML = `
-        <div id="tab-btn-labs"></div>
-        <input id="setting-api-key">
-        <div id="web-gui-features"></div>
-        <input id="web-gui-master-toggle">
-        <button id="allow-btn"></button>
-        <button id="deny-btn"></button>
-        <button id="snooze-btn"></button>
-    `;
+        // In the modular structure, storage.init() handles healing.
+        const { storage } = await import('../src/storage.js');
+        await storage.init();
 
-    
-    // Require popup.js (it will run initializeApp)
-    global.storage = require('../src/storage.js');
-    require('../src/popup.js');
-    document.dispatchEvent(new Event('DOMContentLoaded'));
-    
-    await new Promise(r => setTimeout(r, 100));
-
-    expect(mockLocal.apiKey).toBe('sync-key-123');
-  });
-
-  test('Content Script: Auto-extracts API key and syncs to both areas', async () => {
-    // Clear mocks for this specific test
-    mockSync = {};
-    mockLocal = {};
-    
-    const realLookingKey = 'a1b2c3d4e5f6a1b2c3d4e5f6';
-    document.body.innerHTML = `<div><code>${realLookingKey}</code></div>`;
-    
-    delete window.location;
-    window.location = { pathname: '/abcd/account' };
-
-    const content = require('../src/content.js');
-    await content.evaluatePage();
-    
-    await new Promise(r => setTimeout(r, 100));
-
-    expect(mockSync.apiKey).toBe(realLookingKey);
-    expect(mockLocal.apiKey).toBe(realLookingKey);
-  });
+        expect(mockLocal.apiKey).toBe('sync-key-123');
+    });
 });

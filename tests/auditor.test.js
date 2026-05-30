@@ -1,13 +1,17 @@
-const fs = require('fs');
-const path = require('path');
+/**
+ * @jest-environment jsdom
+ */
+
+import { jest, beforeEach, test, expect, describe } from '@jest/globals';
+import { apiClient } from '../src/apiClient.js';
 
 describe('Security Auditor (Phase 4.4)', () => {
     let bg;
     let mockStorage = {};
 
-    beforeEach(() => {
-        jest.resetModules();
+    beforeEach(async () => {
         mockStorage = {};
+        apiClient.fetchWithRetry = jest.fn();
 
         global.browser = {
             storage: {
@@ -44,9 +48,6 @@ describe('Security Auditor (Phase 4.4)', () => {
             action: { setPopup: jest.fn().mockResolvedValue(), onClicked: { addListener: jest.fn() } }
         };
 
-        global.apiClient = {
-            fetchWithRetry: jest.fn()
-        };
         global.storage = {
             init: jest.fn().mockResolvedValue(),
             get: jest.fn(key => Promise.resolve(mockStorage[key])),
@@ -57,6 +58,7 @@ describe('Security Auditor (Phase 4.4)', () => {
         global.fetch = jest.fn().mockImplementation((url) => {
             if (url.includes('deprecated_lists.json')) {
                 return Promise.resolve({
+                    ok: true,
                     json: () => Promise.resolve({
                         deprecated: [{ id: 'dep-1', name: 'Old List', reason: 'Outdated' }],
                         recommended: []
@@ -66,25 +68,23 @@ describe('Security Auditor (Phase 4.4)', () => {
             return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
         });
 
-        const bgJs = fs.readFileSync(path.resolve(__dirname, '../src/background.js'), 'utf8');
-        bg = eval(`(function() { 
-            ${bgJs}; 
-            return { messageHandlers }; 
-        })()`);
+        const { messageHandlers } = await import('../src/background/handlers.js');
+        bg = { messageHandlers };
     });
 
     test('RUN_AUDIT: Detects disabled security settings', async () => {
         const profileId = 'p1';
         
-        // Mock config with all security off
-        global.apiClient.fetchWithRetry.mockResolvedValue({
+        // Mock config with all security off (multiple calls)
+        apiClient.fetchWithRetry.mockImplementation((url) => Promise.resolve({
             success: true,
             response: {
-                json: () => Promise.resolve({
-                    data: { security: { dga: false, nrd: false }, privacy: { blocklists: [] } }
-                })
+                json: () => {
+                    if (url.includes('/security')) return Promise.resolve({ dga: false, nrd: false, parkedDomains: false, csam: false });
+                    return Promise.resolve({});
+                }
             }
-        });
+        }));
 
         const result = await bg.messageHandlers.RUN_AUDIT({ profileId });
 
@@ -96,18 +96,17 @@ describe('Security Auditor (Phase 4.4)', () => {
     test('RUN_AUDIT: Detects deprecated blocklists', async () => {
         const profileId = 'p1';
         
-        // Mock config with a deprecated list
-        global.apiClient.fetchWithRetry.mockResolvedValue({
+        // Mock config with a deprecated list (multiple calls)
+        apiClient.fetchWithRetry.mockImplementation((url) => Promise.resolve({
             success: true,
             response: {
-                json: () => Promise.resolve({
-                    data: { 
-                        security: { dga: true, nrd: true, parkedDomains: true, csam: true }, 
-                        privacy: { blocklists: [{ id: 'dep-1', name: 'Old List' }] } 
-                    }
-                })
+                json: () => {
+                    if (url.includes('/security')) return Promise.resolve({ dga: true, nrd: true, parkedDomains: true, csam: true });
+                    if (url.includes('/privacy')) return Promise.resolve({ blocklists: [{ id: 'dep-1', name: 'Old List' }] });
+                    return Promise.resolve({});
+                }
             }
-        });
+        }));
 
         const result = await bg.messageHandlers.RUN_AUDIT({ profileId });
 

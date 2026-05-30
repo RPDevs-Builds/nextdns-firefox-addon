@@ -1,8 +1,8 @@
 // jest.setup.js
 require("@testing-library/jest-dom");
 require("jest-webextension-mock");
-
 const fetchMock = require("jest-fetch-mock");
+
 fetchMock.enableMocks();
 
 /**
@@ -29,7 +29,7 @@ if (typeof browser !== 'undefined') {
         };
     }
 
-    // Ensure onChanged exists (common point of failure in background script tests)
+    // Ensure onChanged exists
     if (!browser.storage.onChanged) {
         browser.storage.onChanged = {
             addListener: jest.fn(),
@@ -38,11 +38,51 @@ if (typeof browser !== 'undefined') {
         };
     }
 
-    // Ensure action/sidebarAction exist for Manifest V3 / Firefox compatibility
+    // Ensure menus exist
+    if (!browser.menus) {
+        browser.menus = {
+            create: jest.fn(),
+            update: jest.fn(),
+            remove: jest.fn(),
+            removeAll: jest.fn().mockResolvedValue({}),
+            onClicked: {
+                addListener: jest.fn(),
+                removeListener: jest.fn(),
+                hasListener: jest.fn()
+            }
+        };
+    }
+
+    // Ensure action/sidebarAction exist
     if (!browser.action) {
         browser.action = {
             setPopup: jest.fn().mockResolvedValue({}),
-            setIcon: jest.fn().mockResolvedValue({})
+            setIcon: jest.fn().mockResolvedValue({}),
+            onClicked: {
+                addListener: jest.fn(),
+                removeListener: jest.fn(),
+                hasListener: jest.fn()
+            }
+        };
+    }
+
+    if (!browser.sidebarAction) {
+        browser.sidebarAction = {
+            open: jest.fn().mockResolvedValue({}),
+            toggle: jest.fn().mockResolvedValue({}),
+            setPanel: jest.fn().mockResolvedValue({})
+        };
+    }
+
+    if (!browser.alarms) {
+        browser.alarms = {
+            create: jest.fn(),
+            clear: jest.fn(),
+            onAlarm: {
+                addListener: jest.fn(),
+                removeListener: jest.fn(),
+                hasListener: jest.fn()
+            }
         };
     }
 }

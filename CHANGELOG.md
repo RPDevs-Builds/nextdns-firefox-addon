@@ -6,41 +6,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-# Changelog
+## [0.9.3] - 2026-06-03
 
-## [0.9.4] - 2026-03-14
 ### Added
-- **API Key Auto-Extraction:** The extension now quietly extracts your API key when you visit the NextDNS account page, completely eliminating manual setup configuration.
-- **Accordion Settings UI:** Grouped blocks into logical, collapsible `<details>` components for cleaner navigation.
-- **Smart Toggle Engine:** The Blocks tab now fetches the real-time active state from NextDNS and dynamically binds it to the buttons so the UI accurately represents what is currently blocked.
-- **Universal Blocks Map:** Expanded the Blocks tab to manage Security Feeds (Phishing, CSAM, Typosquatting), Disguised Trackers, and Parental Control filters directly via PATCH and POST API requests.
+- **Mirror Mode:** Automatically replicate settings changes across multiple selected profiles in real-time.
+- **Profile Comparison Tool:** New Data Manager tab to diff security and privacy configs between two profiles.
+- **Config Presets:** One-click deployment for "Max Privacy", "Family Safe", and "Performance Boost" settings.
+- **Mobile Responsive CSS:** Optimized NextDNS dashboard for mobile browsing.
+- **Section Collapsing:** Interactive headers for dashboard sections to reduce visual clutter.
+- **Background Scheduler:** Rule-based automation for toggling services and settings.
+- **Security Auditor:** Automated scans for deprecated blocklists and security gaps.
+- **Intelligent Debugger:** Correlation engine for identifying broken websites.
+- **DNS Rewrites Manager:** Full CRUD support for custom domain-to-IP mappings.
+- **Expert Performance Panel:** High-level resolution toggles (ECS, CNAME, Cache Boost).
 
-[... previous versions ...]
-
-## [0.9.3] - 2026-03-13
-### Security
-- **Robust Alarm Logic:** Refactored `TEMP_ALLOW` alarm name parsing to use `URLSearchParams`, preventing execution breakage if a domain contains special characters like `::`.
-- **Credential Hardening:** Removed global `cachedApiKey` in `background.js` to minimize sensitive plaintext data in memory.
-- **Enhanced XSS Protection:** Standardized `escapeHTML()` sanitization across all log variables and list-rendering functions.
-- **Least Privilege:** Moved `<all_urls>` to `optional_host_permissions`; users now grant full-site access only when enabling local blocking.
-
-### Performance
-- **Optimized Log Rendering:** Implemented `DocumentFragment` batching in `renderLogs()` to eliminate UI flickering during auto-refresh.
-- **Parallel TLD Processing:** Refactored `content.js` to process TLD updates in parallel batches (concurrency: 10), reducing execution time from ~20s to <2s.
-- **Smart webRequest Filtering:** Background listener is now attached dynamically only if regex rules are active, reducing browser idle overhead.
-- **Asynchronous Tracking:** Switched tab domain tracking to use the non-blocking `tabs.onUpdated` API instead of blocking `webRequest`.
-
-### Fixed
-- **Logic Correction:** Resolved critical bug where `deleteListItem` referenced an undefined variable; fixed to validate API response via `res.success`.
-
----
-
-## [0.9.2] - 2026-03-12
 ### Changed
-- **Architecture:** Replaced `if/else` chains in `background.js` with a Message Dispatch Map.
-- **Error Propagation:** API fetcher now bubbles granular network errors to the UI.
+- **Architectural Componentization:** Fully modular ES architecture for background logic and UI.
+- **ESM Migration:** Converted entire project to ES Modules, including core engine and 35+ tests.
+- **Unified Pipeline:** Consolidated GitHub Actions into a single robust CI/CD workflow.
+- **Hardened Linter:** Integrated official Mozilla `addons-linter` into the build process.
+- **Storage Optimization:** Implemented a centralized StorageManager with caching and auto-healing logic.
 
-## [0.9.1] - 2026-03-11
+## [0.9.2] - 2026-05-28
+
 ### Added
-- **Native Sidebar & Popout Support.**
-- **Rebrand:** Officially renamed to "DNS Forge".
+- **SSE Live Log Feed:** Real-time log streaming via Server-Sent Events.
+- **Profile Snapshots:** Take and restore configuration backups.
+- **Analytics Trends:** Visual indicators for query volume fluctuations.
+- **Profile Quick-Switcher:** Navigation bar dropdown for instant profile changes.
+
+## [0.9.1] - 2026-05-15
+
+### Added
+- **Network Error Suppressor:** Suppresses intrusive NextDNS modals and replaces them with toasts.
+- **Device Aliasing:** Customizable nicknames for device IDs and IPs.
+- **Bulk List Management:** Select-all and bulk-delete for allow/deny lists.
+- **Real-Time Search:** In-page filtering for blocklists and TLDs.
+
+## [0.9.0] - 2026-05-01
+
+### Initial Release
+- Core NextDNS API integration.
+- Dashboard with query and blocked stats.
+- Allow/Deny list management.
+- Basic TLD and Blocklist management.

@@ -10,7 +10,7 @@ import { requestListener } from './requestListener.js';
 import { messageHandlers } from './handlers.js';
 import { checkAutomationRules } from './scheduler.js';
 
-async function initializeBackground() {
+export async function initializeBackground() {
     if (state.isInitialized) return;
     
     console.log("[Init] Starting DNS Forge Background Engine...");

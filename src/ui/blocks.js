@@ -17,7 +17,7 @@ export async function syncLists(force = false) {
     state.listsSynced = true;
 }
 
-export async function loadToggles() {
+export async function loadToggles(queryOverride = null) {
     if (!state.activeProfile) return;
     if (!state.lastBlocksData) {
         const res = await browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: state.activeProfile });
@@ -27,7 +27,8 @@ export async function loadToggles() {
     const container = document.getElementById("toggles-container");
     if (!container) return;
 
-    const query = (document.getElementById("blocks-search-input")?.value || "").toLowerCase();
+    const query = (queryOverride !== null ? queryOverride : (document.getElementById("blocks-search-input")?.value || "")).toLowerCase();
+
     
     // UI visibility logic for search/sort
     const searchContainer = document.getElementById("blocks-search-container");
