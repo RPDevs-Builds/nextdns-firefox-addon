@@ -27,17 +27,16 @@ DNS Forge is a high-performance Firefox extension designed for advanced [NextDNS
 ### 📡 Reliability & Architecture
 - **Centralized Storage Manager:** Synchronous memory cache with automatic healing from `sync` to `local` storage.
 - **Robust API Client:** Integrated exponential backoff retry logic and global rate-limiting awareness.
-- **Dual-Storage Persistence:** Critical settings are mirrored across storage areas for maximum reliability.
-- **Local Caching:** O(1) request filtering via background `Set` lookups.
+- **100% AMO Compliance:** Fully hardened against XSS and security vulnerabilities, passing all Mozilla automated review checks.
 
 ---
 
-## 🛠️ Engineering Standards (Refactor 2026)
+## 🛠️ Engineering Standards
 
 This extension enforces a **Zero-Regression Mandate** via architectural isolation:
 - **Modular Domains:** Logic is isolated into `I/O Parsers`, `API Clients`, and `Formatters`.
-- **Pre-Commit Verification:** Every commit requires a pass of the 35-test Jest suite.
-- **Security Hardening:** Mandatory GPG signing for all commits and strict XSS prevention via `escapeHTML` sanitization.
+- **Linter Integration:** Integrated Mozilla `addons-linter` with a 4GB memory-boosted execution script for deep analysis.
+- **Security Hardening:** Mandatory GPG signing for all commits and strict XSS prevention via `setSafeHTML` sanitization.
 - **Performance Optimized:** High-performance `MutationObserver` for real-time DOM injections and efficient event delegation.
 
 ---
@@ -54,19 +53,28 @@ Run the full suite:
 npm test
 ```
 
+Scan for AMO compliance:
+```bash
+npm run lint:addon
+```
+
 ---
 
 ## 📦 Build Pipeline
 
 Every push to `main` triggers a GitHub Action that:
 1. Executes the full 35-test suite.
-2. Builds the production `.xpi` file using `web-ext`.
-3. Performs a security audit on bundled dependencies.
+2. Performs a 100%-compliance linting scan.
+3. Builds the production `.xpi` file using `web-ext`.
 
-To build locally:
-```bash
-npm run build
-```
+---
+
+## 🗺️ Roadmap (Phase 5)
+
+- [ ] **SSE Live Feed:** Integrate Server-Sent Events for zero-latency log streaming in the Debugger.
+- [ ] **DNS Rewrites Manager:** CRUD support for custom local DNS mappings.
+- [ ] **Analytics Sparklines:** Time-series visualization for 24h/30d activity trends.
+- [ ] **Expert Performance Panel:** Toggles for ECS, CNAME Flattening, and Cache Boost.
 
 ---
 
