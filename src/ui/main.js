@@ -8,10 +8,10 @@
  */
 
 import { state, isPopoutMode, isSidebarMode, PRESET_THEMES, THEME_VARS, urlParams } from './state.js';
-import { setActiveTab, setSafeHTML, escapeHTML } from './utils.js';
+import { setActiveTab, setSafeHTML, escapeHTML, downloadAsFile } from './utils.js';
 import { handleLiveLog, renderLogs, loadAnalytics, updateDashboardTabInfo, updateDynamicLinks, loadNativeLogs } from './dashboard.js';
 import { loadToggles, syncLists } from './blocks.js';
-import { runSecurityAudit, runIntelligentDebugger } from './tools.js';
+import { runSecurityAudit, runIntelligentDebugger, exportDebuggerSnapshot, exportAuditReport } from './tools.js';
 import { loadRules, saveAutomationRule } from './scheduler.js';
 import { loadPresets } from './presets.js';
 
@@ -121,7 +121,14 @@ function initGlobalEventListeners() {
     // Tools
     document.getElementById('run-audit-btn')?.addEventListener('click', runSecurityAudit);
     document.getElementById('run-debugger-btn')?.addEventListener('click', runIntelligentDebugger);
+    document.getElementById('export-audit-btn')?.addEventListener('click', exportAuditReport);
+    document.getElementById('export-debugger-btn')?.addEventListener('click', exportDebuggerSnapshot);
     document.getElementById('add-rule-btn')?.addEventListener('click', saveAutomationRule);
+
+    // Backup & Restore
+    document.getElementById('export-settings-btn')?.addEventListener('click', exportFullConfiguration);
+    document.getElementById('import-settings-btn')?.addEventListener('click', () => document.getElementById('import-settings-file').click());
+    document.getElementById('import-settings-file')?.addEventListener('change', importFullConfiguration);
 
     // Logs SSE listener
     browser.runtime.onMessage.addListener((msg) => {
@@ -226,4 +233,53 @@ async function toggleAutoRefresh(enable) {
     } else { 
         btn.classList.replace("btn-secondary", "btn-dark"); btn.textContent = "▶️ Auto"; 
     }
+}
+
+/**
+ * Exports the entire extension configuration (sync and local storage) as a JSON file.
+ * @async
+ */
+export async function exportFullConfiguration() {
+    const data = await browser.storage.sync.get(null);
+    const localData = await browser.storage.local.get(null);
+    const payload = JSON.stringify({
+        type: "DNS_FORGE_BACKUP",
+        version: browser.runtime.getManifest().version,
+        timestamp: new Date().toISOString(),
+        sync: data,
+        local: localData
+    }, null, 2);
+    downloadAsFile(`dns_forge_backup_${Date.now()}.json`, payload);
+}
+
+/**
+ * Imports an extension configuration from a JSON file.
+ * Validates the file structure before applying settings.
+ * @async
+ * @param {Event} e - The file input change event.
+ */
+export async function importFullConfiguration(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        try {
+            const config = JSON.parse(event.target.result);
+            if (config.type !== "DNS_FORGE_BACKUP") {
+                throw new Error("Invalid backup file format.");
+            }
+
+            if (confirm("This will overwrite your current settings. Continue?")) {
+                if (config.sync) await browser.storage.sync.set(config.sync);
+                if (config.local) await browser.storage.local.set(config.local);
+                alert("Settings restored successfully! The extension will now reload.");
+                browser.runtime.reload();
+            }
+        } catch (err) {
+            alert("Error importing settings: " + err.message);
+        }
+        e.target.value = ''; // Reset input
+    };
+    reader.readAsText(file);
 }

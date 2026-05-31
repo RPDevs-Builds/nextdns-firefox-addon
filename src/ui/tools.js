@@ -4,7 +4,10 @@
  */
 
 import { state } from './state.js';
-import { escapeHTML, setSafeHTML } from './utils.js';
+import { escapeHTML, setSafeHTML, downloadAsFile } from './utils.js';
+
+let lastDebuggerResult = null;
+let lastAuditResult = null;
 
 /**
  * Executes the "Forge Debugger" logic.
@@ -14,7 +17,10 @@ import { escapeHTML, setSafeHTML } from './utils.js';
  */
 export async function runIntelligentDebugger() {
     const resultsContainer = document.getElementById('debugger-results');
+    const exportBtn = document.getElementById('export-debugger-btn');
+    
     setSafeHTML(resultsContainer, '<div style="text-align: center; padding: 20px;">Fetching logs and correlating...</div>');
+    exportBtn?.classList.add('hidden');
 
     const tabs = await browser.tabs.query({ active: true, currentWindow: true });
     if (tabs.length === 0) return;
@@ -41,13 +47,17 @@ export async function runIntelligentDebugger() {
         return;
     }
 
+    lastDebuggerResult = res.correlations;
+
     if (res.correlations.length === 0) {
         setSafeHTML(resultsContainer, '<div style="text-align: center; color: var(--text-muted); padding: 20px;">No blocked domains correlated from this tab.</div>');
         return;
     }
 
+    exportBtn?.classList.remove('hidden');
     resultsContainer.textContent = '';
     res.correlations.forEach(c => {
+// ... rest of loop
         const row = document.createElement('div');
         row.className = 'panel-box';
         row.style.marginBottom = '10px';
@@ -96,9 +106,15 @@ export async function runIntelligentDebugger() {
  */
 export async function runSecurityAudit() {
     if (!state.activeProfile) return alert("No active profile.");
+    const exportBtn = document.getElementById('export-audit-btn');
+    exportBtn?.classList.add('hidden');
+
     const res = await browser.runtime.sendMessage({ type: "RUN_AUDIT", profileId: state.activeProfile });
 
     if (!res.success) return alert("Audit failed: " + res.error);
+
+    lastAuditResult = res;
+    exportBtn?.classList.remove('hidden');
 
     const scoreRing = document.getElementById('audit-score-ring');
     const resultsList = document.getElementById('audit-results');
@@ -135,4 +151,33 @@ export async function runSecurityAudit() {
             };
         });
     }
+}
+
+/**
+ * Exports the current debugger correlations as a JSON snapshot.
+ */
+export function exportDebuggerSnapshot() {
+    if (!lastDebuggerResult) return;
+    const data = JSON.stringify({
+        tool: "Forge Debugger",
+        timestamp: new Date().toISOString(),
+        profile: state.activeProfile,
+        correlations: lastDebuggerResult
+    }, null, 2);
+    downloadAsFile(`forge_debugger_${state.activeProfile}_${Date.now()}.json`, data);
+}
+
+/**
+ * Exports the latest security audit report as a JSON file.
+ */
+export function exportAuditReport() {
+    if (!lastAuditResult) return;
+    const data = JSON.stringify({
+        tool: "Security Auditor",
+        timestamp: new Date().toISOString(),
+        profile: state.activeProfile,
+        score: lastAuditResult.score,
+        recommendations: lastAuditResult.recommendations
+    }, null, 2);
+    downloadAsFile(`forge_audit_${state.activeProfile}_${Date.now()}.json`, data);
 }

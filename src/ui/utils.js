@@ -33,3 +33,21 @@ export function setActiveTab(tabId) {
         content.classList.toggle('active', content.id === `tab-${tabId}`);
     });
 }
+
+/**
+ * Utility to download a string/object as a file.
+ * @param {string} filename - Name of the file.
+ * @param {string} content - Stringified content.
+ * @param {string} [type='application/json'] - MIME type.
+ */
+export function downloadAsFile(filename, content, type = 'application/json') {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+}
