@@ -1,7 +1,8 @@
 // jest.setup.js
-require("@testing-library/jest-dom");
-require("jest-webextension-mock");
-const fetchMock = require("jest-fetch-mock");
+import { jest } from '@jest/globals';
+import "@testing-library/jest-dom";
+import "jest-webextension-mock";
+import fetchMock from "jest-fetch-mock";
 
 fetchMock.enableMocks();
 
