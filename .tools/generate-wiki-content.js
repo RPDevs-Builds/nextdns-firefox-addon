@@ -37,8 +37,8 @@ ${(manifest.host_permissions || []).map(p => `| \`${p}\` | Host access for NextD
 - **Content Scripts:** ${manifest.content_scripts?.map(cs => cs.matches.join(', ')).join('; ') || 'None'}
 `;
 
-ensureDir(path.join(WIKI_DOCS_DIR, '02-architecture'));
-fs.writeFileSync(path.join(WIKI_DOCS_DIR, '02-architecture/manifest.md'), manifestMd);
+ensureDir(path.join(WIKI_DOCS_DIR, 'architecture'));
+fs.writeFileSync(path.join(WIKI_DOCS_DIR, 'architecture/manifest.md'), manifestMd);
 
 // Task B: Technical Reference Extraction
 console.log("🔍 Extracting Technical Reference...");
@@ -71,7 +71,7 @@ srcFiles.forEach(fullPath => {
     }
 
     const targetSubDir = path.dirname(relativePath.replace('src/', ''));
-    const targetPath = path.join(WIKI_DOCS_DIR, '03-technical-reference', targetSubDir, `${fileName}.md`);
+    const targetPath = path.join(WIKI_DOCS_DIR, 'reference', targetSubDir, `${fileName}.md`);
     
     ensureDir(path.dirname(targetPath));
 
