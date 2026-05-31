@@ -8,8 +8,7 @@
     "tabs",
     "menus",
     "webRequest",
-    "webRequestBlocking",
-    "windows"
+    "webRequestBlocking"
   ],
   "optional_permissions": [
     "notifications"
