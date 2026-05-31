@@ -174,6 +174,31 @@ function initGlobalEventListeners() {
             setActiveTab(tabId);
             if (tabId === 'presets') loadPresets();
             if (tabId === 'lists') renderLists();
+            if (tabId === 'toggles') loadToggles();
+        };
+    });
+
+    // Sub-tab switching
+    document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+        btn.onclick = () => {
+            const subId = btn.dataset.sub;
+            const parentTab = btn.closest('.tab-content').id.replace('tab-', '');
+            
+            // Update active class for siblings
+            btn.parentElement.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            if (parentTab === 'toggles') {
+                state.activeBlocksSubTab = subId;
+                loadToggles();
+            } else if (parentTab === 'dashboard') {
+                document.querySelectorAll('#tab-dashboard .sub-panel').forEach(p => p.classList.add('hidden'));
+                document.getElementById(`dash-${subId}`)?.classList.remove('hidden');
+                if (subId === 'overview') loadAnalytics();
+            } else if (parentTab === 'settings') {
+                document.querySelectorAll('.settings-sub-content').forEach(p => p.classList.add('hidden'));
+                document.getElementById(`settings-${subId}`)?.classList.remove('hidden');
+            }
         };
     });
 
@@ -213,6 +238,54 @@ function initGlobalEventListeners() {
     // Logs SSE listener
     browser.runtime.onMessage.addListener((msg) => {
         if (msg.type === "LIVE_LOG") handleLiveLog(msg.log);
+    });
+
+    // Delegated listeners for dynamic toggles
+    document.addEventListener('change', async (e) => {
+        if (e.target.classList.contains('api-toggle')) {
+            const { cat, id, type } = e.target.dataset;
+            const action = e.target.checked ? 'add' : 'delete';
+            const res = await browser.runtime.sendMessage({
+                type: "TOGGLE_SETTING",
+                profileId: state.activeProfile,
+                category: cat,
+                id,
+                action,
+                settingType: type
+            });
+            if (!res.success) {
+                e.target.checked = !e.target.checked;
+                alert("Failed to update setting.");
+            }
+        }
+    });
+
+    document.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('api-toggle-btn')) {
+            const btn = e.target;
+            const { cat, id, type, active } = btn.dataset;
+            const action = active === 'true' ? 'delete' : 'add';
+            
+            btn.disabled = true;
+            const res = await browser.runtime.sendMessage({
+                type: "TOGGLE_SETTING",
+                profileId: state.activeProfile,
+                category: cat,
+                id,
+                action,
+                settingType: type
+            });
+
+            if (res.success) {
+                btn.dataset.active = (action === 'add').toString();
+                btn.textContent = action === 'add' ? 'Remove' : 'Add';
+                btn.classList.toggle('btn-allow', action === 'delete');
+                btn.classList.toggle('btn-deny', action === 'add');
+            } else {
+                alert("Failed to update.");
+            }
+            btn.disabled = false;
+        }
     });
 }
 

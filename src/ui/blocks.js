@@ -212,7 +212,7 @@ function renderPrivacyToggles() {
              </div>`;
 
     html += NATIVES.map(i => {
-        const isActive = state.lastBlocksData.natives?.some(n => n.id === i.id);
+        const isActive = state.lastBlocksData.privacy?.natives?.some(n => n.id === i.id);
         return renderToggleRow(i, 'privacy/natives', isActive, 'list');
     }).join('');
     return html;
@@ -224,7 +224,7 @@ function renderPrivacyToggles() {
  * @returns {string} HTML string for blocklists grid.
  */
 function renderBlocklistsGrid(query) {
-    const activeIds = new Set((state.lastBlocksData.blocklists || []).map(l => l.id));
+    const activeIds = new Set((state.lastBlocksData.privacy?.blocklists || []).map(l => l.id));
     let filtered = state.blocksMeta.blocklists.filter(b => b.name.toLowerCase().includes(query) || b.description.toLowerCase().includes(query));
 
     if (state.activeBlocksSort === 'name') filtered.sort((a, b) => a.name.localeCompare(b.name));
@@ -265,12 +265,12 @@ function renderParentalToggles(query) {
 
     html += '<hr style="border-top:1px solid var(--border-color); border-bottom:0; margin:10px 0;"><div style="font-weight:bold; margin:0 0 5px; font-size: 0.85em;">Categories</div>';
     html += (state.blocksMeta.categories || []).map(c => {
-        const isActive = state.lastBlocksData.categories?.some(cat => cat.id === c.id);
+        const isActive = state.lastBlocksData.parentalcontrol?.categories?.some(cat => cat.id === c.id);
         return renderToggleRow(c, 'parentalcontrol/categories', isActive, 'list');
     }).join('');
 
     html += '<hr style="border-top:1px solid var(--border-color); border-bottom:0; margin:10px 0;"><div style="font-weight:bold; margin:0 0 5px; font-size: 0.85em;">Services</div>';
-    const activeServices = new Set((state.lastBlocksData.services || []).map(s => s.id));
+    const activeServices = new Set((state.lastBlocksData.parentalcontrol?.services || []).map(s => s.id));
     html += (state.blocksMeta.parental_services || []).filter(s => s.name.toLowerCase().includes(query)).map(s => {
         const active = activeServices.has(s.id);
         return `
@@ -292,7 +292,7 @@ function renderParentalToggles(query) {
  * @returns {string} HTML string for TLDs grid.
  */
 function renderTldsGrid(query) {
-    const activeTlds = new Set((state.lastBlocksData.tlds || []).map(t => t.id));
+    const activeTlds = new Set((state.lastBlocksData.security?.tlds || []).map(t => t.id));
     const groups = {};
 
     state.blocksMeta.tlds.forEach(tld => {

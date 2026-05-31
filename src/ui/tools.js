@@ -57,7 +57,6 @@ export async function runIntelligentDebugger() {
     exportBtn?.classList.remove('hidden');
     resultsContainer.textContent = '';
     res.correlations.forEach(c => {
-// ... rest of loop
         const row = document.createElement('div');
         row.className = 'panel-box';
         row.style.marginBottom = '10px';

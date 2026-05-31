@@ -457,17 +457,6 @@ async function injectPageButtons() {
   }
 }
 
-// ... (Rest of the file stays the same, I'll provide it all to be safe)
-
-if (typeof module !== 'undefined') {
-  module.exports = {
-    cleanupUI,
-    evaluatePage,
-    webGuiConfig,
-    initConfig
-  };
-}
-
 async function injectLogsSettingsControls() {
   if (document.getElementById('nxm-logs-filter-group')) return;
 
