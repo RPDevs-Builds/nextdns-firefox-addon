@@ -25,7 +25,8 @@ The project uses a strict modular architecture with ES Modules.
 
 ### 3. Engineering Standards
 - **Zero-Regression Mandate:** 100% of core logic must be verified by Jest. Bug fixes require a reproduction test.
-- **ESM-Native Tests:** All tests in `tests/` use ES `import` syntax.
+- **Native ESM Tests:** All tests use ES Module syntax. `jest.setup.js` is pure ESM. Always use `NODE_OPTIONS="--experimental-vm-modules" npm test`.
+- **Native Web APIs:** Use native `fetch` (Node 18+) instead of third-party libraries like `node-fetch`.
 - **AMO Compliance:** NO `innerHTML`. Always use `textContent` or the `setSafeHTML` helper.
 - **GPG Signed Commits:** Mandatory for all merges to `main`. Anticipate latency for hardware key (FIDO2/Touch) interaction.
 
