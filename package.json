@@ -6,7 +6,7 @@
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
-    "lint:addon": "NODE_OPTIONS='--max-old-space-size=4096' npx addons-linter web-ext-artifacts/*.xpi",
+    "lint:addon": "NODE_OPTIONS='--max-old-space-size=4096' web-ext lint -s web-ext-artifacts/*.xpi",
     "build": "web-ext build --overwrite-dest --filename \"{name}-{version}.xpi\" --ignore-files \"tests/**\" \"node_modules/**\" \".git/**\" \".github/**\" \".vscode/**\" \"package.json\" \"package-lock.json\" \"jest.setup.js\" \".gitignore\" \"README.md\" \"CHANGELOG.md\" \"LICENSE\" \".gemini/**\" \"*.skill\" \"**/*.test.js\" \"*-results.json\" \"reports/**\"",
     "bump": "node scripts/bump_version.js"
   },
