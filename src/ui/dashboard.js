@@ -20,10 +20,15 @@ export function handleLiveLog(log) {
     state.cachedLogs.unshift(log);
     if (state.cachedLogs.length > 200) state.cachedLogs.pop();
 
-    // 2. If Dashboard is active, update the view
-    if (state.activeTab === 'dashboard') {
+    // 2. If Logs tab is active, update the view
+    if (state.activeTab === 'logs') {
         const container = document.getElementById("logs-container");
         if (container) {
+            // Remove placeholder if it exists
+            if (container.children.length === 1 && container.children[0].textContent.includes('No logs found')) {
+                container.textContent = '';
+            }
+
             // Prepend new log row if it matches current search
             const row = document.createElement('div');
             row.className = 'log-row';
@@ -31,7 +36,7 @@ export function handleLiveLog(log) {
             row.style.color = isBlocked ? 'var(--danger)' : 'var(--success)';
             
             const name = state.hostnameAliases[log.device?.id || log.clientIp] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
-            const timeStr = new Date(log.timestamp).toLocaleTimeString();
+            const timeStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "---";
 
             const html = `
                 <div class="flex-between" style="font-size:0.75em; color:var(--text-muted);">
@@ -43,7 +48,14 @@ export function handleLiveLog(log) {
             setSafeHTML(row, html);
             
             const query = (document.getElementById("log-search")?.value || "").toLowerCase();
-            if (!query || (log.name || log.domain || '').toLowerCase().includes(query)) {
+            const deviceFilter = document.getElementById("log-device-filter")?.value;
+            const deviceId = log.device?.id || log.clientIp;
+            const activeFilters = Array.from(document.querySelectorAll('#status-filter-content input:checked')).map(cb => cb.value);
+            const status = (log.status === 'allowed' || log.status === 'whitelisted') ? 'status:allowed' : 'status:blocked';
+
+            if ((!query || (log.name || log.domain || '').toLowerCase().includes(query)) && 
+                (!deviceFilter || deviceId === deviceFilter) && 
+                activeFilters.includes(status)) {
                 container.prepend(row);
                 if (container.children.length > 100) container.lastElementChild.remove();
             }
@@ -198,6 +210,17 @@ export async function loadNativeLogs() {
 export async function updateDashboardTabInfo() {
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     if (!tab?.url) return;
+
+    // Populate the domain input field
+    const domainInput = document.getElementById("domain-input");
+    if (domainInput && tab.url.startsWith('http')) {
+        try {
+            const url = new URL(tab.url);
+            domainInput.value = url.hostname.replace(/^www\./, '');
+        } catch (e) {
+            console.warn("[DNS Forge] Failed to parse tab URL:", e);
+        }
+    }
 
     const stats = await browser.runtime.sendMessage({ type: "GET_TAB_STATS", tabId: tab.id });
     const requests = stats?.requests || {};

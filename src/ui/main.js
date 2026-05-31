@@ -50,6 +50,45 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 /**
+ * Handles domain management actions (Allow/Deny/Snooze) from the Dashboard.
+ * @async
+ * @param {string} listType - The list to modify ('allowlist' or 'denylist').
+ * @param {string} action - The action to perform ('add' or 'delete').
+ * @param {boolean} [isTemp=false] - Whether this is a temporary allow (snooze).
+ */
+async function handleDashboardDomain(listType, action, isTemp = false) {
+    const input = document.getElementById('domain-input');
+    const domain = input?.value.trim();
+    if (!domain) return;
+
+    const btn = isTemp ? document.getElementById('snooze-btn') : document.getElementById(`${listType.replace('list','')}-btn`);
+    if (btn) btn.disabled = true;
+
+    try {
+        const type = isTemp ? "TEMP_ALLOW" : "MANAGE_DOMAIN";
+        const res = await browser.runtime.sendMessage({
+            type,
+            profileId: state.activeProfile,
+            listType,
+            domain,
+            action,
+            duration: isTemp ? 5 : undefined // 5 minutes default
+        });
+
+        if (res.success) {
+            alert(`Successfully ${isTemp ? 'temporarily allowed' : (action === 'add' ? 'added' : 'removed')} ${domain}`);
+            await syncLists(true);
+        } else {
+            alert(`Failed to update ${domain}: ${res.error || 'Unknown error'}`);
+        }
+    } catch (e) {
+        alert("Communication error with background script.");
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+/**
  * Handles adding a single domain to the selected list.
  * @async
  */
@@ -247,6 +286,17 @@ function initGlobalEventListeners() {
         toggleAutoRefresh(!isEnabled);
     });
 
+    document.getElementById("allow-btn")?.addEventListener('click', () => handleDashboardDomain('allowlist', 'add'));
+    document.getElementById("deny-btn")?.addEventListener('click', () => handleDashboardDomain('denylist', 'add'));
+    document.getElementById("snooze-btn")?.addEventListener('click', () => handleDashboardDomain('allowlist', 'add', true));
+
+    document.getElementById("toggle-tab-tracking-btn")?.addEventListener('click', (e) => {
+        state.isTabTrackingPaused = !state.isTabTrackingPaused;
+        e.target.textContent = state.isTabTrackingPaused ? "▶️ LIVE" : "⏸️ LIVE";
+        e.target.classList.toggle('btn-secondary', !state.isTabTrackingPaused);
+        e.target.classList.toggle('btn-dark', state.isTabTrackingPaused);
+    });
+
     // Log Filters
     document.getElementById("log-search")?.addEventListener('input', () => renderLogs());
     document.getElementById("log-device-filter")?.addEventListener('change', () => renderLogs());
@@ -412,6 +462,13 @@ async function initializeApp() {
     await loadRules();
     await initMirrorModeUI();
     updateDashboardTabInfo();
+
+    // Start Dashboard update interval
+    setInterval(() => {
+        if (!state.isTabTrackingPaused && state.activeTab === 'dashboard') {
+            updateDashboardTabInfo();
+        }
+    }, 1000);
 }
 
 async function initCustomizeUI() {
