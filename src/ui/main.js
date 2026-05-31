@@ -130,6 +130,9 @@ function initGlobalEventListeners() {
     document.getElementById('import-settings-btn')?.addEventListener('click', () => document.getElementById('import-settings-file').click());
     document.getElementById('import-settings-file')?.addEventListener('change', importFullConfiguration);
 
+    document.getElementById('save-mirror-btn')?.addEventListener('click', saveMirrorMode);
+    document.getElementById('save-settings-btn')?.addEventListener('click', saveSettings);
+
     // Logs SSE listener
     browser.runtime.onMessage.addListener((msg) => {
         if (msg.type === "LIVE_LOG") handleLiveLog(msg.log);
@@ -175,6 +178,7 @@ async function initializeApp() {
     await loadToggles();
     await loadRules();
     await initMirrorModeUI();
+    await initSettingsUI();
     updateDashboardTabInfo();
 }
 
@@ -204,18 +208,118 @@ async function initMirrorModeUI() {
             list.appendChild(label);
         });
     }
+}
 
-    saveBtn.onclick = async () => {
-        const selected = Array.from(list.querySelectorAll('input:checked')).map(i => i.getAttribute('data-id'));
-        await browser.storage.sync.set({ mirrorProfiles: selected });
-        saveBtn.textContent = "✅ Saved!";
-        setTimeout(() => { saveBtn.textContent = "💾 Save Mirror Config"; }, 2000);
+/**
+ * Saves the selected mirror profiles to sync storage.
+ * @async
+ */
+async function saveMirrorMode() {
+    const list = document.getElementById('mirror-profiles-list');
+    const saveBtn = document.getElementById('save-mirror-btn');
+    if (!list || !saveBtn) return;
+    
+    const selected = Array.from(list.querySelectorAll('input:checked')).map(i => i.getAttribute('data-id'));
+    await browser.storage.sync.set({ mirrorProfiles: selected });
+    saveBtn.textContent = "✅ Saved!";
+    setTimeout(() => { saveBtn.textContent = "💾 Save Mirror Config"; }, 2000);
+}
+
+/**
+ * Initializes the Settings UI by loading values from storage and populating the form.
+ * @async
+ */
+async function initSettingsUI() {
+    const keys = [
+        "apiKey", "activeProfile", "iconClickAction", 
+        "autoRefreshLogs", "enableBlockNotifications", 
+        "enableLabs", "autoRefreshTime"
+    ];
+    const data = await browser.storage.sync.get(keys);
+
+    const apiKeyInput = document.getElementById('setting-api-key');
+    const profileSelect = document.getElementById('setting-profile-select');
+    const iconActionSelect = document.getElementById('setting-icon-action');
+    const autoRefreshCheck = document.getElementById('setting-auto-refresh');
+    const blockNotifCheck = document.getElementById('setting-block-notif');
+    const enableLabsCheck = document.getElementById('setting-enable-labs');
+    const refreshTimeInput = document.getElementById('setting-refresh-time');
+
+    if (apiKeyInput) apiKeyInput.value = data.apiKey || '';
+    if (iconActionSelect) iconActionSelect.value = data.iconClickAction || 'popup';
+    if (autoRefreshCheck) autoRefreshCheck.checked = !!data.autoRefreshLogs;
+    if (blockNotifCheck) blockNotifCheck.checked = !!data.enableBlockNotifications;
+    if (enableLabsCheck) enableLabsCheck.checked = !!data.enableLabs;
+    if (refreshTimeInput) refreshTimeInput.value = data.autoRefreshTime || 5;
+
+    state.lastIconAction = data.iconClickAction || 'popup';
+
+    // Handle Profile Select
+    if (profileSelect) {
+        const loadProfiles = async () => {
+            const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
+            if (res?.success) {
+                setSafeHTML(profileSelect, '<option value="">Auto-Detect (Default)</option>');
+                res.data.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.name;
+                    profileSelect.appendChild(opt);
+                });
+                profileSelect.value = data.activeProfile || '';
+            }
+        };
+
+        await loadProfiles();
+        document.getElementById('setting-fetch-profiles')?.addEventListener('click', loadProfiles);
+    }
+}
+
+/**
+ * Saves the current settings from the UI to sync storage.
+ * @async
+ */
+async function saveSettings() {
+    const saveBtn = document.getElementById('save-settings-btn');
+    if (!saveBtn) return;
+
+    const apiKey = document.getElementById('setting-api-key')?.value.trim();
+    const activeProfile = document.getElementById('setting-profile-select')?.value;
+    const iconClickAction = document.getElementById('setting-icon-action')?.value;
+    const autoRefreshLogs = document.getElementById('setting-auto-refresh')?.checked;
+    const enableBlockNotifications = document.getElementById('setting-block-notif')?.checked;
+    const enableLabs = document.getElementById('setting-enable-labs')?.checked;
+    const autoRefreshTime = document.getElementById('setting-refresh-time')?.value;
+
+    const newSettings = {
+        apiKey,
+        activeProfile,
+        iconClickAction,
+        autoRefreshLogs,
+        enableBlockNotifications,
+        enableLabs,
+        autoRefreshTime: parseInt(autoRefreshTime) || 5
     };
+
+    await browser.storage.sync.set(newSettings);
+    // Also set local for redundancy/background access speed
+    await browser.storage.local.set(newSettings);
+
+    saveBtn.textContent = "✅ Saved!";
+    setTimeout(() => { 
+        saveBtn.textContent = "💾 Save Options"; 
+        // Trigger a reload to apply fundamental changes (like icon click action)
+        if (iconClickAction !== state.lastIconAction) {
+            browser.runtime.reload();
+        }
+    }, 1500);
+
+    state.lastIconAction = iconClickAction;
 }
 
 /**
  * Toggles the auto-refresh mechanism for native dashboard logs.
- * Sets or clears an interval based on user preference and storage settings.
+... * Sets or clears an interval based on user preference and storage settings.
  * @async
  * @param {boolean} enable - Whether to enable or disable auto-refresh.
  */
