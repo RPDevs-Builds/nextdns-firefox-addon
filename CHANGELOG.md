@@ -20,13 +20,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Linked IP (DDNS) Support:** Automatic detection and update of your linked IP for dynamic connections.
 - **DNS Rewrites Manager:** Full CRUD support for custom domain-to-IP mappings.
 - **Expert Performance Panel:** High-level resolution toggles (ECS, CNAME, Cache Boost).
+- **Automated Metadata Updates:** Implemented a self-updating metadata engine that scrapes and saves NextDNS TLDs, Blocklists, and Services as you browse.
+- **Consolidated Data Hosting:** Migrated remote metadata hosting to the main project repository for improved reliability.
 - **Version Bumper:** Automated synchronization of version strings across all manifest and metadata files.
 
 ### Changed
 - **Architectural Componentization:** Fully modular ES architecture for background logic and UI.
 - **ESM Migration:** Converted entire project to ES Modules, including core engine and 35+ tests.
-- **Unified Pipeline:** Consolidated GitHub Actions into a single robust CI/CD workflow.
-- **Hardened Linter:** Integrated official Mozilla `addons-linter` into the build process.
+- **MetadataManager Utility:** Centralized metadata loading with a three-tier fallback (Storage → Remote → Bundle).
+- **Unified Pipeline:** Consolidated GitHub Actions into a single robust CI/CD workflow with automated releases.
+- **Hardened Linter:** Integrated official Mozilla `addons-linter` into the build process with version-agnostic automation.
 - **Storage Optimization:** Implemented a centralized StorageManager with caching and auto-healing logic.
 
 ## [0.9.2] - 2026-05-28
