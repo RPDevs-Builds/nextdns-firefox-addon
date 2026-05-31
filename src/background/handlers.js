@@ -146,8 +146,16 @@ export const messageHandlers = {
         } else {
             body = JSON.stringify({ [id]: value });
         }
+        
+        console.log(`[Handler] TOGGLE_SETTING: ${method} ${endpoint} | Body: ${body}`);
 
         const r = await apiClient.fetchWithRetry(endpoint, { method, body });
+        
+        console.log(`[Handler] TOGGLE_SETTING Result: ${r.success ? 'Success' : 'Failed'}`);
+        if (!r.success) {
+            const errorText = await r.response?.text().catch(() => 'No response body');
+            console.error(`[Handler] TOGGLE_SETTING Error: ${errorText}`);
+        }
         
         // --- Mirror Mode Logic ---
         if (r.success) {
