@@ -33,11 +33,12 @@ DNS Forge is a high-performance Firefox extension designed for advanced [NextDNS
 - **Profile Quick-Switcher:** Instant profile switching via a dropdown in the dashboard navigation bar.
 
 ### 📡 Reliability & Architecture
+- **100% Documentation Coverage:** Complete JSDoc instrumentation across all core modules, synchronized with our [Live Wiki](https://dns-forge.github.io/03-technical-reference/background/).
 - **Modular Componentization (Phase 6):** Fully decoupled architecture with ES modules for background logic (`src/background/`) and UI components (`src/ui/`).
 - **MetadataManager Utility:** Centralized metadata loading with a three-tier robust fallback chain: **Local Storage → Remote GitHub (Main Repo) → Bundled Data**.
 - **Centralized Storage Manager:** Synchronous memory cache with automatic healing from `sync` to `local` storage.
 - **Robust API Client:** Integrated exponential backoff retry logic and global rate-limiting awareness.
-- **100% AMO Compliance:** Fully hardened against XSS via `setSafeHTML` (DOMParser) and strict manifest permissions.
+- **100% AMO Compliance:** Fully hardened against XSS via `setSafeHTML` (DOMParser) and verified via automated CI linting.
 
 ---
 
