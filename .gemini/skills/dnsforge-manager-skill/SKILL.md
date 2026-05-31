@@ -74,3 +74,7 @@ The project uses a strict modular architecture with ES Modules.
 - **Vendoring Verification:** Always check `.tools/` for embedded git repos (`git ls-files --stage | grep 160000`) before committing.
 - **User Pages Deployment:** Deploy `<user>.github.io` from the root of `main` via Actions artifacts.
 - **Auto-Discovery:** Use trailing slashes in `properdocs.yml` for directory-based navigation.
+- **Linter Reliability:** Always prefer `web-ext lint` over direct `addons-linter` calls in CI to ensure consistent binary resolution.
+- **JSDoc Compatibility:** Avoid `?` optionality in return object types to prevent `jsdoc-to-markdown` parse errors.
+- **URL Aesthetics:** Avoid numbered directory prefixes in documentation wikis to maintain clean, permanent URLs.
+- **Git Push Batching:** Perform large pushes in dedicated turns to account for hardware key auth latency.
