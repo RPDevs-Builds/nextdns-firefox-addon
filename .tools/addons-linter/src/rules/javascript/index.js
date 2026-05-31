@@ -1,0 +1,19 @@
+import content_scripts_file_absent from './content-scripts-file-absent';
+import global_require_arg from './global-require-arg';
+import no_document_write from './no-document-write';
+import webextension_api from './webextension-api';
+import webextension_api_compat from './webextension-api-compat';
+import webextension_api_compat_android from './webextension-api-compat-android';
+import webextension_deprecated_api from './webextension-deprecated-api';
+import webextension_unsupported_api from './webextension-unsupported-api';
+
+export default {
+  'content-scripts-file-absent': content_scripts_file_absent,
+  'global-require-arg': global_require_arg,
+  'no-document-write': no_document_write,
+  'webextension-api': webextension_api,
+  'webextension-api-compat': webextension_api_compat,
+  'webextension-api-compat-android': webextension_api_compat_android,
+  'webextension-deprecated-api': webextension_deprecated_api,
+  'webextension-unsupported-api': webextension_unsupported_api,
+};

@@ -1,0 +1,26 @@
+{
+  "$id": "manifest",
+  "permissions": [],
+  "definitions": {},
+  "refs": {},
+  "types": {
+    "Permission": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "alarms",
+            "clipboardRead",
+            "clipboardWrite",
+            "geolocation",
+            "idle",
+            "notifications",
+            "storage"
+          ]
+        },
+        { "$ref": "#/types/MatchPattern" },
+        { "$ref": "cookies#/definitions/Permission" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "manifest": {
+    "types": {
+      "FirefoxSpecificProperties": {
+        "properties": {
+          "strict_min_version": {
+            "default": "42a1",
+            "description": "Minimum version of Gecko to support. Defaults to '42a1'. (Requires Gecko 45)",
+            "pattern": "^[0-9]{1,3}(\\.[a-z0-9]+)+$"
+          },
+          "strict_max_version": {
+            "default": "*",
+            "description": "Maximum version of Gecko to support. Defaults to '*'. (Requires Gecko 45)",
+            "pattern": "^[0-9]{1,3}(\\.[a-z0-9*]+)+$"
+          },
+          "update_url": {
+            "format": "secureUrl"
+          },
+          "data_collection_permissions": {
+            "type": "object",
+            "properties": {
+              "required": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "allOf": [
+                    {
+                      "$ref": "#/types/DataCollectionPermission"
+                    },
+                    {
+                      "onError": "warn"
+                    }
+                  ]
+                },
+                "default": []
+              }
+            },
+            "required": [
+              "required"
+            ]
+          }
+        }
+      },
+      "GeckoAndroidSpecificProperties": {
+        "properties": {
+          "strict_min_version": {
+            "description": "Minimum version of Gecko to support.",
+            "pattern": "^[0-9]{1,3}(\\.[a-z0-9]+)+$"
+          },
+          "strict_max_version": {
+            "description": "Maximum version of Gecko to support.",
+            "pattern": "^[0-9]{1,3}(\\.[a-z0-9*]+)+$"
+          }
+        }
+      },
+      "ExtensionID": {
+        "maxLength": 80
+      },
+      "WebExtensionManifest": {
+        "allOf": [
+          {
+            "$merge": {
+              "with": {
+                "properties": {
+                  "background": {
+                    "anyOf": [
+                      {
+                        "properties": {
+                          "service_worker": {
+                            "min_manifest_version": 3
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "icons": {
+                    "additionalProperties": false
+                  },
+                  "permissions": {
+                    "items": {
+                      "anyOf": [
+                        {},
+                        {
+                          "format": "deprecated"
+                        }
+                      ]
+                    },
+                    "uniqueItems": true,
+                    "validatePrivilegedPermissions": true
+                  },
+                  "optional_permissions": {
+                    "items": {
+                      "anyOf": [
+                        {},
+                        {
+                          "format": "deprecated"
+                        }
+                      ]
+                    },
+                    "uniqueItems": true
+                  },
+                  "developer": {
+                    "properties": {
+                      "url": {
+                        "format": "ignore",
+                        "oneOf": [
+                          {
+                            "format": "url"
+                          },
+                          {
+                            "pattern": "^__MSG_.*?__$"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ManifestBase": {
+        "properties": {
+          "applications": {
+            "max_manifest_version": 2
+          },
+          "homepage_url": {
+            "format": "ignore",
+            "oneOf": [
+              {
+                "format": "url"
+              },
+              {
+                "pattern": "^__MSG_.*?__$"
+              }
+            ]
+          },
+          "name": {
+            "maxLength": 45,
+            "minLength": 2
+          },
+          "version": {
+            "description": "Version string must be a string comprising one to four dot-separated integers (0-65535). E.g: 1.2.3.",
+            "format": "versionString"
+          },
+          "install_origins": {
+            "maxItems": 5
+          }
+        }
+      },
+      "OptionalOnlyPermission": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "userScripts"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
