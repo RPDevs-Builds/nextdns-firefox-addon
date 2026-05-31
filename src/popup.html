@@ -130,10 +130,12 @@
     .sub-tab-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.02); }
 
     /* Layout Containers */
-    .tab-content { display: none; flex-grow: 1; overflow-y: auto; padding: 15px; }
-    .tab-content.active { display: block; }
-    .settings-sub-content { display: none; }
-    .settings-sub-content.active { display: block; }
+    .tab-content { display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; }
+    .tab-content.active { display: flex; }
+    .settings-sub-content { display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; }
+    .settings-sub-content.active { display: flex; }
+    .dashboard-sub-content { display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; }
+    .dashboard-sub-content.active { display: flex; }
 
     /* Input Components */
     input, select, textarea { 
@@ -225,7 +227,6 @@
       <button id="refresh-view-btn" class="header-btn flex-center" title="Refresh Active Tab">🔄</button>
       <button id="sidebar-ui-btn" class="header-btn flex-center" title="Dock to Sidebar">🗂️</button>
       <button id="popout-ui-btn" class="header-btn flex-center" title="Open in dedicated window">↗️</button>
-      <button id="pin-ui-btn" class="header-btn flex-center hidden" title="Toggle Always on Top">📌</button>
     </div>
   </div>
 
@@ -240,13 +241,13 @@
   </div>
 
   <!-- Tab: Dashboard -->
-  <div id="tab-dashboard" class="tab-content active" style="padding: 0;">
+  <div id="tab-dashboard" class="tab-content active">
     <div class="sub-nav" id="dashboard-sub-nav" style="background: var(--bg-main);">
       <button class="sub-tab-btn active" data-sub="overview">Overview</button>
       <button class="sub-tab-btn" data-sub="debugger">Debugger</button>
     </div>
 
-    <div id="dashboard-overview" class="dashboard-sub-content active" style="padding: 15px;">
+    <div id="dash-overview" class="dashboard-sub-content active" style="padding: 15px;">
         <div style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;" id="profile-status">
           <span style="display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; box-shadow: 0 0 6px var(--accent);"></span>
           Profile: Detecting...
@@ -282,7 +283,7 @@
         </div>
     </div>
 
-    <div id="dashboard-debugger" class="dashboard-sub-content" style="padding: 15px; display: none;">
+    <div id="dash-debugger" class="dashboard-sub-content" style="padding: 15px;">
         <div class="panel-box">
             <h4>Intelligent Debugger</h4>
             <p>Correlating tab requests with NextDNS logs to identify which blocklist is breaking this page.</p>
@@ -298,7 +299,7 @@
   </div>
 
   <!-- Tab: Logs -->
-  <div id="tab-logs" class="tab-content">
+  <div id="tab-logs" class="tab-content" style="padding: 15px;">
     <div style="display: flex; gap: 8px; margin-bottom: 8px;">
       <input type="text" id="log-search" placeholder="Search logs..." style="margin-bottom: 0; flex-grow: 1;">
       <button id="auto-refresh-btn" class="btn-secondary" style="width: auto; padding: 0 12px;" title="Toggle Auto-Refresh">⏸️ Auto</button>
@@ -326,7 +327,7 @@
   </div>
 
   <!-- Tab: Lists -->
-  <div id="tab-lists" class="tab-content">
+  <div id="tab-lists" class="tab-content" style="padding: 15px;">
     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
       <select id="list-type-select" style="margin-bottom: 0; flex-grow: 1;">
         <option value="denylist">Denylist (Blocked)</option>
@@ -352,7 +353,7 @@
   </div>
 
   <!-- Tab: Toggles (Blocks) -->
-  <div id="tab-toggles" class="tab-content" style="padding: 0;">
+  <div id="tab-toggles" class="tab-content">
     <div class="sub-nav" id="blocks-sub-nav">
       <button class="sub-tab-btn active" data-sub="security">Security</button>
       <button class="sub-tab-btn" data-sub="privacy">Privacy</button>
@@ -373,17 +374,8 @@
     <div id="toggles-container" class="dashboard-panel" style="padding: 15px;"></div>
   </div>
 
-  <!-- Tab: Labs -->
-  <div id="tab-labs" class="tab-content">
-    <div class="panel-box">
-      <h4>Experimental Labs</h4>
-      <p>Try out upcoming features before they hit the main release.</p>
-      <button class="btn-secondary" style="opacity: 0.5; cursor: not-allowed;" disabled>No active experiments</button>
-    </div>
-  </div>
-
   <!-- Tab: Presets -->
-  <div id="tab-presets" class="tab-content">
+  <div id="tab-presets" class="tab-content" style="padding: 15px;">
     <h3 style="margin-top:0;">Configuration Presets</h3>
     <p style="font-size:0.8em; color:var(--text-muted); margin-bottom:15px;">Apply recommended settings with one click.</p>
     <div id="presets-list">
@@ -392,7 +384,7 @@
   </div>
 
   <!-- Tab: Settings (Options) -->
-  <div id="tab-settings" class="tab-content" style="padding: 0;">
+  <div id="tab-settings" class="tab-content">
     <div class="sub-nav" id="settings-sub-nav">
       <button class="sub-tab-btn active" data-sub="setup">Setup</button>
       <button class="sub-tab-btn" data-sub="analytics">Analytics</button>
@@ -400,54 +392,6 @@
       <button class="sub-tab-btn" data-sub="customize">Customize</button>
       <button class="sub-tab-btn" data-sub="schedules">Schedules</button>
       <button class="sub-tab-btn" data-sub="audit">Audit</button>
-    </div>
-
-    <!-- ... existing sub-contents ... -->
-    <div id="settings-audit" class="settings-sub-content" style="padding: 15px; display: none;">
-        <div class="panel-box" style="text-align: center;">
-            <h4 style="margin-top: 0; color: var(--accent);">Security Auditor</h4>
-            <div id="audit-score-container" style="margin: 20px 0;">
-                <div id="audit-score-ring" style="font-size: 3em; font-weight: 800; color: var(--accent);">--</div>
-                <div style="font-size: 0.8em; color: var(--text-muted); text-transform: uppercase;">Profile Health Score</div>
-            </div>
-            <button id="run-audit-btn" class="btn-allow" style="background-color: var(--accent);">🛡️ Run Security Scan</button>
-        </div>
-        
-        <div id="audit-results" style="margin-top: 15px;">
-            <!-- Audit recommendations rendered here -->
-        </div>
-        <button id="export-audit-btn" class="btn-secondary hidden" style="margin-top: 10px;">📥 Export Report</button>
-    </div>
-
-    <!-- ... existing sub-contents ... -->
-    <div id="settings-schedules" class="settings-sub-content" style="padding: 15px; display: none;">
-        <div class="panel-box">
-            <h4 style="margin-top: 0; color: var(--accent);">Automation Rules</h4>
-            <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 15px;">Schedule automatic changes to your profile settings.</p>
-            
-            <div id="rules-list" style="margin-bottom: 15px; max-height: 180px; overflow-y: auto;">
-                <!-- Rules rendered here -->
-            </div>
-
-            <hr style="border-color: var(--border-color); border-style: dashed; margin: 15px 0;">
-            
-            <h5 style="margin-bottom: 10px; font-size: 0.85em; text-transform: uppercase; color: var(--text-muted);">Add New Rule</h5>
-            <input type="text" id="rule-name" placeholder="Rule Name (e.g. Work Time)" style="margin-bottom: 8px; font-size: 0.8em; padding: 6px 10px;">
-            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                <input type="time" id="rule-trigger" style="margin-bottom: 0; font-size: 0.8em; padding: 6px 10px;">
-                <select id="rule-action" style="margin-bottom: 0; width: 120px; font-size: 0.8em; padding: 6px 10px;">
-                    <option value="enable">Enable</option>
-                    <option value="disable">Disable</option>
-                </select>
-            </div>
-            <select id="rule-target" style="font-size: 0.8em; padding: 6px 10px;">
-                <option value="parentalControl/services:youtube">YouTube (Service)</option>
-                <option value="parentalControl/services:tiktok">TikTok (Service)</option>
-                <option value="security:dga">DGA Protection (Security)</option>
-                <option value="privacy:block-disguised-trackers">Block Disguised Trackers (Privacy)</option>
-            </select>
-            <button id="add-rule-btn" class="btn-allow" style="width: 100%; font-size: 0.85em; height: 32px; padding: 0;">➕ Save Rule</button>
-        </div>
     </div>
 
     <!-- Setup Sub-Tab -->
@@ -503,32 +447,14 @@
         <button id="save-mirror-btn" class="btn-allow" style="width: 100%; height: 32px; padding: 0; font-size: 0.85em;">💾 Save Mirror Config</button>
       </div>
 
-      <div class="panel-box" style="text-align: center; border-color: var(--accent); margin-top: 15px;">
+      <div class="panel-box" style="text-align: center; border-color: var(--accent);">
         <h4 style="color: var(--text-main);">Centralized Data Manager</h4>
         <p>Edit Domain Descriptions, Profile Notes, Log Filters, and Device Aliases in a full-screen window.</p>
         <button id="launch-full-manager-btn" class="btn-allow" style="background-color: var(--accent);">🚀 Launch Manager</button>
       </div>
 
-
-      <div class="panel-box">
-        <h4>Meta Data Management</h4>
-        <p>Synchronize your blocklists and metadata database.</p>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
-          <button id="meta-refresh-btn" class="btn-secondary" style="flex: 1; padding: 6px; font-size: 0.85em;">🔄 Sync</button>
-          <button id="meta-save-btn" class="btn-secondary" style="flex: 1; padding: 6px; font-size: 0.85em;">💾 Export</button>
-          <button id="meta-load-btn" class="btn-secondary" style="flex: 1; padding: 6px; font-size: 0.85em;">📂 Import</button>
-          <button id="meta-delete-btn" class="btn-deny" style="flex: 0 0 40px; padding: 6px; font-size: 0.85em;">🗑️</button>
-          <input type="file" id="meta-file-input" accept=".json" class="hidden">
-        </div>
-        <div class="flex-between" style="font-size: 0.75em; color: var(--text-muted); padding: 0 4px;">
-          <span id="meta-status-text">Ready</span>
-          <span id="meta-last-refresh">Update Required</span>
-        </div>
-      </div>
-
       <div class="panel-box">
         <h4>Log Management</h4>
-        <p>Export configurations or manage remote log storage.</p>
         <div class="grid">
           <button id="download-logs-btn" class="btn-secondary">📥 CSV Export</button>
           <button id="wipe-logs-btn" class="btn-deny">🗑️ Clear Logs</button>
@@ -537,7 +463,6 @@
 
       <div class="panel-box">
         <h4>Settings Portability</h4>
-        <p>Backup or restore your entire extension configuration.</p>
         <div class="grid">
           <button id="export-settings-btn" class="btn-allow" style="background-color: #5d6d7e;">📤 Backup All</button>
           <button id="import-settings-btn" class="btn-secondary">📥 Restore</button>
@@ -550,8 +475,6 @@
     <div id="settings-customize" class="settings-sub-content" style="padding: 15px;">
       <div class="panel-box">
         <h4>Website Customizations</h4>
-        <p>Enhance the official NextDNS dashboard with Forge features.</p>
-        
         <div class="flex-between" style="margin-bottom:12px;">
           <label for="web-gui-master-toggle" style="font-size:0.9em; font-weight:bold; cursor:pointer; flex: 1;">Enable Website Customizations</label>
           <label class="switch">
@@ -563,7 +486,6 @@
         <div id="web-gui-features" style="margin-left: 5px; display: grid; gap: 10px; transition: opacity 0.3s; border-left: 2px solid var(--border-color); padding-left: 10px;">
           <div style="margin-bottom: 5px;">
             <strong style="display:block; margin-bottom:5px; font-size:0.85em; color:var(--text-muted); text-transform:uppercase;">TLD Options</strong>
-            <a id="web-gui-security-link" href="#" target="_blank" style="font-size:0.75em; text-decoration:none; color:var(--accent); display:inline-block; margin-bottom:8px;">Security Page (TLDs) ↗</a>
             <div class="flex-between" style="margin-bottom:8px;">
               <label for="web-gui-tlds-toggle" style="font-size:0.8em; color:var(--text-main); cursor:pointer; flex: 1;">Rollup TLDs to Menu</label>
               <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
@@ -571,15 +493,10 @@
                 <span class="slider round"></span>
               </label>
             </div>
-            <div style="display: flex; gap: 8px;">
-              <button id="web-gui-tlds-show-hide-btn" class="btn-secondary" style="flex: 1; padding: 4px; font-size: 0.75em;">Show/Hide TLDs</button>
-              <button id="web-gui-tlds-manager-btn" class="btn-allow" style="flex: 1; padding: 4px; font-size: 0.75em;">TLD Manager</button>
-            </div>
           </div>
           <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 2px 0;">
           <div style="margin-bottom: 5px;">
             <strong style="display:block; margin-bottom:5px; font-size:0.85em; color:var(--text-muted); text-transform:uppercase;">Privacy Options</strong>
-            <a id="web-gui-privacy-link" href="#" target="_blank" style="font-size:0.75em; text-decoration:none; color:var(--accent); display:inline-block; margin-bottom:8px;">Privacy Page (Blocklists) ↗</a>
             <div class="flex-between" style="margin-bottom:8px;">
               <label for="web-gui-blocklists-toggle" style="font-size:0.8em; color:var(--text-main); cursor:pointer; flex: 1;">Rollup Blocklists to Menu</label>
               <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
@@ -587,31 +504,23 @@
                 <span class="slider round"></span>
               </label>
             </div>
-            <div style="display: flex; gap: 8px;">
-              <button id="web-gui-blocklists-show-hide-btn" class="btn-secondary" style="flex: 1; padding: 4px; font-size: 0.75em;">Show/Hide Blocklists</button>
-              <button id="web-gui-blocklists-manager-btn" class="btn-allow" style="flex: 1; padding: 4px; font-size: 0.75em;">Blocklist Manager</button>
-            </div>
           </div>
           <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 2px 0;">
           <div style="margin-bottom: 5px;">
             <strong style="display:block; margin-bottom:5px; font-size:0.85em; color:var(--text-muted); text-transform:uppercase;">Other Features</strong>
             <label class="checkbox-label" style="font-size:0.8em; margin-bottom:8px;">
-               <input type="checkbox" id="web-gui-log-actions-toggle"> Logs Enhancements
+               <input type="checkbox" id="web-gui-logs-toggle"> Logs Enhancements
+            </label>
+            <label class="checkbox-label" style="font-size:0.8em; margin-bottom:8px;">
+               <input type="checkbox" id="web-gui-filter-toggle"> Filters
+            </label>
+            <label class="checkbox-label" style="font-size:0.8em; margin-bottom:8px;">
+               <input type="checkbox" id="web-gui-desc-toggle"> Descriptions
+            </label>
+            <label class="checkbox-label" style="font-size:0.8em; margin-bottom:8px;">
+               <input type="checkbox" id="web-gui-notes-toggle"> Profile Notes
             </label>
           </div>
-          <div class="flex-between">
-             <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" id="web-gui-filter-toggle"> Filters</label>
-             <button id="web-gui-filter-viewer-btn" class="btn-secondary" style="width: auto; padding: 2px 10px; font-size: 0.75em;">VIEW</button>
-          </div>
-          <div class="flex-between">
-             <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" id="web-gui-desc-toggle"> Descriptions</label>
-             <button id="domain-desc-viewer-btn" class="btn-secondary" style="width: auto; padding: 2px 10px; font-size: 0.75em;">VIEW</button>
-          </div>
-          <div class="flex-between">
-             <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" id="web-gui-profile-notes-toggle"> Profile Notes</label>
-             <button id="profile-notes-viewer-btn" class="btn-secondary" style="width: auto; padding: 2px 10px; font-size: 0.75em;">VIEW</button>
-          </div>
-          <a id="web-gui-logs-link" href="#" target="_blank" style="font-size:0.8em; text-decoration:none; color:var(--accent); text-align: right; margin-top: 5px;">Open Official Logs ↗</a>
         </div>
       </div>
 
@@ -637,6 +546,42 @@
           <button id="save-theme-btn" class="btn-allow flex-center" style="width: 42px; padding: 0;">💾</button>
         </div>
       </div>
+    </div>
+
+    <!-- Schedules Sub-Tab -->
+    <div id="settings-schedules" class="settings-sub-content" style="padding: 15px;">
+        <div class="panel-box">
+            <h4>Automation Rules</h4>
+            <div id="rules-list" style="margin-bottom: 15px; max-height: 180px; overflow-y: auto;"></div>
+            <hr style="border-color: var(--border-color); border-style: dashed; margin: 15px 0;">
+            <input type="text" id="rule-name" placeholder="Rule Name" style="margin-bottom: 8px;">
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <input type="time" id="rule-trigger" style="margin-bottom: 0;">
+                <select id="rule-action" style="margin-bottom: 0; width: 120px;">
+                    <option value="enable">Enable</option>
+                    <option value="disable">Disable</option>
+                </select>
+            </div>
+            <select id="rule-target">
+                <option value="parentalControl/services:youtube">YouTube (Service)</option>
+                <option value="parentalControl/services:tiktok">TikTok (Service)</option>
+                <option value="security:dga">DGA Protection (Security)</option>
+            </select>
+            <button id="add-rule-btn" class="btn-allow">➕ Save Rule</button>
+        </div>
+    </div>
+
+    <!-- Audit Sub-Tab -->
+    <div id="settings-audit" class="settings-sub-content" style="padding: 15px;">
+        <div class="panel-box" style="text-align: center;">
+            <h4 style="margin-top: 0; color: var(--accent);">Security Auditor</h4>
+            <div id="audit-score-container" style="margin: 20px 0;">
+                <div id="audit-score-ring" style="font-size: 3em; font-weight: 800; color: var(--accent);">--</div>
+            </div>
+            <button id="run-audit-btn" class="btn-allow">🛡️ Run Security Scan</button>
+        </div>
+        <div id="audit-results" style="margin-top: 15px;"></div>
+        <button id="export-audit-btn" class="btn-secondary hidden" style="margin-top: 10px;">📥 Export Report</button>
     </div>
   </div>
 

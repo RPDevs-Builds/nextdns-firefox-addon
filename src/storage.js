@@ -26,33 +26,49 @@ class StorageManager {
         if (this.initPromise) return this.initPromise;
 
         this.initPromise = (async () => {
-            const syncData = await browser.storage.sync.get(null);
-            const localData = await browser.storage.local.get(null);
-            this.cache = { ...localData, ...syncData };
-            
-            const healObj = {};
-            for (let k in syncData) {
-                if (syncData[k] !== undefined && localData[k] === undefined) {
-                    healObj[k] = syncData[k];
-                }
-            }
-            if (Object.keys(healObj).length > 0) {
-                await browser.storage.local.set(healObj);
-                console.log("[StorageManager] Healed local storage from sync.");
-            }
+            try {
+                // Use a timeout to prevent hanging forever if storage API is unresponsive
+                const storageTimeout = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error("Storage init timeout")), 2000)
+                );
 
-            browser.storage.onChanged.addListener((changes, area) => {
-                for (let [key, { newValue }] of Object.entries(changes)) {
-                    if (newValue === undefined) {
-                        delete this.cache[key];
-                    } else {
-                        this.cache[key] = newValue;
+                const loadData = async () => {
+                    const syncData = await browser.storage.sync.get(null).catch(() => ({}));
+                    const localData = await browser.storage.local.get(null).catch(() => ({}));
+                    return { syncData, localData };
+                };
+
+                const { syncData, localData } = await Promise.race([loadData(), storageTimeout]);
+                
+                this.cache = { ...localData, ...syncData };
+                
+                const healObj = {};
+                for (let k in syncData) {
+                    if (syncData[k] !== undefined && localData[k] === undefined) {
+                        healObj[k] = syncData[k];
                     }
                 }
-            });
-            
-            this.initialized = true;
-            this.initPromise = null;
+                if (Object.keys(healObj).length > 0) {
+                    await browser.storage.local.set(healObj).catch(() => null);
+                }
+
+                browser.storage.onChanged.addListener((changes, area) => {
+                    for (let [key, { newValue }] of Object.entries(changes)) {
+                        if (newValue === undefined) {
+                            delete this.cache[key];
+                        } else {
+                            this.cache[key] = newValue;
+                        }
+                    }
+                });
+            } catch (e) {
+                console.warn("[StorageManager] Initialization partially failed or timed out:", e);
+                // Fallback to empty cache if everything failed, but mark as initialized to unblock
+                this.cache = this.cache || {};
+            } finally {
+                this.initialized = true;
+                this.initPromise = null;
+            }
         })();
 
         return this.initPromise;

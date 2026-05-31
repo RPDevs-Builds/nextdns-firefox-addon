@@ -124,11 +124,18 @@ describe('Background Script - Full Coverage Suite', () => {
 
     const { storage } = await import('../src/storage.js');
     const { apiClient } = await import('../src/apiClient.js');
+    const { state } = await import('../src/background/state.js');
+    
     global.storage = storage;
     global.apiClient = apiClient;
     global.apiClient.setStorage(global.storage);
     
-    bg = await import('../src/background.js');
+    // ESM cache workaround for tests
+    state.isInitialized = false;
+    storage.initialized = false;
+    storage.initPromise = null;
+    
+    bg = await import('../src/background/main.js');
   });
 
   test('Initialization sequence', async () => {
@@ -139,9 +146,11 @@ describe('Background Script - Full Coverage Suite', () => {
   });
 
   test('Profile Detection', async () => {
-    mockStorage.overrideProfileId = '';
+    const { detectActiveProfile } = await import('../src/background/api.js');
     mockStorage.activeProfile = '';
-    await bg.initializeBackground();
+    mockStorage.overrideProfileId = '';
+    global.storage.cache = { ...mockStorage };
+    await detectActiveProfile();
     expect(fetchMock).toHaveBeenCalledWith('https://test.nextdns.io/', expect.any(Object));
     expect(mockStorage.activeProfile).toBe('profile123');
   });

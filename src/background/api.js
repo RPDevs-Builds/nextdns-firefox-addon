@@ -45,10 +45,10 @@ export async function manageDomain(profileId, listType, domain, action) {
  * @returns {Promise<{id: string, name: string}|null>} The detected profile object or null.
  */
 export async function detectActiveProfile() {
-    const overrideProfileId = await storage.get("overrideProfileId");
+    const manualProfileId = await storage.get("activeProfile");
     const apiKey = await storage.get("apiKey");
 
-    let activeId = overrideProfileId;
+    let activeId = manualProfileId;
 
     if (!activeId) {
         try {
@@ -86,8 +86,12 @@ export async function detectActiveProfile() {
             } catch(e) {}
         }
 
-        await storage.set("activeProfile", activeId);
-        await storage.set("activeProfileName", profileName);
+        // Only save to storage if it changed or wasn't set to prevent redundant writes
+        const currentStored = await storage.get("activeProfile");
+        if (activeId !== currentStored) {
+            await storage.set("activeProfile", activeId);
+            await storage.set("activeProfileName", profileName);
+        }
 
         return { id: activeId, name: profileName };
     }

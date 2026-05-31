@@ -20,11 +20,33 @@ import { loadPresets } from './presets.js';
  * Fires window mode detection, theme engine setup, and overall app bootstrap.
  */
 document.addEventListener("DOMContentLoaded", async () => {
+    console.log("[DNS Forge] Popup DOM Loaded. Initializing...");
+    
+    // 1. Immediate UI Setup (Sync)
     initWindowMode();
-    await initThemeEngine();
     initGlobalEventListeners();
     initTabNavigation();
-    await initializeApp();
+
+    // 2. Async App Bootstrap
+    try {
+        await initThemeEngine();
+        await initializeApp();
+        console.log("[DNS Forge] Popup Fully Initialized.");
+    } catch (e) {
+        console.error("[DNS Forge] Critical Initialization Error:", e);
+        // Show a fallback error message in the Dash tab if it completely fails
+        const dashContainer = document.getElementById("dash-overview");
+        if (dashContainer) {
+            setSafeHTML(dashContainer, `
+                <div class="panel-box" style="border-color: var(--danger);">
+                    <h4 style="color: var(--danger);">Initialization Error</h4>
+                    <p style="font-size: 0.8em; color: var(--text-muted);">The extension failed to load data. This is usually due to the background script being unresponsive.</p>
+                    <button class="btn-secondary" onclick="location.reload()" style="width: 100%;">🔄 Retry Popup</button>
+                    <pre style="font-size: 0.6em; margin-top: 10px; color: var(--danger); overflow: auto;">${escapeHTML(e.message)}</pre>
+                </div>
+            `);
+        }
+    }
 });
 
 /**
@@ -89,33 +111,6 @@ async function handleBulkAdd() {
     await syncLists(true);
     btn.disabled = false;
     btn.textContent = "Bulk Add";
-}
-
-async function initCustomizeUI() {
-    const keys = ["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"];
-    const data = await browser.storage.sync.get(keys);
-    
-    const mapping = {
-        'master': 'webGuiMaster',
-        'tlds': 'webGuiTlds',
-        'blocklists': 'webGuiBlocklists',
-        'logs': 'webGuiLogActions',
-        'desc': 'webGuiDesc',
-        'notes': 'webGuiProfileNotes',
-        'filter': 'webGuiFilter'
-    };
-
-    Object.entries(mapping).forEach(([id, key]) => {
-        const el = document.getElementById(`web-gui-${id}-toggle`);
-        if (el) el.checked = data[key] !== false; // Default to true
-    });
-
-    const masterEnabled = data.webGuiMaster !== false;
-    const features = document.getElementById('web-gui-features');
-    if (features) {
-        features.style.opacity = masterEnabled ? '1' : '0.5';
-        features.style.pointerEvents = masterEnabled ? 'all' : 'none';
-    }
 }
 
 /**
@@ -211,6 +206,8 @@ function initGlobalEventListeners() {
             const subId = btn.dataset.sub;
             const parentTab = btn.closest('.tab-content').id.replace('tab-', '');
             
+            console.log(`[DNS Forge] Sub-tab click: ${parentTab} -> ${subId}`);
+
             // Update active class for siblings
             btn.parentElement.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
@@ -219,12 +216,12 @@ function initGlobalEventListeners() {
                 state.activeBlocksSubTab = subId;
                 loadToggles();
             } else if (parentTab === 'dashboard') {
-                document.querySelectorAll('#tab-dashboard .sub-panel').forEach(p => p.classList.add('hidden'));
-                document.getElementById(`dash-${subId}`)?.classList.remove('hidden');
+                document.querySelectorAll('#tab-dashboard .dashboard-sub-content').forEach(p => p.classList.remove('active'));
+                document.getElementById(`dash-${subId}`)?.classList.add('active');
                 if (subId === 'overview') loadAnalytics();
             } else if (parentTab === 'settings') {
-                document.querySelectorAll('.settings-sub-content').forEach(p => p.classList.add('hidden'));
-                document.getElementById(`settings-${subId}`)?.classList.remove('hidden');
+                document.querySelectorAll('.settings-sub-content').forEach(p => p.classList.remove('active'));
+                document.getElementById(`settings-${subId}`)?.classList.add('active');
                 if (subId === 'analytics') loadAnalytics();
                 if (subId === 'customize') initCustomizeUI();
             }
@@ -405,6 +402,33 @@ async function initializeApp() {
     await loadRules();
     await initMirrorModeUI();
     updateDashboardTabInfo();
+}
+
+async function initCustomizeUI() {
+    const keys = ["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"];
+    const data = await browser.storage.sync.get(keys);
+    
+    const mapping = {
+        'master': 'webGuiMaster',
+        'tlds': 'webGuiTlds',
+        'blocklists': 'webGuiBlocklists',
+        'logs': 'webGuiLogActions',
+        'desc': 'webGuiDesc',
+        'notes': 'webGuiProfileNotes',
+        'filter': 'webGuiFilter'
+    };
+
+    Object.entries(mapping).forEach(([id, key]) => {
+        const el = document.getElementById(`web-gui-${id}-toggle`);
+        if (el) el.checked = data[key] !== false; // Default to true
+    });
+
+    const masterEnabled = data.webGuiMaster !== false;
+    const features = document.getElementById('web-gui-features');
+    if (features) {
+        features.style.opacity = masterEnabled ? '1' : '0.5';
+        features.style.pointerEvents = masterEnabled ? 'all' : 'none';
+    }
 }
 
 /**

@@ -25,12 +25,29 @@ export function setSafeHTML(el, html) {
 }
 
 export function setActiveTab(tabId) {
+    if (!tabId) return;
+    console.log(`[DNS Forge] Switching to tab: ${tabId}`);
     state.activeTab = tabId;
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.tab === tabId);
+
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    if (tabButtons.length === 0) console.warn("[DNS Forge] No .tab-btn elements found.");
+    if (tabContents.length === 0) console.warn("[DNS Forge] No .tab-content elements found.");
+
+    tabButtons.forEach(btn => {
+        const isActive = btn.dataset.tab === tabId;
+        btn.classList.toggle('active', isActive);
     });
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.toggle('active', content.id === `tab-${tabId}`);
+
+    tabContents.forEach(content => {
+        const isActive = content.id === `tab-${tabId}`;
+        content.classList.toggle('active', isActive);
+        if (isActive) {
+            content.style.display = 'flex'; // Ensure it's visible if using flex layout
+        } else {
+            content.style.display = 'none';
+        }
     });
 }
 
