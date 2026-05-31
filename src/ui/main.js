@@ -9,7 +9,7 @@
 
 import { state, isPopoutMode, isSidebarMode, PRESET_THEMES, THEME_VARS, urlParams } from './state.js';
 import { setActiveTab, setSafeHTML, escapeHTML, downloadAsFile } from './utils.js';
-import { handleLiveLog, renderLogs, loadAnalytics, updateDashboardTabInfo, updateDynamicLinks, loadNativeLogs } from './dashboard.js';
+import { handleLiveLog, renderLogs, loadAnalytics, updateDashboardTabInfo, updateDynamicLinks, loadNativeLogs, downloadLogsCSV, wipeLogs } from './dashboard.js';
 import { loadToggles, syncLists, renderLists } from './blocks.js';
 import { runSecurityAudit, runIntelligentDebugger, exportDebuggerSnapshot, exportAuditReport } from './tools.js';
 import { loadRules, saveAutomationRule } from './scheduler.js';
@@ -89,6 +89,33 @@ async function handleBulkAdd() {
     await syncLists(true);
     btn.disabled = false;
     btn.textContent = "Bulk Add";
+}
+
+async function initCustomizeUI() {
+    const keys = ["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"];
+    const data = await browser.storage.sync.get(keys);
+    
+    const mapping = {
+        'master': 'webGuiMaster',
+        'tlds': 'webGuiTlds',
+        'blocklists': 'webGuiBlocklists',
+        'logs': 'webGuiLogActions',
+        'desc': 'webGuiDesc',
+        'notes': 'webGuiProfileNotes',
+        'filter': 'webGuiFilter'
+    };
+
+    Object.entries(mapping).forEach(([id, key]) => {
+        const el = document.getElementById(`web-gui-${id}-toggle`);
+        if (el) el.checked = data[key] !== false; // Default to true
+    });
+
+    const masterEnabled = data.webGuiMaster !== false;
+    const features = document.getElementById('web-gui-features');
+    if (features) {
+        features.style.opacity = masterEnabled ? '1' : '0.5';
+        features.style.pointerEvents = masterEnabled ? 'all' : 'none';
+    }
 }
 
 /**
@@ -198,6 +225,8 @@ function initGlobalEventListeners() {
             } else if (parentTab === 'settings') {
                 document.querySelectorAll('.settings-sub-content').forEach(p => p.classList.add('hidden'));
                 document.getElementById(`settings-${subId}`)?.classList.remove('hidden');
+                if (subId === 'analytics') loadAnalytics();
+                if (subId === 'customize') initCustomizeUI();
             }
         };
     });
@@ -227,6 +256,13 @@ function initGlobalEventListeners() {
     document.getElementById('export-debugger-btn')?.addEventListener('click', exportDebuggerSnapshot);
     document.getElementById('add-rule-btn')?.addEventListener('click', saveAutomationRule);
 
+    // Data Management
+    document.getElementById('launch-full-manager-btn')?.addEventListener('click', () => {
+        browser.tabs.create({ url: browser.runtime.getURL('src/viewer.html') });
+    });
+    document.getElementById('download-logs-btn')?.addEventListener('click', downloadLogsCSV);
+    document.getElementById('wipe-logs-btn')?.addEventListener('click', wipeLogs);
+
     // Backup & Restore
     document.getElementById('export-settings-btn')?.addEventListener('click', exportFullConfiguration);
     document.getElementById('import-settings-btn')?.addEventListener('click', () => document.getElementById('import-settings-file').click());
@@ -234,6 +270,33 @@ function initGlobalEventListeners() {
 
     document.getElementById('save-mirror-btn')?.addEventListener('click', saveMirrorMode);
     document.getElementById('save-settings-btn')?.addEventListener('click', saveSettings);
+
+    // Customize Toggles (Web GUI)
+    const webGuiToggles = ['master', 'tlds', 'blocklists', 'logs', 'desc', 'notes', 'filter'];
+    const webGuiMap = {
+        'master': 'webGuiMaster',
+        'tlds': 'webGuiTlds',
+        'blocklists': 'webGuiBlocklists',
+        'logs': 'webGuiLogActions',
+        'desc': 'webGuiDesc',
+        'notes': 'webGuiProfileNotes',
+        'filter': 'webGuiFilter'
+    };
+    webGuiToggles.forEach(id => {
+        document.getElementById(`web-gui-${id}-toggle`)?.addEventListener('change', async (e) => {
+            const key = webGuiMap[id];
+            const value = e.target.checked;
+            await browser.storage.sync.set({ [key]: value });
+            await browser.storage.local.set({ [key]: value });
+            if (id === 'master') {
+                const features = document.getElementById('web-gui-features');
+                if (features) {
+                    features.style.opacity = value ? '1' : '0.5';
+                    features.style.pointerEvents = value ? 'all' : 'none';
+                }
+            }
+        });
+    });
 
     // Logs SSE listener
     browser.runtime.onMessage.addListener((msg) => {

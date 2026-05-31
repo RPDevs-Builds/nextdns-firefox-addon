@@ -245,6 +245,48 @@ export function updateDynamicLinks() {
     const privacyLink = document.getElementById("web-gui-privacy-link");
 
     if (logsLink && state.activeProfile) logsLink.href = `https://my.nextdns.io/${state.activeProfile}/logs`;
-    if (securityLink && state.activeProfile) securityLink.href = `https://my.nextdns.io/${state.activeProfile}/security`;
+    if (securityLink && state.activeProfile) securityLink.href = `https://my.nextdns.io/${state.activeProfile}/privacy`;
     if (privacyLink && state.activeProfile) privacyLink.href = `https://my.nextdns.io/${state.activeProfile}/privacy`;
-}
+    }
+
+    /**
+    * Exports the current log cache as a CSV file.
+    */
+    export function downloadLogsCSV() {
+    if (state.cachedLogs.length === 0) return alert("No logs to export.");
+
+    const headers = ["Timestamp", "Device", "Domain", "Status", "Reason"];
+    const rows = state.cachedLogs.map(l => [
+        new Date(l.timestamp).toISOString(),
+        state.hostnameAliases[l.device?.id || l.clientIp] || l.device?.name || l.clientIp || "Unknown",
+        l.name || l.domain,
+        l.status,
+        (l.reasons || [l.reason || ""]).join('; ')
+    ]);
+
+    const csvContent = [headers, ...rows].map(r => r.map(c => `"${(c||'').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+    downloadAsFile(`dns_forge_logs_${Date.now()}.csv`, csvContent, 'text/csv');
+    }
+
+    /**
+    * Triggers a remote log wipe via the background script and clears the local cache.
+    * @async
+    */
+    export async function wipeLogs() {
+    if (!state.activeProfile) return;
+    if (!confirm("Are you sure you want to clear all logs from NextDNS? This cannot be undone.")) return;
+
+    const btn = document.getElementById('wipe-logs-btn');
+    if (btn) { btn.disabled = true; btn.textContent = "Clearing..."; }
+
+    const res = await browser.runtime.sendMessage({ type: "CLEAR_LOGS", profileId: state.activeProfile });
+    if (res.success) {
+        state.cachedLogs = [];
+        renderLogs();
+        alert("Logs cleared successfully.");
+    } else {
+        alert("Failed to clear logs.");
+    }
+    if (btn) { btn.disabled = false; btn.textContent = "🗑️ Clear Logs"; }
+    }
+

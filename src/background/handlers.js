@@ -254,6 +254,14 @@ export const messageHandlers = {
         return { success: true };
     },
     /**
+     * Clears all historical logs for a profile from the NextDNS API.
+     * @param {Object} msg - The message object containing profileId.
+     */
+    CLEAR_LOGS: async (msg) => {
+        const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/logs`, { method: 'DELETE' });
+        return { success: r.success };
+    },
+    /**
      * Lists all configured automation rules.
      */
     LIST_RULES: async () => {
