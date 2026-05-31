@@ -197,6 +197,7 @@ function initGlobalEventListeners() {
             if (tabId === 'presets') loadPresets();
             if (tabId === 'lists') renderLists();
             if (tabId === 'toggles') loadToggles();
+            if (tabId === 'logs') loadNativeLogs();
         };
     });
 
@@ -244,6 +245,14 @@ function initGlobalEventListeners() {
     document.getElementById("auto-refresh-btn")?.addEventListener('click', (e) => {
         const isEnabled = e.target.classList.contains('btn-secondary');
         toggleAutoRefresh(!isEnabled);
+    });
+
+    // Log Filters
+    document.getElementById("log-search")?.addEventListener('input', () => renderLogs());
+    document.getElementById("log-device-filter")?.addEventListener('change', () => renderLogs());
+    document.getElementById("log-type-filter")?.addEventListener('change', () => renderLogs());
+    document.querySelectorAll('#status-filter-content input').forEach(cb => {
+        cb.addEventListener('change', () => renderLogs());
     });
 
     // Tools
@@ -399,6 +408,7 @@ async function initializeApp() {
     await syncLists();
     await loadAnalytics();
     await loadToggles();
+    await loadNativeLogs();
     await loadRules();
     await initMirrorModeUI();
     updateDashboardTabInfo();
@@ -582,12 +592,16 @@ async function toggleAutoRefresh(enable) {
     state.autoRefreshInterval = null;
 
     if (enable) {
-        btn.classList.replace("btn-dark", "btn-secondary"); btn.textContent = "⏸️ Auto";
+        btn.classList.add("btn-secondary"); 
+        btn.classList.remove("btn-dark"); 
+        btn.textContent = "⏸️ Auto";
         loadNativeLogs();
         const { autoRefreshTime } = await browser.storage.sync.get("autoRefreshTime");
         state.autoRefreshInterval = setInterval(loadNativeLogs, (parseInt(autoRefreshTime) || 5) * 1000);
     } else { 
-        btn.classList.replace("btn-secondary", "btn-dark"); btn.textContent = "▶️ Auto"; 
+        btn.classList.add("btn-dark"); 
+        btn.classList.remove("btn-secondary"); 
+        btn.textContent = "▶️ Auto"; 
     }
 }
 
