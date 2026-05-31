@@ -9,7 +9,6 @@
     "menus",
     "webRequest",
     "webRequestBlocking",
-    "sidebarAction",
     "windows"
   ],
   "optional_permissions": [
