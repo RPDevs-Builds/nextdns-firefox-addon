@@ -17,7 +17,7 @@
     "@testing-library/jest-dom": "^6.1.4",
     "addons-linter": "^10.6.0",
     "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0",
+    "jest-environment-jsdom": "^30.4.1",
     "jest-fetch-mock": "latest",
     "jest-webextension-mock": "latest",
     "jsdoc-to-markdown": "^9.1.3",
