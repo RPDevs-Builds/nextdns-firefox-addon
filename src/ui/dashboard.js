@@ -72,24 +72,29 @@ export function renderLogs(logsOverride = null) {
     const container = document.getElementById("logs-container");
     if (!container) return;
     
-    const logs = logsOverride !== null ? logsOverride : state.cachedLogs;
-    if (!Array.isArray(logs) || logs.length === 0) {
+    let logs = logsOverride !== null ? logsOverride : state.cachedLogs;
+    if (!Array.isArray(logs)) logs = [];
+
+    if (logs.length === 0) {
         setSafeHTML(container, "<div style='text-align:center; padding:20px; color:var(--text-muted); font-size:0.9em;'>No logs found.</div>");
         return;
     }
 
     const query = (document.getElementById("log-search")?.value || "").toLowerCase();
     const deviceFilter = document.getElementById("log-device-filter")?.value;
+    const protocolFilter = document.getElementById("log-type-filter")?.value;
     const activeFilters = Array.from(document.querySelectorAll('#status-filter-content input:checked')).map(cb => cb.value);
 
     const filtered = logs.filter(log => {
         if (!log) return false;
         const domain = (log.name || log.domain || '').toLowerCase();
         const id = log.device?.id || log.clientIp;
+        const protocol = (log.protocol || '').toLowerCase();
         const status = (log.status === 'allowed' || log.status === 'whitelisted') ? 'status:allowed' : 'status:blocked';
         
         if (query && !domain.includes(query)) return false;
         if (deviceFilter && id !== deviceFilter) return false;
+        if (protocolFilter && protocol !== protocolFilter) return false;
         if (!activeFilters.includes(status)) return false;
         return true;
     });
@@ -101,7 +106,8 @@ export function renderLogs(logsOverride = null) {
         const isBlocked = log.status === 'blocked';
         row.style.color = isBlocked ? 'var(--danger)' : 'var(--success)';
         
-        const name = state.hostnameAliases[log.device?.id || log.clientIp] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
+        const deviceId = log.device?.id || log.clientIp;
+        const name = state.hostnameAliases?.[deviceId] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
         const timeStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "---";
 
         const html = `
@@ -130,14 +136,16 @@ function updateDeviceFilterOptions() {
     if (!dropdown || dropdown.options.length > 1) return;
 
     const devices = new Set();
-    state.cachedLogs.forEach(l => {
-        const id = l.device?.id || l.clientIp;
-        if (id) devices.add(id);
-    });
+    if (Array.isArray(state.cachedLogs)) {
+        state.cachedLogs.forEach(l => {
+            const id = l.device?.id || l.clientIp;
+            if (id) devices.add(id);
+        });
+    }
 
     devices.forEach(id => {
         const log = state.cachedLogs.find(l => (l.device?.id || l.clientIp) === id);
-        const name = state.hostnameAliases[id] || log.device?.name || id;
+        const name = state.hostnameAliases?.[id] || log?.device?.name || id;
         const opt = document.createElement('option');
         opt.value = id;
         opt.textContent = name;
@@ -151,41 +159,65 @@ function updateDeviceFilterOptions() {
  * @async
  */
 export async function loadAnalytics() {
-    if (!state.activeProfile) return;
-    const [summary, series] = await Promise.all([
-        browser.runtime.sendMessage({ type: "GET_ANALYTICS", profileId: state.activeProfile }),
-        browser.runtime.sendMessage({ type: "GET_ANALYTICS", profileId: state.activeProfile, series: true })
-    ]);
+    if (!state.activeProfile) {
+        console.warn("[Dashboard] Cannot load analytics: No active profile.");
+        return;
+    }
 
     const container = document.getElementById("analytics-overview");
-    if (summary?.data && container) {
-        const sData = series?.data || [];
-        let trendHtml = "";
-        if (sData.length > 5) {
-            const recent = sData.slice(-5).reduce((acc, curr) => acc + curr.queries, 0);
-            const previous = sData.slice(-10, -5).reduce((acc, curr) => acc + curr.queries, 0);
-            const diff = recent - previous;
-            const percent = previous > 0 ? Math.round((diff / previous) * 100) : 0;
-            const color = diff > 0 ? 'var(--danger)' : 'var(--success)';
-            trendHtml = `<div style="font-size:0.75em; color:${color}; margin-top:5px;">
-                ${diff > 0 ? '📈' : '📉'} ${Math.abs(percent)}% ${diff > 0 ? 'increase' : 'decrease'} in activity
-            </div>`;
-        }
+    if (container) {
+        setSafeHTML(container, "<div style='text-align:center; padding:10px; opacity:0.6;'>Fetching stats...</div>");
+    }
 
-        const html = `
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                <div class="panel-box" style="margin-bottom:0;">
-                    <div style="font-size:0.7em; color:var(--text-muted);">QUERIES</div>
-                    <div style="font-size:1.2em; font-weight:700;">${summary.data.queries.toLocaleString()}</div>
+    try {
+        console.log("[Dashboard] Fetching analytics for profile:", state.activeProfile);
+        const [summary, series] = await Promise.all([
+            browser.runtime.sendMessage({ type: "GET_ANALYTICS", profileId: state.activeProfile }),
+            browser.runtime.sendMessage({ type: "GET_ANALYTICS", profileId: state.activeProfile, series: true })
+        ]);
+
+        if (summary?.data && container) {
+            const sData = series?.data || [];
+            let trendHtml = "";
+            if (sData.length > 5) {
+                const recent = sData.slice(-5).reduce((acc, curr) => acc + curr.queries, 0);
+                const previous = sData.slice(-10, -5).reduce((acc, curr) => acc + curr.queries, 0);
+                const diff = recent - previous;
+                const percent = previous > 0 ? Math.round((diff / previous) * 100) : 0;
+                const color = diff > 0 ? 'var(--danger)' : 'var(--success)';
+                trendHtml = `<div style="font-size:0.75em; color:${color}; margin-top:5px;">
+                    ${diff > 0 ? '↗' : '↘'} ${Math.abs(percent)}% ${diff > 0 ? 'increase' : 'decrease'} in traffic
+                </div>`;
+            }
+
+            const html = `
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
+                    <div style="text-align:center; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px;">
+                        <div style="font-size:0.7em; text-transform:uppercase; opacity:0.6;">Total Queries</div>
+                        <div style="font-size:1.3em; font-weight:700; color:var(--accent);">${summary.data.queries.toLocaleString()}</div>
+                    </div>
+                    <div style="text-align:center; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px;">
+                        <div style="font-size:0.7em; text-transform:uppercase; opacity:0.6;">Blocked</div>
+                        <div style="font-size:1.3em; font-weight:700; color:var(--danger);">${summary.data.blockedQueries.toLocaleString()}</div>
+                    </div>
                 </div>
-                <div class="panel-box" style="margin-bottom:0;">
-                    <div style="font-size:0.7em; color:var(--text-muted);">BLOCKED</div>
-                    <div style="font-size:1.2em; font-weight:700; color:var(--danger);">${summary.data.blockedQueries.toLocaleString()}</div>
+                <div style="font-size:0.85em; margin-bottom:5px;">Block Rate: <strong>${summary.data.blockedPercent}%</strong></div>
+                <div style="width:100%; height:8px; background:rgba(255,255,255,0.1); border-radius:4px; overflow:hidden;">
+                    <div style="width:${summary.data.blockedPercent}%; height:100%; background:var(--danger);"></div>
                 </div>
-            </div>
-            ${trendHtml}`;
-        setSafeHTML(container, html);
-    } else if (container) container.textContent = "No analytics data.";
+                ${trendHtml}
+            `;
+            setSafeHTML(container, html);
+        } else if (container) {
+            setSafeHTML(container, "<div style='text-align:center; padding:10px; color:var(--danger);'>No analytics data available.</div>");
+        }
+    } catch (e) {
+        console.error("[Dashboard] loadAnalytics failed:", e);
+        const container = document.getElementById("analytics-overview");
+        if (container) {
+            setSafeHTML(container, `<div style='text-align:center; padding:10px; color:var(--danger);'>Error: ${escapeHTML(e.message)}</div>`);
+        }
+    }
 }
 
 /**
@@ -194,11 +226,31 @@ export async function loadAnalytics() {
  * @async
  */
 export async function loadNativeLogs() {
-    if (!state.activeProfile) return;
-    const res = await browser.runtime.sendMessage({ type: "GET_LOGS", profileId: state.activeProfile }).catch(() => null);
-    if (res?.success) { 
-        state.cachedLogs = res.data || []; 
-        renderLogs(); 
+    if (!state.activeProfile) {
+        console.warn("[Dashboard] Cannot load logs: No active profile.");
+        return;
+    }
+
+    const container = document.getElementById("logs-container");
+    if (container && state.cachedLogs.length === 0) {
+        setSafeHTML(container, "<div style='text-align:center; padding:20px; opacity:0.6;'>Loading logs from NextDNS...</div>");
+    }
+
+    try {
+        console.log("[Dashboard] Fetching native logs for profile:", state.activeProfile);
+        const res = await browser.runtime.sendMessage({ type: "GET_LOGS", profileId: state.activeProfile });
+        if (res?.success) { 
+            state.cachedLogs = Array.isArray(res.data) ? res.data : []; 
+            console.log(`[Dashboard] Received ${state.cachedLogs.length} logs.`);
+            renderLogs(); 
+        } else {
+            console.error("[Dashboard] Failed to fetch logs:", res?.error || "Unknown error");
+            if (container && state.cachedLogs.length === 0) {
+                setSafeHTML(container, `<div style='text-align:center; padding:20px; color:var(--danger);'>Failed to load logs: ${escapeHTML(res?.error || "Check API Key")}</div>`);
+            }
+        }
+    } catch (e) {
+        console.error("[Dashboard] sendMessage failed in loadNativeLogs:", e);
     }
 }
 
@@ -208,53 +260,64 @@ export async function loadNativeLogs() {
  * @async
  */
 export async function updateDashboardTabInfo() {
-    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.url) return;
+    try {
+        const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.url) return;
 
-    // Populate the domain input field
-    const domainInput = document.getElementById("domain-input");
-    if (domainInput && tab.url.startsWith('http')) {
-        try {
-            const url = new URL(tab.url);
-            domainInput.value = url.hostname.replace(/^www\./, '');
-        } catch (e) {
-            console.warn("[DNS Forge] Failed to parse tab URL:", e);
+        // Populate the domain input field
+        const domainInput = document.getElementById("domain-input");
+        if (domainInput && tab.url.startsWith('http')) {
+            try {
+                const url = new URL(tab.url);
+                const currentDomain = url.hostname.replace(/^www\./, '');
+                if (domainInput.value !== currentDomain && !domainInput.matches(':focus')) {
+                    domainInput.value = currentDomain;
+                }
+            } catch (e) {
+                console.warn("[Dashboard] Failed to parse tab URL:", e);
+            }
         }
-    }
 
-    const stats = await browser.runtime.sendMessage({ type: "GET_TAB_STATS", tabId: tab.id });
-    const requests = stats?.requests || {};
-    const domains = Object.keys(requests);
+        const stats = await browser.runtime.sendMessage({ type: "GET_TAB_STATS", tabId: tab.id });
+        if (!stats) return;
 
-    const header = document.getElementById("tab-log-header");
-    if (header) header.textContent = `Tab Requests: (${domains.length})`;
+        const requests = stats.requests || {};
+        const domains = Object.keys(requests);
 
-    const container = document.getElementById("tab-log");
-    if (container) {
-        if (domains.length === 0) {
-            setSafeHTML(container, "<div style='opacity:0.5; padding:10px;'>No requests captured for this tab yet.</div>");
-        } else {
-            const html = domains.map(d => {
-                const r = requests[d];
-                const color = r.status === 'blocked' ? 'var(--danger)' : (r.reason === 'Allow List' ? 'var(--success)' : 'inherit');
-                return `<div style="padding:4px; color:${color}; font-size:0.9em; border-bottom:1px solid rgba(255,255,255,0.05);">
-                    ${escapeHTML(d)} 
-                    <span style="font-size:0.8em; opacity:0.6; margin-left:5px;">${escapeHTML(r.reason === 'Default' ? '' : `[${r.reason}]`)}</span>
-                </div>`;
-            }).join('');
-            setSafeHTML(container, html);
+        const header = document.getElementById("tab-log-header");
+        if (header) header.textContent = `Tab Requests: (${domains.length})`;
+
+        const container = document.getElementById("tab-log");
+        if (container) {
+            if (domains.length === 0) {
+                if (!container.textContent.includes('capturing')) {
+                    setSafeHTML(container, "<div style='opacity:0.5; padding:10px;'>Waiting for network activity...</div>");
+                }
+            } else {
+                const html = domains.map(d => {
+                    const r = requests[d];
+                    const color = r.status === 'blocked' ? 'var(--danger)' : (r.reason === 'Allow List' ? 'var(--success)' : 'inherit');
+                    return `<div style="padding:4px; color:${color}; font-size:0.9em; border-bottom:1px solid rgba(255,255,255,0.05);">
+                        ${escapeHTML(d)} 
+                        <span style="font-size:0.8em; opacity:0.6; margin-left:5px;">${escapeHTML(r.reason === 'Default' ? '' : `[${r.reason}]`)}</span>
+                    </div>`;
+                }).join('');
+                setSafeHTML(container, html);
+            }
         }
-    }
 
-    const score = document.getElementById("privacy-score");
-    if (score) {
-        const blockedCount = stats?.blockedCount || 0;
-        let grade = "-";
-        if (domains.length > 0) {
-            const ratio = blockedCount / domains.length;
-            if (ratio > 0.4) grade = "A+"; else if (ratio > 0.25) grade = "A"; else if (ratio > 0.1) grade = "B"; else if (ratio > 0.05) grade = "C"; else grade = "D";
+        const score = document.getElementById("privacy-score");
+        if (score) {
+            const blockedCount = stats.blockedCount || 0;
+            let grade = "-";
+            if (domains.length > 0) {
+                const ratio = blockedCount / domains.length;
+                if (ratio > 0.4) grade = "A+"; else if (ratio > 0.25) grade = "A"; else if (ratio > 0.1) grade = "B"; else if (ratio > 0.05) grade = "C"; else grade = "D";
+            }
+            score.textContent = grade;
         }
-        score.textContent = grade;
+    } catch (e) {
+        console.error("[Dashboard] updateDashboardTabInfo failed:", e);
     }
 }
 

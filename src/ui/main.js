@@ -20,33 +20,34 @@ import { loadPresets } from './presets.js';
  * Fires window mode detection, theme engine setup, and overall app bootstrap.
  */
 document.addEventListener("DOMContentLoaded", async () => {
-    console.log("[DNS Forge] Popup DOM Loaded. Initializing...");
+    console.log("[DNS Forge] Popup DOM Loaded. Initializing UI...");
     
     // 1. Immediate UI Setup (Sync)
-    initWindowMode();
-    initGlobalEventListeners();
-    initTabNavigation();
-
-    // 2. Async App Bootstrap
     try {
-        await initThemeEngine();
-        await initializeApp();
+        initWindowMode();
+        initGlobalEventListeners();
+        initTabNavigation();
+        console.log("[DNS Forge] UI Listeners bound.");
+    } catch (e) { console.error("[DNS Forge] Sync UI setup failed:", e); }
+
+    // 2. Async App Bootstrap (Parallel)
+    initThemeEngine().then(() => console.log("[Init] Theme engine ready."));
+    
+    initializeApp().then(() => {
         console.log("[DNS Forge] Popup Fully Initialized.");
-    } catch (e) {
+    }).catch(e => {
         console.error("[DNS Forge] Critical Initialization Error:", e);
-        // Show a fallback error message in the Dash tab if it completely fails
         const dashContainer = document.getElementById("dash-overview");
         if (dashContainer) {
             setSafeHTML(dashContainer, `
                 <div class="panel-box" style="border-color: var(--danger);">
-                    <h4 style="color: var(--danger);">Initialization Error</h4>
-                    <p style="font-size: 0.8em; color: var(--text-muted);">The extension failed to load data. This is usually due to the background script being unresponsive.</p>
+                    <h4 style="color: var(--danger);">Initialization Failed</h4>
+                    <p style="font-size: 0.8em; color: var(--text-muted);">The extension failed to bootstrap core services.</p>
                     <button class="btn-secondary" onclick="location.reload()" style="width: 100%;">🔄 Retry Popup</button>
-                    <pre style="font-size: 0.6em; margin-top: 10px; color: var(--danger); overflow: auto;">${escapeHTML(e.message)}</pre>
                 </div>
             `);
         }
-    }
+    });
 });
 
 /**
@@ -327,6 +328,22 @@ function initGlobalEventListeners() {
     document.getElementById('save-mirror-btn')?.addEventListener('click', saveMirrorMode);
     document.getElementById('save-settings-btn')?.addEventListener('click', saveSettings);
 
+    // Header controls
+    document.getElementById('refresh-view-btn')?.addEventListener('click', async () => {
+        console.log("[DNS Forge] Manual refresh triggered.");
+        const btn = document.getElementById('refresh-view-btn');
+        if (btn) btn.classList.add('spinning');
+        await initializeApp();
+        if (btn) setTimeout(() => btn.classList.remove('spinning'), 500);
+    });
+
+    document.getElementById('theme-toggle-btn')?.addEventListener('click', async () => {
+        const newTheme = state.activeThemeId === 'default-dark' ? 'default-light' : 'default-dark';
+        state.activeThemeId = newTheme;
+        applyTheme(newTheme);
+        await browser.storage.sync.set({ activeTheme: newTheme });
+    });
+
     // Customize Toggles (Web GUI)
     const webGuiToggles = ['master', 'tlds', 'blocklists', 'logs', 'desc', 'notes', 'filter'];
     const webGuiMap = {
@@ -420,17 +437,27 @@ function initTabNavigation() {
 /**
  * Primary application bootstrap logic.
  * Fetches the active profile, starts the log stream, and initializes all sub-modules.
+ * Implements fault-tolerance to ensure one failing service doesn't block others.
  * @async
  */
 async function initializeApp() {
-    const settings = await initSettingsUI();
+    console.log("[Init] Starting fault-tolerant app bootstrap...");
     
-    let profile = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
-    
-    // Fallback if profile detection fails but we have a stored profile ID
-    if (!profile && settings.activeProfile) {
-        profile = { id: settings.activeProfile, name: "Last Known Profile" };
-    }
+    // 1. Settings & Profile Detection (Critical)
+    let settings = {};
+    try {
+        settings = await initSettingsUI();
+        console.log("[Init] Settings UI ready.");
+    } catch (e) { console.error("[Init] Settings UI failed:", e); }
+
+    let profile = null;
+    try {
+        profile = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
+        if (!profile && settings.activeProfile) {
+            profile = { id: settings.activeProfile, name: "Last Known Profile" };
+            console.log("[Init] Using fallback profile:", profile.id);
+        }
+    } catch (e) { console.error("[Init] Profile detection failed:", e); }
 
     if (profile) {
         state.activeProfile = profile.id;
@@ -450,18 +477,32 @@ async function initializeApp() {
         }
     }
 
+    // 2. Services (Fault-Tolerant)
+    const services = [
+        { name: 'Dynamic Links', fn: updateDynamicLinks },
+        { name: 'Sync Lists', fn: () => syncLists() },
+        { name: 'Analytics', fn: loadAnalytics },
+        { name: 'Toggles', fn: loadToggles },
+        { name: 'Native Logs', fn: loadNativeLogs },
+        { name: 'Rules', fn: loadRules },
+        { name: 'Mirror Mode', fn: initMirrorModeUI }
+    ];
+
+    for (const service of services) {
+        try {
+            console.log(`[Init] Starting service: ${service.name}...`);
+            await service.fn();
+            console.log(`[Init] Service ${service.name} ready.`);
+        } catch (e) {
+            console.error(`[Init] Service ${service.name} failed:`, e);
+        }
+    }
+
+    try { updateDashboardTabInfo(); } catch(e) {}
+
     window.addEventListener("unload", () => {
         browser.runtime.sendMessage({ type: "STOP_STREAM" });
     });
-
-    updateDynamicLinks();
-    await syncLists();
-    await loadAnalytics();
-    await loadToggles();
-    await loadNativeLogs();
-    await loadRules();
-    await initMirrorModeUI();
-    updateDashboardTabInfo();
 
     // Start Dashboard update interval
     setInterval(() => {

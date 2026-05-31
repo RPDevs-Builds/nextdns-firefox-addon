@@ -213,9 +213,14 @@
     input:checked + .slider { background-color: var(--accent); }
     input:checked + .slider:before { transform: translateX(18px); }
 
-    /* TLD Letters jump menu */
     #tlds-top { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; justify-content: center; }
     .tld-jump-link { text-decoration: none; padding: 4px 10px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main); font-size: 0.8em; }
+
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    .spinning { animation: spin 0.8s linear infinite; }
+    
+    .dashboard-sub-content, .settings-sub-content { display: none; flex-direction: column; flex-grow: 1; }
+    .dashboard-sub-content.active, .settings-sub-content.active { display: flex; }
   </style>
 </head>
 <body>

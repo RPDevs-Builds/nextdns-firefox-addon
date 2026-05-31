@@ -63,8 +63,28 @@ export const messageHandlers = {
             });
             if (!r.success) return { success: false, data: [] };
             const json = await r.response.json();
-            return { success: true, data: json.data || json || [] };
+            const data = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+            return { success: true, data };
         } catch(e) { return { success: false, data: [] }; }
+    },
+    /**
+     * Fetches the current allowlist and denylist for a profile.
+     * @param {Object} msg - The message object containing profileId.
+     */
+    GET_PROFILE_DATA: async (msg) => {
+        try {
+            const [allow, deny] = await Promise.all([
+                apiClient.fetchWithRetry(`/profiles/${msg.profileId}/allowlist`),
+                apiClient.fetchWithRetry(`/profiles/${msg.profileId}/denylist`)
+            ]);
+            const aJson = allow.success ? await allow.response.json() : { data: [] };
+            const dJson = deny.success ? await deny.response.json() : { data: [] };
+            return { 
+                success: true, 
+                allowlist: (Array.isArray(aJson.data) ? aJson.data : (Array.isArray(aJson) ? aJson : [])).map(d => d.id),
+                denylist: (Array.isArray(dJson.data) ? dJson.data : (Array.isArray(dJson) ? dJson : [])).map(d => d.id)
+            };
+        } catch (e) { return { success: false, allowlist: [], denylist: [] }; }
     },
     /**
      * Fetches analytics summary or time-series data for a profile.
@@ -132,15 +152,16 @@ export const messageHandlers = {
         if (r.success) {
             const { mirrorProfiles = [] } = await browser.storage.sync.get("mirrorProfiles");
             if (mirrorProfiles.length > 0 && !msg._mirrored) {
-                mirrorProfiles.forEach(mId => {
-                    if (mId === profileId) return;
+                for (const mId of mirrorProfiles) {
+                    if (mId === profileId) continue;
                     console.log(`[Mirror] Replicating change to profile: ${mId}`);
+                    // Execute replication asynchronously without blocking the response
                     messageHandlers.TOGGLE_SETTING({
                         ...msg,
                         profileId: mId,
                         _mirrored: true // Prevent infinite loops
-                    });
-                });
+                    }).catch(err => console.error(`[Mirror] Failed for ${mId}:`, err));
+                }
             }
         }
 
