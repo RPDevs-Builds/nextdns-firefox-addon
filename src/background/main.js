@@ -1,5 +1,10 @@
 /**
  * DNS Forge - Background Engine (ES Module)
+ * This is the main entry point for the background service worker.
+ * It initializes storage, registers network request listeners, manages context menus, 
+ * and handles background alarms and messaging.
+ * 
+ * @module background/main
  */
 
 import { state, ALARM_PREFIX } from './state.js';
@@ -10,6 +15,12 @@ import { requestListener } from './requestListener.js';
 import { messageHandlers } from './handlers.js';
 import { checkAutomationRules } from './scheduler.js';
 
+/**
+ * Bootstraps the background engine.
+ * Initializes storage, sets up context menus, registers request and message listeners, 
+ * and starts periodic tasks (alarms).
+ * @async
+ */
 export async function initializeBackground() {
     if (state.isInitialized) return;
     
@@ -73,6 +84,10 @@ export async function initializeBackground() {
     console.log("[Init] Background Engine Ready.");
 }
 
+/**
+ * Creates the extension's context menu entries for allowing/denying domains.
+ * @async
+ */
 async function setupContextMenus() {
     await browser.menus.removeAll();
     browser.menus.create({
@@ -87,17 +102,21 @@ async function setupContextMenus() {
     });
 }
 
+/**
+ * Listener for context menu clicks.
+ * Identifies the domain from the clicked context and updates the profile's allow/deny list.
+ */
 browser.menus.onClicked.addListener(async (info, tab) => {
     try {
         const urlStr = info.linkUrl || info.pageUrl || tab?.url;
         if (!urlStr) return;
         const domain = new URL(urlStr).hostname;
-        const activeProfile = await storage.get("activeProfile");
+        const activeProfileId = await storage.get("activeProfile");
 
         if (info.menuItemId === "dns-forge-allow") {
-            await manageDomain(activeProfile, "allowlist", domain, "add");
+            await manageDomain(activeProfileId, "allowlist", domain, "add");
         } else if (info.menuItemId === "dns-forge-deny") {
-            await manageDomain(activeProfile, "denylist", domain, "add");
+            await manageDomain(activeProfileId, "denylist", domain, "add");
         }
         await updateProfileCache();
     } catch (e) {

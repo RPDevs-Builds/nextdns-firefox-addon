@@ -1,10 +1,18 @@
 /**
  * DNS Forge - Dashboard UI Module
+ * Handles log rendering, analytics, and tab-specific request tracking for the dashboard view.
+ * 
+ * @module ui/dashboard
  */
 
 import { state } from './state.js';
 import { escapeHTML, setSafeHTML } from './utils.js';
 
+/**
+ * Handles incoming live log events from the background SSE stream.
+ * Updates the internal log cache and prepends the log to the UI if the dashboard is active.
+ * @param {Object} log - The DNS log object received from the stream.
+ */
 export function handleLiveLog(log) {
     if (!log) return;
     
@@ -43,6 +51,11 @@ export function handleLiveLog(log) {
     }
 }
 
+/**
+ * Renders the full list of logs to the dashboard container.
+ * Applies active filters for search queries, device selection, and status (allowed/blocked).
+ * @param {Array|null} [logsOverride=null] - Optional override for the log array to render.
+ */
 export function renderLogs(logsOverride = null) {
     const container = document.getElementById("logs-container");
     if (!container) return;
@@ -95,6 +108,11 @@ export function renderLogs(logsOverride = null) {
     updateDeviceFilterOptions();
 }
 
+/**
+ * Updates the device filter dropdown with the unique set of devices found in the log cache.
+ * Maps device IDs to friendly aliases if available.
+ * @private
+ */
 function updateDeviceFilterOptions() {
     const dropdown = document.getElementById("log-device-filter");
     if (!dropdown || dropdown.options.length > 1) return;
@@ -115,6 +133,11 @@ function updateDeviceFilterOptions() {
     });
 }
 
+/**
+ * Fetches and displays analytics summary and trend data for the active profile.
+ * Calculates percentage change in activity based on time-series data.
+ * @async
+ */
 export async function loadAnalytics() {
     if (!state.activeProfile) return;
     const [summary, series] = await Promise.all([
@@ -153,6 +176,11 @@ export async function loadAnalytics() {
     } else if (container) container.textContent = "No analytics data.";
 }
 
+/**
+ * Fetches recent historical logs from the NextDNS API.
+ * Updates the state cache and triggers a full UI re-render of the log list.
+ * @async
+ */
 export async function loadNativeLogs() {
     if (!state.activeProfile) return;
     const res = await browser.runtime.sendMessage({ type: "GET_LOGS", profileId: state.activeProfile }).catch(() => null);
@@ -162,6 +190,11 @@ export async function loadNativeLogs() {
     }
 }
 
+/**
+ * Updates the "Tab Requests" panel with network request data specific to the active browser tab.
+ * Calculates a privacy grade based on the ratio of blocked to total requests.
+ * @async
+ */
 export async function updateDashboardTabInfo() {
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     if (!tab?.url) return;
@@ -202,6 +235,10 @@ export async function updateDashboardTabInfo() {
     }
 }
 
+/**
+ * Updates the href attributes of deep-links to the official NextDNS web GUI.
+ * Ensures that links point to the correct active profile.
+ */
 export function updateDynamicLinks() {
     const logsLink = document.getElementById("web-gui-logs-link");
     const securityLink = document.getElementById("web-gui-security-link");

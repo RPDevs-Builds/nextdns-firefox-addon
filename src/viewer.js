@@ -1,20 +1,31 @@
 /**
  * DNS Forge - viewer.js
  * Logic for the full-screen Data Manager window.
+ * This module handles advanced features like profile comparison, snapshots, backup/restore, 
+ * and direct management of DNS Rewrites, TLDs, and Blocklists.
  * 
  * Performance & Security Refactor - June 2026
+ * 
+ * @module viewer
  */
 
 import { storage } from './storage.js';
 
 // --- Global State ---
-let activeTab = 'domains';      // Currently active sub-tab ('domains', 'profiles', 'filters', 'hostnames', 'tlds')
-let currentData = {};           // Cache for the active tab's data (storage-based)
-let profilesList = [];          // List of available NextDNS profiles
-let activeProfile = null;       // Active profile ID for API calls
-let blocksMeta = { tlds: [], blocklists: [] };  // Metadata for TLDs & Blocklists
-let activeTlds = new Set();     // Currently blocked TLDs
-let activeBlocklists = new Set(); // Currently blocked Blocklists
+/** @type {string} Currently active sub-tab ('domains', 'profiles', 'filters', 'hostnames', 'tlds', 'blocklists', 'backup', 'snapshots', 'comparison', 'rewrites') */
+let activeTab = 'domains';
+/** @type {Object} Cache for the active tab's data (storage-based) */
+let currentData = {};
+/** @type {Array<Object>} List of available NextDNS profiles */
+let profilesList = [];
+/** @type {string|null} Active profile ID for API calls */
+let activeProfile = null;
+/** @type {Object} Metadata for TLDs & Blocklists fetched from remote or local bundle */
+let blocksMeta = { tlds: [], blocklists: [] };
+/** @type {Set<string>} Set of currently blocked TLD identifiers */
+let activeTlds = new Set();
+/** @type {Set<string>} Set of currently enabled blocklist identifiers */
+let activeBlocklists = new Set();
 
 // --- DOM References ---
 const listContainer = document.getElementById('list-container');
@@ -28,6 +39,10 @@ const inputNote = document.getElementById('input-note');
 const saveBtn = document.getElementById('save-btn');
 const cancelBtn = document.getElementById('cancel-btn');
 
+/**
+ * Initializes the Comparison tab UI by populating profile selectors.
+ * Binds the comparison trigger button.
+ */
 function initComparisonTab() {
     const selects = ['compare-base-profile', 'compare-target-profile'];
     selects.forEach(id => {
@@ -44,6 +59,11 @@ function initComparisonTab() {
     document.getElementById('run-comparison-btn').onclick = runComparison;
 }
 
+/**
+ * Executes a deep configuration comparison between two selected NextDNS profiles.
+ * Fetches settings for both and generates a visual diff of discrepancies.
+ * @async
+ */
 async function runComparison() {
     const baseId = document.getElementById('compare-base-profile').value;
     const targetId = document.getElementById('compare-target-profile').value;
@@ -110,7 +130,9 @@ async function runComparison() {
 }
 
 /**
- * Robust HTML escaping to prevent XSS
+ * Robust HTML escaping to prevent XSS vulnerabilities.
+ * @param {string} str - The string to escape.
+ * @returns {string} The escaped string.
  */
 function escapeHTML(str) {
     if (typeof str !== 'string') return str;
@@ -120,7 +142,9 @@ function escapeHTML(str) {
 }
 
 /**
- * Main Initialization
+ * Main Initialization function for the viewer window.
+ * Detects active profile, parses URL parameters for the initial tab, and triggers initial render.
+ * @async
  */
 async function init() {
     // 1. Detect Active Profile
@@ -145,7 +169,7 @@ async function init() {
 }
 
 /**
- * Bind global UI events
+ * Binds global UI events for tab navigation, search, modal controls, and delegation for list items.
  */
 function initEventListeners() {
     // Tab Navigation
@@ -192,7 +216,9 @@ function initEventListeners() {
 }
 
 /**
- * Central View Refresher
+ * Central View Refresher.
+ * Updates the UI state, tab visibility, labels, and triggers data fetching for the active tab.
+ * @async
  */
 async function refreshView() {
     // Update Tab UI
@@ -263,7 +289,10 @@ async function refreshView() {
 }
 
 /**
- * Helper to safely set HTML from a string (AMO compliance)
+ * Helper to safely set HTML from a string (AMO compliance).
+ * Uses DOMParser to sanitize the HTML string before injection.
+ * @param {HTMLElement} el - The element to update.
+ * @param {string} html - The HTML string to inject.
  */
 function setSafeHTML(el, html) {
     const parser = new DOMParser();
@@ -275,7 +304,10 @@ function setSafeHTML(el, html) {
 }
 
 /**
- * Phase 4.2: Profile Snapshots Logic
+ * Phase 4.2: Profile Snapshots Logic.
+ * Fetches available snapshots from the background engine and renders them in the list.
+ * Binds Compare, Restore, Delete, and Create Snapshot actions.
+ * @async
  */
 async function loadSnapshots() {
     if (!activeProfile) return;
@@ -328,6 +360,11 @@ async function loadSnapshots() {
     };
 }
 
+/**
+ * Compares two snapshots and displays a string-based diff of security and privacy settings.
+ * @param {string} id - The ID of the older snapshot to compare.
+ * @param {Array<Object>} snapshots - The list of available snapshots.
+ */
 function compareSnapshots(id, snapshots) {
     const s1 = snapshots.find(s => s.id === id);
     const s2 = snapshots[0]; // Always compare against the latest
@@ -362,6 +399,13 @@ function compareSnapshots(id, snapshots) {
     diffContent.textContent = diffStr || "No differences found in boolean settings.";
 }
 
+/**
+ * Triggers a restoration of a profile from a snapshot.
+ * Displays a progress log and notifies the user of completion.
+ * @async
+ * @param {string} id - The ID of the snapshot to restore.
+ * @param {Array<Object>} snapshots - The list of available snapshots.
+ */
 async function restoreSnapshot(id, snapshots) {
     const s = snapshots.find(s => s.id === id);
     if (!s || !confirm(`Roll back to snapshot [${s.name}]? This will overwrite your current settings.`)) return;
@@ -377,7 +421,7 @@ async function restoreSnapshot(id, snapshots) {
     // Switch to Backup tab to see the log
     document.getElementById('tab-backup').click();
     
-    const log = (msg) => { 
+    const logger = (msg) => { 
         const div = document.createElement('div');
         div.textContent = msg;
         logEl.appendChild(div);
@@ -386,15 +430,17 @@ async function restoreSnapshot(id, snapshots) {
 
     try {
         const config = s.config;
-        log("Restoration logic initiated...");
+        logger("Restoration logic initiated...");
         alert("Snapshot rollback initiated! (Feature implementation in progress)");
     } catch (e) {
-        log("[Error] " + e.message);
+        logger("[Error] " + e.message);
     }
 }
 
 /**
- * Phase 3.1: Profile Cloning & Backup Logic
+ * Phase 3.1: Profile Cloning & Backup Logic.
+ * Sets up the UI for exporting configurations and importing them to other profiles.
+ * @async
  */
 async function setupBackupTab() {
     const cloneTarget = document.getElementById('clone-target-profile');
@@ -408,6 +454,10 @@ async function setupBackupTab() {
     document.getElementById('import-profile-file').onchange = handleImportProfile;
 }
 
+/**
+ * Handles the export of the current profile's configuration to a JSON file.
+ * @async
+ */
 async function handleExportProfile() {
     if (!activeProfile) return alert("No active profile detected.");
     
@@ -433,6 +483,12 @@ async function handleExportProfile() {
     }
 }
 
+/**
+ * Handles the import of a configuration file and applies it to a target profile.
+ * Implements step-by-step applying of security, privacy, blocklists, and parental controls.
+ * @async
+ * @param {Event} e - The file change event.
+ */
 async function handleImportProfile(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -447,7 +503,7 @@ async function handleImportProfile(e) {
     startMsg.textContent = "[System] Starting Import...";
     logEl.appendChild(startMsg);
     
-    const log = (msg) => { 
+    const logger = (msg) => { 
         const div = document.createElement('div');
         div.textContent = msg;
         logEl.appendChild(div);
@@ -460,7 +516,7 @@ async function handleImportProfile(e) {
             const config = JSON.parse(event.target.result);
             
             // 1. Security Settings
-            log("[1/4] Applying Security settings...");
+            logger("[1/4] Applying Security settings...");
             for (let [key, val] of Object.entries(config.security || {})) {
                 if (typeof val === 'boolean') {
                     await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "security", id: key, action: val ? "add" : "delete", settingType: "boolean" });
@@ -468,7 +524,7 @@ async function handleImportProfile(e) {
             }
 
             // 2. Privacy settings
-            log("[2/4] Applying Privacy settings...");
+            logger("[2/4] Applying Privacy settings...");
             for (let [key, val] of Object.entries(config.privacy || {})) {
                 if (typeof val === 'boolean') {
                     await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy", id: key, action: val ? "add" : "delete", settingType: "boolean" });
@@ -476,7 +532,7 @@ async function handleImportProfile(e) {
             }
 
             // 3. Blocklists & TLDs
-            log("[3/4] Enabling Blocklists & TLDs...");
+            logger("[3/4] Enabling Blocklists & TLDs...");
             for (let b of (config.blocklists || [])) {
                 await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy/blocklists", id: b.id, action: "add" });
             }
@@ -485,23 +541,24 @@ async function handleImportProfile(e) {
             }
 
             // 4. Parental Control
-            log("[4/4] Applying Parental Controls...");
+            logger("[4/4] Applying Parental Controls...");
             for (let s of (config.services || [])) {
                 await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "parentalControl/services", id: s.id, action: "add" });
             }
 
-            log("[Success] Profile cloned successfully!");
+            logger("[Success] Profile cloned successfully!");
             alert("Cloning complete!");
         };
         reader.readAsText(file);
     } catch (e) {
-        log("[Error] " + e.message);
+        logger("[Error] " + e.message);
         alert("Import failed: " + e.message);
     }
 }
 
 /**
- * Fetch Metadata for TLD Manager (with Fallbacks)
+ * Fetches the currently blocked TLDs for the active profile from the NextDNS API.
+ * @async
  */
 async function fetchTldData() {
     await loadMetadataIfNeeded();
@@ -514,7 +571,8 @@ async function fetchTldData() {
 }
 
 /**
- * Fetch Metadata for Blocklist Manager (with Fallbacks)
+ * Fetches the currently enabled blocklists for the active profile from the NextDNS API.
+ * @async
  */
 async function fetchBlocklistData() {
     await loadMetadataIfNeeded();
@@ -527,15 +585,18 @@ async function fetchBlocklistData() {
 }
 
 /**
- * Robust Metadata Loader (Matches popup logic)
+ * Robust Metadata Loader.
+ * Attempts to load TLD and Blocklist metadata from local storage, falling back to a remote GitHub URL, 
+ * and finally a local bundle fallback.
+ * @async
  */
 async function loadMetadataIfNeeded() {
     if (blocksMeta.blocklists.length > 0 && blocksMeta.tlds.length > 0) return;
 
     try {
-        const storage = await browser.storage.local.get("scrapedMeta");
-        if (storage.scrapedMeta?.blocklists && storage.scrapedMeta?.tlds) {
-            blocksMeta = storage.scrapedMeta;
+        const localMeta = await browser.storage.local.get("scrapedMeta");
+        if (localMeta.scrapedMeta?.blocklists && localMeta.scrapedMeta?.tlds) {
+            blocksMeta = localMeta.scrapedMeta;
             return;
         }
         
@@ -556,7 +617,8 @@ async function loadMetadataIfNeeded() {
 }
 
 /**
- * Render the main content list
+ * Renders the main content list based on the active tab.
+ * Handles specialized rendering for TLDs and Blocklists, and generic key-value rendering for others.
  */
 function renderList() {
     const query = searchInput.value.toLowerCase();
@@ -601,7 +663,8 @@ function renderList() {
 }
 
 /**
- * Render TLD Manager Tab
+ * Renders the TLD Manager interface with alphabetical jump links and status toggles.
+ * @param {string} query - The search query to filter TLDs.
  */
 function renderTlds(query) {
     const groups = {};
@@ -641,7 +704,8 @@ function renderTlds(query) {
 }
 
 /**
- * Render Blocklist Manager Tab
+ * Renders the Blocklist Manager interface as a responsive grid of descriptive cards.
+ * @param {string} query - The search query to filter blocklists.
  */
 function renderBlocklists(query) {
     let filtered = blocksMeta.blocklists.filter(b => 
@@ -679,7 +743,8 @@ function renderBlocklists(query) {
 }
 
 /**
- * Modal Actions (Add/Edit)
+ * Opens the Edit Modal for an existing entry.
+ * @param {string} key - The identifier of the entry to edit.
  */
 function openEditModal(key) {
     const val = currentData[key] || "";
@@ -692,12 +757,15 @@ function openEditModal(key) {
     editModal.style.display = 'flex';
 }
 
+/**
+ * Opens the Add Modal for a new entry.
+ * Adjusts labels and input visibility based on the active tab (e.g., selecting a profile vs entering a domain).
+ */
 function openAddModal() {
     modalTitle.textContent = `Add New Entry`;
     inputKey.value = '';
     inputNote.value = '';
     
-    const keySection = document.getElementById('key-section');
     const labelKey = document.getElementById('label-key');
     
     if (activeTab === 'profiles') {
@@ -714,6 +782,11 @@ function openAddModal() {
     editModal.style.display = 'flex';
 }
 
+/**
+ * Fetches the DNS Rewrite list for the active profile from the NextDNS API.
+ * Maps the response into the local currentData cache.
+ * @async
+ */
 async function fetchRewritesData() {
     if (!activeProfile) return;
     const res = await browser.runtime.sendMessage({ type: "LIST_REWRITES", profileId: activeProfile });
@@ -726,7 +799,9 @@ async function fetchRewritesData() {
 }
 
 /**
- * Global Actions (Delete/Save)
+ * Handles the saving of an entry (new or edited) to browser storage or the NextDNS API.
+ * Distinguishes between local storage keys (Domains, Filters, Hostnames) and API-managed keys (Rewrites).
+ * @async
  */
 async function handleSave() {
     const key = (activeTab === 'profiles' && !selectProfile.classList.contains('hidden')) 
@@ -741,8 +816,8 @@ async function handleSave() {
         await browser.runtime.sendMessage({ type: "SAVE_REWRITE", profileId: activeProfile, name: key, content: note });
     } else {
         const storageKey = getStorageKey();
-        const storage = await browser.storage.sync.get(storageKey);
-        const data = storage[storageKey] || {};
+        const localSync = await browser.storage.sync.get(storageKey);
+        const data = localSync[storageKey] || {};
         
         data[key] = note || (activeTab === 'filters' ? "Hidden" : "");
         
@@ -758,6 +833,11 @@ async function handleSave() {
     refreshView();
 }
 
+/**
+ * Handles the deletion of an entry from browser storage or the NextDNS API.
+ * @async
+ * @param {string} key - The identifier of the entry to delete.
+ */
 async function handleDelete(key) {
     if (!confirm(`Permanently remove entry for "${key}"?`)) return;
 
@@ -765,8 +845,8 @@ async function handleDelete(key) {
         await browser.runtime.sendMessage({ type: "DELETE_REWRITE", profileId: activeProfile, name: key });
     } else {
         const storageKey = getStorageKey();
-        const storage = await browser.storage.sync.get(storageKey);
-        const data = storage[storageKey] || {};
+        const localSync = await browser.storage.sync.get(storageKey);
+        const data = localSync[storageKey] || {};
         delete data[key];
         
         const saveObj = {};
@@ -780,7 +860,10 @@ async function handleDelete(key) {
 }
 
 /**
- * Generic API Toggle Handler (TLDs, Blocklists)
+ * Generic API Toggle Handler for list-based settings (TLDs, Blocklists).
+ * Manages the UI button state and dispatches toggle messages to the background engine.
+ * @async
+ * @param {HTMLElement} btn - The toggle button element.
  */
 async function handleApiToggle(btn) {
     btn.disabled = true;
@@ -814,7 +897,8 @@ async function handleApiToggle(btn) {
 }
 
 /**
- * Utility Helpers
+ * Utility helper to map the active tab name to its corresponding browser storage key.
+ * @returns {string} The storage key name.
  */
 function getStorageKey() {
     const map = {
@@ -826,6 +910,10 @@ function getStorageKey() {
     return map[activeTab] || 'domainDescriptions';
 }
 
+/**
+ * Fetches the list of all available NextDNS profiles for use in selection dropdowns.
+ * @async
+ */
 async function fetchProfiles() {
     try {
         const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });

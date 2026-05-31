@@ -1,17 +1,32 @@
 /**
  * APIClient Utility
  * Handles resilient fetching from the NextDNS API, including authentication, retries, and rate limiting.
+ * Implements exponential backoff for network errors and server-side rate limits.
+ * 
+ * @module apiClient
  */
 class APIClient {
+    /**
+     * @param {string} [baseURL="https://api.nextdns.io"] - The base URL for the NextDNS API.
+     */
     constructor(baseURL = "https://api.nextdns.io") {
         this.baseURL = baseURL;
     }
 
-    // Dependency injection to avoid circular imports. Will be set to the StorageManager instance.
+    /**
+     * Injects a StorageManager instance to avoid circular imports.
+     * Used for retrieving the API key required for requests.
+     * @param {StorageManager} storage - An instance of the StorageManager.
+     */
     setStorage(storage) {
         this.storage = storage;
     }
 
+    /**
+     * Generates request headers, including the 'X-Api-Key' fetched from storage.
+     * @async
+     * @returns {Promise<Object>} An object containing the required headers.
+     */
     async getHeaders() {
         let apiKey = "";
         if (this.storage) {
@@ -23,6 +38,16 @@ class APIClient {
         };
     }
 
+    /**
+     * Performs a fetch request with automatic retry logic and exponential backoff.
+     * Handles 429 (Rate Limited) and 50x (Server Error) status codes specifically.
+     * @async
+     * @param {string} endpoint - The API endpoint (relative or absolute) to fetch.
+     * @param {Object} [options={}] - Standard fetch options.
+     * @param {number} [retries=3] - Maximum number of retry attempts.
+     * @param {number} [backoffMs=1000] - Initial delay in milliseconds for backoff.
+     * @returns {Promise<Object>} A result object containing success status and optional response or error.
+     */
     async fetchWithRetry(endpoint, options = {}, retries = 3, backoffMs = 1000) {
         const url = endpoint.startsWith("http") ? endpoint : `${this.baseURL}${endpoint}`;
         
@@ -58,4 +83,7 @@ class APIClient {
     }
 }
 
+/**
+ * Single instance of the APIClient exported for project-wide use.
+ */
 export const apiClient = new APIClient();

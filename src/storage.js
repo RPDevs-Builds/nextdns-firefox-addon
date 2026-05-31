@@ -1,13 +1,24 @@
 /**
  * StorageManager Utility
  * Unifies browser.storage.sync and browser.storage.local access with an active caching layer.
+ * Provides synchronous access to cached storage values and ensures data consistency between storage areas.
+ * 
+ * @module storage
  */
 class StorageManager {
     constructor() {
+        /** @type {Object} Internal cache of storage values */
         this.cache = {};
+        /** @type {boolean} Initialization status */
         this.initialized = false;
     }
 
+    /**
+     * Initializes the storage manager by loading all data from sync and local storage.
+     * Implements an "auto-heal" mechanism to restore missing local data from sync.
+     * Sets up a listener for external storage changes to keep the cache synchronized.
+     * @async
+     */
     async init() {
         if (this.initialized) return;
         const syncData = await browser.storage.sync.get(null);
@@ -38,11 +49,25 @@ class StorageManager {
         this.initialized = true;
     }
 
+    /**
+     * Retrieves a value from the storage cache.
+     * Falls back to a default value if the key is not found.
+     * @async
+     * @param {string} key - The storage key to retrieve.
+     * @param {*} [defaultValue=null] - The value to return if the key is not found.
+     * @returns {Promise<*>} The stored value or defaultValue.
+     */
     async get(key, defaultValue = null) {
         if (!this.initialized) await this.init();
         return this.cache[key] !== undefined ? this.cache[key] : defaultValue;
     }
 
+    /**
+     * Sets a value in both sync and local storage and updates the internal cache.
+     * @async
+     * @param {string} key - The storage key to set.
+     * @param {*} value - The value to store.
+     */
     async set(key, value) {
         if (!this.initialized) await this.init();
         this.cache[key] = value;
@@ -54,4 +79,7 @@ class StorageManager {
     }
 }
 
+/**
+ * Single instance of the StorageManager exported for project-wide use.
+ */
 export const storage = new StorageManager();

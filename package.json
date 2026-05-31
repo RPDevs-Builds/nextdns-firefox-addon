@@ -19,6 +19,7 @@
     "jest-environment-jsdom": "^29.7.0",
     "jest-fetch-mock": "latest",
     "jest-webextension-mock": "latest",
+    "jsdoc-to-markdown": "^8.0.0",
     "node-fetch": "2.6.11",
     "web-ext": "^8.0.0"
   },
