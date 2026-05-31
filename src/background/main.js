@@ -95,7 +95,35 @@ export async function initializeBackground() {
     
     state.isInitialized = true;
     console.log("[Init] Background Engine Ready.");
+
+    // 6. Apply Icon Click Action
+    applyIconAction();
 }
+
+/**
+ * Applies the user-configured icon click action (popup or sidebar).
+ * Dynamically sets the popup path or clears it to enable the onClicked listener.
+ * @async
+ */
+async function applyIconAction() {
+    const { iconClickAction = 'popup' } = await browser.storage.sync.get("iconClickAction");
+    if (iconClickAction === 'sidebar') {
+        browser.action.setPopup({ popup: "" });
+    } else {
+        browser.action.setPopup({ popup: "src/popup.html" });
+    }
+}
+
+/**
+ * Global icon click handler. Fires only when no popup is defined.
+ * Typically used to open the native Firefox sidebar.
+ */
+browser.action.onClicked.addListener(async () => {
+    const { iconClickAction = 'popup' } = await browser.storage.sync.get("iconClickAction");
+    if (iconClickAction === 'sidebar') {
+        browser.sidebarAction.open();
+    }
+});
 
 /**
  * Creates the extension's context menu entries for allowing/denying domains.

@@ -338,10 +338,27 @@ function initGlobalEventListeners() {
     });
 
     document.getElementById('theme-toggle-btn')?.addEventListener('click', async () => {
-        const newTheme = state.activeThemeId === 'default-dark' ? 'default-light' : 'default-dark';
+        const current = state.activeThemeId || 'default-dark';
+        const newTheme = (current === 'default-dark' || current === 'OLED Black') ? 'default-light' : 'default-dark';
         state.activeThemeId = newTheme;
         applyTheme(newTheme);
         await browser.storage.sync.set({ activeTheme: newTheme });
+    });
+
+    document.getElementById('sidebar-ui-btn')?.addEventListener('click', () => {
+        browser.sidebarAction.open();
+        window.close();
+    });
+
+    document.getElementById('popout-ui-btn')?.addEventListener('click', () => {
+        const url = browser.runtime.getURL('src/popup.html?mode=popout');
+        browser.windows.create({
+            url,
+            type: 'popup',
+            width: 380,
+            height: 600
+        });
+        window.close();
     });
 
     // Customize Toggles (Web GUI)

@@ -22,7 +22,9 @@ export const state = {
     activeBlocksSort: 'popularity',
     activeBlocksSubTab: 'security',
     lastBlocksData: null,
-    activeTab: 'dashboard'
+    activeTab: 'dashboard',
+    activeThemeId: 'default-dark',
+    savedThemes: {}
 };
 
 export const PRESET_THEMES = {
