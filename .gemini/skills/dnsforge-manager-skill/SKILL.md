@@ -78,3 +78,5 @@ The project uses a strict modular architecture with ES Modules.
 - **JSDoc Compatibility:** Avoid `?` optionality in return object types to prevent `jsdoc-to-markdown` parse errors.
 - **URL Aesthetics:** Avoid numbered directory prefixes in documentation wikis to maintain clean, permanent URLs.
 - **Git Push Batching:** Perform large pushes in dedicated turns to account for hardware key auth latency.
+- **Pipeline Integrity:** Build artifacts must exist BEFORE running `web-ext lint` or other validation steps.
+- **Merge Order:** Merge dependency PRs sequentially and rebase remaining items immediately to avoid lockfile collisions.

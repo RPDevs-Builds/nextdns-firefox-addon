@@ -45,6 +45,12 @@ Manual testing is insufficient. All features must be locked behind automated ass
 - **JSDoc Compatibility:** When documenting return objects, avoid TypeScript-style optional property syntax (e.g., `{prop?: type}`). Use standard JSDoc-compatible types (e.g., `{prop: type}`) and describe optionality in the text description to ensure `jsdoc-to-markdown` stability.
 - **URL Aesthetics:** When scaffolding wikis or documentation sites, avoid prefixing directories with numbers (e.g., `01-getting-started`). Use clean directory names and manage ordering via the `nav` section of the configuration file to ensure clean, permanent URL structures.
 - **Git Push Batching:** Perform large pushes (like wiki content) in dedicated turns and batch multiple related commits to account for GPG/hardware key interaction latency and minimize authentication prompts.
+
+## Workflow & Dependency Hardening
+- **Artifact Dependencies:** Always ensure that build artifacts (e.g., .xpi, .zip) are created by a build step BEFORE any validation or linting steps (like `web-ext lint`) that depend on those artifacts.
+- **Action Pinning:** When hardening workflows via SHA pinning, verify the specific commit hashes against the official action repository to ensure they are resolvable by the GitHub runner.
+- **PR Merge Strategy:** When merging multiple dependency updates that affect `package-lock.json`, merge the highest-priority PR first and immediately trigger rebases for the remaining queue to prevent sequential merge conflicts.
+- **Dependency Isolation:** Treat major version bumps (e.g., v2 -> v3) of core dependencies as isolated tasks requiring manual test refactoring, especially for ESM transitions (e.g., `node-fetch`).
 - **State Key Mapping:** When mapping UI elements (e.g., toggle IDs) to storage configuration keys, NEVER use implicit string manipulations (like regex replacements). Always define an explicit static mapping object (e.g., `const keyMap = { "my-toggle": "myKey" }`) to guarantee case sensitivity and prevent silent sync failures between popup and content scripts.
 - **Scoping:** Always scope sub-tab button selectors to their specific parent container.
 - **Defensive Rendering:** Logs and list containers must handle empty states explicitly. Wrap log row generation in `try...catch`.
