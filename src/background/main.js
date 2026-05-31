@@ -106,22 +106,42 @@ export async function initializeBackground() {
  * @async
  */
 async function applyIconAction() {
-    const { iconClickAction = 'popup' } = await browser.storage.sync.get("iconClickAction");
-    if (iconClickAction === 'sidebar') {
-        browser.action.setPopup({ popup: "" });
-    } else {
-        browser.action.setPopup({ popup: "src/popup.html" });
+    try {
+        const { iconClickAction = 'popup' } = await browser.storage.sync.get("iconClickAction");
+        console.log("[Background] Applying icon click action:", iconClickAction);
+        if (iconClickAction === 'sidebar' || iconClickAction === 'popout') {
+            await browser.action.setPopup({ popup: "" });
+            console.log("[Background] Popup disabled to enable onClicked listener.");
+        } else {
+            await browser.action.setPopup({ popup: "src/popup.html" });
+            console.log("[Background] Popup enabled (src/popup.html).");
+        }
+    } catch (e) {
+        console.error("[Background] Failed to apply icon action:", e);
     }
 }
 
 /**
  * Global icon click handler. Fires only when no popup is defined.
- * Typically used to open the native Firefox sidebar.
+ * Handles opening the native Firefox sidebar or a dedicated popout window.
  */
 browser.action.onClicked.addListener(async () => {
-    const { iconClickAction = 'popup' } = await browser.storage.sync.get("iconClickAction");
-    if (iconClickAction === 'sidebar') {
-        browser.sidebarAction.open();
+    try {
+        const { iconClickAction = 'popup' } = await browser.storage.sync.get("iconClickAction");
+        console.log("[Background] Icon clicked. Action:", iconClickAction);
+        if (iconClickAction === 'sidebar') {
+            browser.sidebarAction.open();
+        } else if (iconClickAction === 'popout') {
+            const url = browser.runtime.getURL('src/popup.html?mode=popout');
+            browser.windows.create({
+                url,
+                type: 'popup',
+                width: 380,
+                height: 600
+            });
+        }
+    } catch (e) {
+        console.error("[Background] onClicked handler failed:", e);
     }
 });
 

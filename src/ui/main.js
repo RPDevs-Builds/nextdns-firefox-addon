@@ -320,6 +320,20 @@ function initGlobalEventListeners() {
     document.getElementById('download-logs-btn')?.addEventListener('click', downloadLogsCSV);
     document.getElementById('wipe-logs-btn')?.addEventListener('click', wipeLogs);
 
+    // Theme Engine
+    document.getElementById("theme-selector")?.addEventListener('change', async (e) => {
+        const id = e.target.value;
+        state.activeThemeId = id;
+        applyTheme(id);
+        await browser.storage.sync.set({ activeTheme: id });
+    });
+
+    THEME_VARS.forEach(v => {
+        document.getElementById(`color-${v}`)?.addEventListener('input', (e) => {
+            document.body.style.setProperty(`--${v}`, e.target.value);
+        });
+    });
+
     // Backup & Restore
     document.getElementById('export-settings-btn')?.addEventListener('click', exportFullConfiguration);
     document.getElementById('import-settings-btn')?.addEventListener('click', () => document.getElementById('import-settings-file').click());
@@ -333,16 +347,25 @@ function initGlobalEventListeners() {
         console.log("[DNS Forge] Manual refresh triggered.");
         const btn = document.getElementById('refresh-view-btn');
         if (btn) btn.classList.add('spinning');
-        await initializeApp();
-        if (btn) setTimeout(() => btn.classList.remove('spinning'), 500);
+        try {
+            await initializeApp();
+        } catch (e) {
+            console.error("[DNS Forge] Refresh failed:", e);
+        } finally {
+            if (btn) setTimeout(() => btn.classList.remove('spinning'), 500);
+        }
     });
 
     document.getElementById('theme-toggle-btn')?.addEventListener('click', async () => {
         const current = state.activeThemeId || 'default-dark';
-        const newTheme = (current === 'default-dark' || current === 'OLED Black') ? 'default-light' : 'default-dark';
+        const isDark = (current === 'default-dark' || current === 'OLED Black' || current === 'Dracula' || current === 'Gruvbox');
+        const newTheme = isDark ? 'default-light' : 'default-dark';
         state.activeThemeId = newTheme;
         applyTheme(newTheme);
         await browser.storage.sync.set({ activeTheme: newTheme });
+        
+        const selector = document.getElementById("theme-selector");
+        if (selector) selector.value = newTheme;
     });
 
     document.getElementById('sidebar-ui-btn')?.addEventListener('click', () => {
