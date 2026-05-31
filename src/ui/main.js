@@ -4,6 +4,7 @@
  * It coordinates theme management, tab navigation, and service initialization.
  * 
  * @module ui/main
+ * @see {@link https://dns-forge.github.io/reference/ui/main/|Wiki Reference}
  */
 
 import { state, isPopoutMode, isSidebarMode, PRESET_THEMES, THEME_VARS, urlParams } from './state.js';

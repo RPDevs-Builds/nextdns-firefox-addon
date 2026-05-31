@@ -1,0 +1,48 @@
+name: Bug Report
+description: Create a report to help us improve.
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Also tell us what you expected to happen.
+      placeholder: Describe the bug here...
+    validations:
+      required: true
+  - type: input
+    id: nextdns-profile
+    attributes:
+      label: NextDNS Profile ID
+      description: (Optional) The first 6 characters of your profile ID where the issue occurs.
+      placeholder: e.g. abc123
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: Where are you using DNS Forge?
+      options:
+        - Firefox (Desktop)
+        - Firefox (Android)
+        - LibreWolf
+        - Floorp
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: DNS Forge Version
+      placeholder: e.g. 0.9.3
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Please paste any console logs from `about:debugging` or the extension popup.
+      render: shell
