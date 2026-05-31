@@ -2,6 +2,7 @@ name: Extension Pipeline
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -9,6 +10,8 @@ on:
 jobs:
   pipeline:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -24,14 +27,34 @@ jobs:
       - name: Run Jest Tests
         run: npm test
 
-      - name: Build XPI
-        run: npm run build
+      - name: Build Artifacts
+        run: |
+          npm run build
+          # Create a .zip copy of the built extension
+          cd web-ext-artifacts
+          XPI_FILE=$(ls *.xpi)
+          ZIP_FILE="${XPI_FILE%.xpi}.zip"
+          cp "$XPI_FILE" "$ZIP_FILE"
+          cd ..
 
       - name: AMO Compliance Lint
         run: npm run lint:addon
 
-      - name: Upload Build Artifact
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            web-ext-artifacts/*.xpi
+            web-ext-artifacts/*.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Build Artifact (Internal)
         uses: actions/upload-artifact@v4
         with:
           name: dns-forge-v${{ github.sha }}
-          path: web-ext-artifacts/*.xpi
+          path: web-ext-artifacts/*
