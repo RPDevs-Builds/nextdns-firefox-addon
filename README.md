@@ -108,4 +108,4 @@ Explore our in-depth documentation, architecture diagrams, and technical referen
 ---
 
 ## License
-MIT License - see LICENSE for details.
+GNU General Public License v3 (GPLv3) - see LICENSE for details.

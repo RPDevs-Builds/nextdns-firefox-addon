@@ -3,6 +3,7 @@
   "version": "0.9.3",
   "description": "Firefox extension for managing NextDNS blocklists and allowlists",
   "main": "src/background/main.js",
+  "license": "GPL-3.0-or-later",
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",

@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Architecture Diagrams:** Integrated interactive Mermaid.js sequence diagrams for system data flow visualization.
 
 ### Changed
+- **License Transition:** Re-licensed from MIT to **GPLv3** to ensure all derivative works and modifications remain public and open-source.
 - **Cleaner Wiki Structure:** Removed numbered subdirectories from the wiki, flattening the URL structure for better accessibility.
 - **Linter Standardization:** Migrated from local vendored linter to the official `addons-linter` npm package for improved stability.
 - **CI/CD Hardening:** Updated GitHub Actions pipeline to use `web-ext lint` for robust AMO compliance verification.
