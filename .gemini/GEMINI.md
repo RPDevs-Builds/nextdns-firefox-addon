@@ -43,6 +43,13 @@ Manual testing is insufficient. All features must be locked behind automated ass
 - **Scoping:** Always scope sub-tab button selectors to their specific parent container.
 - **Defensive Rendering:** Logs and list containers must handle empty states explicitly. Wrap log row generation in `try...catch`.
 - **Live Injection:** Website customizations must respond to storage changes in real-time using `browser.storage.onChanged` and `MutationObserver` without requiring a page refresh.
+- **ProperDocs Stability:** For wiki/documentation, prefer **ProperDocs (Material for MkDocs)** over Docusaurus 3 for superior stability in GitHub Actions and direct-to-root GitHub Pages deployments.
+- **JSDoc Type Compatibility:** When using `jsdoc-to-markdown`, avoid complex object literal syntax (e.g., `response?: Response`) in `@returns` or `@param` type brackets; the parser is sensitive to certain characters like `?`. Use generic `Object` or descriptive text instead.
+- **Git Push Reliability:** When pushing to remote repositories that require a GPG passphrase or SSH key, anticipate potential timeouts or interactive hangs. For larger pushes (e.g., wiki content), ensure the git configuration is non-interactive if possible, or perform the push in a dedicated turn to manage the signature touch.
+- **Vendoring Verification:** When adding or updating vendored tools in `.tools/`, always verify they are not embedded git repositories (`git ls-files --stage | grep 160000`) to ensure all files are committed and available in CI environments.
+- **Simplified JSDoc Types:** Prefer generic types (e.g., `@returns {Object}`) over complex object literals or optional property syntax in JSDoc to prevent `jsdoc-to-markdown` parser failures.
+- **User Pages Deployment:** For `<user>.github.io` repositories, always configure deployment to serve from the root of the `main` branch via GitHub Actions artifacts, as branch-based (`gh-pages`) deployment is often restricted or architecturally confusing.
+- **Auto-Discovery Navigation:** In `properdocs.yml`, use trailing slashes for directory-based navigation (e.g., `Technical Reference: 03-technical-reference/`) to enable automatic discovery of sub-pages without manual entry.
 
 # GEMINI.md — `addons-linter` Workflow and Execution Protocol
 
