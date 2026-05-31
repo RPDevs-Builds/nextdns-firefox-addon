@@ -15,10 +15,10 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@eef6142766c827365c40131433f524aeefef9662 # v4.1.0
+      - uses: actions/checkout@v4
 
       - name: Use Node.js
-        uses: actions/setup-node@0a44ba7841725637a1993d5e35e29a26031133f6 # v4.0.4
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
@@ -36,7 +36,7 @@ jobs:
         run: npm run lint:addon
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea23f8d10f0974f0d015248fc # v4.4.3
+        uses: actions/upload-artifact@v4
         with:
           name: dns-forge-xpi
           path: web-ext-artifacts/
@@ -50,14 +50,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@eef6142766c827365c40131433f524aeefef9662 # v4.1.0
+      - uses: actions/checkout@v4
       - name: Download Artifacts
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372da98ade0 # v4.1.7
+        uses: actions/download-artifact@v4
         with:
           name: dns-forge-xpi
           path: release-artifacts/
       - name: Create Release
-        uses: softprops/action-gh-release@c062e08bd570ca97464467ad03b29c915a13727a # v2.0.8
+        uses: softprops/action-gh-release@v2
         with:
           files: release-artifacts/*
           generate_release_notes: true
