@@ -10,6 +10,7 @@
  */
 
 import { storage } from './storage.js';
+import { loadMetadata } from './metadataManager.js';
 
 // --- Global State ---
 /** @type {string} Currently active sub-tab ('domains', 'profiles', 'filters', 'hostnames', 'tlds', 'blocklists', 'backup', 'snapshots', 'comparison', 'rewrites') */
@@ -586,34 +587,12 @@ async function fetchBlocklistData() {
 
 /**
  * Robust Metadata Loader.
- * Attempts to load TLD and Blocklist metadata from local storage, falling back to a remote GitHub URL, 
- * and finally a local bundle fallback.
+ * Wraps the centralized MetadataManager utility.
  * @async
  */
 async function loadMetadataIfNeeded() {
     if (blocksMeta.blocklists.length > 0 && blocksMeta.tlds.length > 0) return;
-
-    try {
-        const localMeta = await browser.storage.local.get("scrapedMeta");
-        if (localMeta.scrapedMeta?.blocklists && localMeta.scrapedMeta?.tlds) {
-            blocksMeta = localMeta.scrapedMeta;
-            return;
-        }
-        
-        // Remote Fallback
-        const REMOTE_URL = 'https://raw.githubusercontent.com/DNS-Forge/nextdns-addon-data/main/data/blocks_meta.json';
-        const res = await fetch(REMOTE_URL).catch(() => null);
-        if (res?.ok) {
-            blocksMeta = await res.json();
-            await browser.storage.local.set({ scrapedMeta: blocksMeta });
-        } else {
-            // Local Bundle Fallback
-            const localRes = await fetch(browser.runtime.getURL(`data/blocks_meta.json`));
-            blocksMeta = await localRes.json();
-        }
-    } catch (e) {
-        console.error("Metadata load failed in Viewer", e);
-    }
+    blocksMeta = await loadMetadata();
 }
 
 /**

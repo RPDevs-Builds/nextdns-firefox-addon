@@ -1,10 +1,17 @@
 /**
  * DNS Forge - Tools UI Module (Auditor & Debugger)
+ * @module ui/tools
  */
 
 import { state } from './state.js';
 import { escapeHTML, setSafeHTML } from './utils.js';
 
+/**
+ * Executes the "Forge Debugger" logic.
+ * Correlates background web request tracking with live NextDNS API logs to identify which list is blocking a domain.
+ * Renders findings with "Allow" buttons for quick whitelisting.
+ * @async
+ */
 export async function runIntelligentDebugger() {
     const resultsContainer = document.getElementById('debugger-results');
     setSafeHTML(resultsContainer, '<div style="text-align: center; padding: 20px;">Fetching logs and correlating...</div>');
@@ -81,6 +88,12 @@ export async function runIntelligentDebugger() {
     });
 }
 
+/**
+ * Executes the "Security Auditor" scan.
+ * Analyzes the active NextDNS profile for security gaps and deprecated blocklists.
+ * Calculates a health score and provides actionable recommendations.
+ * @async
+ */
 export async function runSecurityAudit() {
     if (!state.activeProfile) return alert("No active profile.");
     const res = await browser.runtime.sendMessage({ type: "RUN_AUDIT", profileId: state.activeProfile });

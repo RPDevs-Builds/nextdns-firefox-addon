@@ -1,10 +1,16 @@
 /**
  * DNS Forge - Presets UI Module
+ * @module ui/presets
  */
 
 import { state } from './state.js';
 import { escapeHTML, setSafeHTML } from './utils.js';
 
+/**
+ * Loads the available configuration presets from data/presets.json and renders them in the UI.
+ * Attaches click listeners to the "Apply" buttons.
+ * @async
+ */
 export async function loadPresets() {
     const list = document.getElementById('presets-list');
     if (!list) return;
@@ -42,6 +48,12 @@ export async function loadPresets() {
     }
 }
 
+/**
+ * Applies a selected preset by sending multiple TOGGLE_SETTING messages to the background.
+ * Invalidates the blocks data cache upon completion.
+ * @async
+ * @param {Object} preset - The preset object containing settings, blocklists, etc.
+ */
 async function applyPreset(preset) {
     if (!state.activeProfile) return;
 

@@ -1,10 +1,17 @@
 /**
  * DNS Forge - Blocks & Toggles UI Module
+ * @module ui/blocks
  */
 
 import { state } from './state.js';
 import { escapeHTML, setSafeHTML } from './utils.js';
+import { loadMetadata } from '../metadataManager.js';
 
+/**
+ * Synchronizes the allowlist and denylist for the active profile from the background state.
+ * @async
+ * @param {boolean} [force=false] - Whether to force a re-sync even if already synced.
+ */
 export async function syncLists(force = false) {
     if (!state.activeProfile || (!force && state.listsSynced)) return;
     const [a, d] = await Promise.all([
@@ -17,8 +24,19 @@ export async function syncLists(force = false) {
     state.listsSynced = true;
 }
 
+/**
+ * Loads and renders the block settings toggles based on the current sub-tab and search query.
+ * @async
+ * @param {string|null} [queryOverride=null] - Optional search query override.
+ */
 export async function loadToggles(queryOverride = null) {
     if (!state.activeProfile) return;
+    
+    // Ensure metadata is loaded for blocklists/tlds
+    if (!state.blocksMeta || state.blocksMeta.blocklists.length === 0) {
+        state.blocksMeta = await loadMetadata();
+    }
+
     if (!state.lastBlocksData) {
         const res = await browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: state.activeProfile });
         state.lastBlocksData = res?.data || {};
@@ -50,6 +68,10 @@ export async function loadToggles(queryOverride = null) {
     setSafeHTML(container, html);
 }
 
+/**
+ * Renders the security category toggles.
+ * @returns {string} HTML string for security toggles.
+ */
 function renderSecurityToggles() {
     const SETTING_GROUPS = {
         items: [
@@ -70,6 +92,10 @@ function renderSecurityToggles() {
     return SETTING_GROUPS.items.map(i => renderToggleRow(i, 'security', !!state.lastBlocksData.security?.[i.id], 'boolean')).join('');
 }
 
+/**
+ * Renders the expert performance category toggles.
+ * @returns {string} HTML string for performance toggles.
+ */
 function renderPerformanceToggles() {
     const ITEMS = [
         { id: 'ecs', label: 'EDNS Client Subnet (ECS)', note: 'Improves global CDN performance.' },
@@ -97,6 +123,10 @@ function renderPerformanceToggles() {
     `;
 }
 
+/**
+ * Renders the privacy category toggles, including native tracking protection.
+ * @returns {string} HTML string for privacy toggles.
+ */
 function renderPrivacyToggles() {
     const TRACKING = [
         { id: 'disguisedTrackers', label: 'Block Disguised Trackers' },
@@ -129,6 +159,11 @@ function renderPrivacyToggles() {
     return html;
 }
 
+/**
+ * Renders the blocklists grid with search and sort filters.
+ * @param {string} query - The search query.
+ * @returns {string} HTML string for blocklists grid.
+ */
 function renderBlocklistsGrid(query) {
     const activeIds = new Set((state.lastBlocksData.blocklists || []).map(l => l.id));
     let filtered = state.blocksMeta.blocklists.filter(b => b.name.toLowerCase().includes(query) || b.description.toLowerCase().includes(query));
@@ -156,6 +191,11 @@ function renderBlocklistsGrid(query) {
     }).join('') || '<div style="text-align:center; opacity:0.5; padding:20px;">No blocklists found.</div>';
 }
 
+/**
+ * Renders the parental control toggles and services.
+ * @param {string} query - The search query for filtering services.
+ * @returns {string} HTML string for parental control section.
+ */
 function renderParentalToggles(query) {
     const SETTINGS = [
         { id: 'safeSearch', label: 'SafeSearch' },
@@ -187,6 +227,11 @@ function renderParentalToggles(query) {
     return html;
 }
 
+/**
+ * Renders the TLDs grid with jump links and search filtering.
+ * @param {string} query - The search query.
+ * @returns {string} HTML string for TLDs grid.
+ */
 function renderTldsGrid(query) {
     const activeTlds = new Set((state.lastBlocksData.tlds || []).map(t => t.id));
     const groups = {};
@@ -221,7 +266,7 @@ function renderTldsGrid(query) {
                             <span style="font-size: 0.85em; font-family:monospace;">.${escapeHTML(t)}</span>
                             <button class="api-toggle-btn ${active?'btn-deny':'btn-allow'}"
                                 data-cat="security/tlds" data-id="${t}" data-type="list" data-active="${active}"
-                                style="width:auto; padding:2px 6px; font-size: 0.7em;">${active?'OFF':'ON'}</button>
+                                style="width:auto; padding:2px 6px; font-size: 0.75em;">${active?'OFF':'ON'}</button>
                         </div>`;
                 }).join('')}
             </div>
@@ -231,6 +276,14 @@ function renderTldsGrid(query) {
     return html;
 }
 
+/**
+ * Renders a standard toggle row for boolean or list-based settings.
+ * @param {Object} item - The setting item (id, label/name).
+ * @param {string} cat - The category path for the API call.
+ * @param {boolean} isActive - Whether the setting is currently active.
+ * @param {string} type - The setting type ('boolean' or 'list').
+ * @returns {string} HTML string for the toggle row.
+ */
 function renderToggleRow(item, cat, isActive, type) {
     return `
         <div class="flex-between" style="margin-bottom:12px;">

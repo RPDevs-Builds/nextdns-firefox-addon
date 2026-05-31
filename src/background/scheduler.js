@@ -1,10 +1,17 @@
 /**
  * DNS Forge - Background Scheduler
+ * @module background/scheduler
  */
 
 import { storage } from '../storage.js';
 import { messageHandlers } from './handlers.js';
 
+/**
+ * Periodically checks the stored automation rules against the current time.
+ * If a rule's trigger matches the current HH:mm, the rule's action is executed.
+ * Rules typically toggle settings or blocklists.
+ * @async
+ */
 export async function checkAutomationRules() {
     const forgeRules = await storage.get("forgeRules", []);
     if (forgeRules.length === 0) return;

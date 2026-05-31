@@ -1,10 +1,15 @@
 /**
  * DNS Forge - SSE Log Streaming Manager
+ * @module background/logStream
  */
 
 import { storage } from '../storage.js';
 import { API_BASE } from './state.js';
 
+/**
+ * Manages Server-Sent Events (SSE) connections for live log streaming from the NextDNS API.
+ * Implements automatic reconnection logic and profile-switching awareness.
+ */
 class LogStreamManager {
     constructor() {
         this.eventSource = null;
@@ -13,6 +18,13 @@ class LogStreamManager {
         this.isExplicitlyStopped = false;
     }
 
+    /**
+     * Starts the log stream for a specific profile.
+     * Closes any existing connection before starting a new one.
+     * @async
+     * @param {string} profileId - The NextDNS profile ID to stream logs for.
+     * @returns {Promise<{success: boolean, error: string}>} Success status or error message (error only present on failure).
+     */
     async start(profileId) {
         if (this.eventSource && this.currentProfileId === profileId) return { success: true };
         this.stop();
@@ -51,6 +63,9 @@ class LogStreamManager {
         }
     }
 
+    /**
+     * Stops the current log stream and cancels any pending reconnection attempts.
+     */
     stop() {
         this.isExplicitlyStopped = true;
         clearTimeout(this.reconnectTimeout);
@@ -61,4 +76,8 @@ class LogStreamManager {
     }
 }
 
+/**
+ * Singleton instance of LogStreamManager.
+ * @type {LogStreamManager}
+ */
 export const logStreamManager = new LogStreamManager();

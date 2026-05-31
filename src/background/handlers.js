@@ -366,5 +366,19 @@ export const messageHandlers = {
         } catch (e) { console.warn("Audit metadata load failed", e); }
 
         return { success: true, score: Math.max(0, score), recommendations };
+    },
+    /**
+     * Saves metadata scraped from the NextDNS dashboard by content scripts.
+     * Merges the new data into the 'scrapedMeta' object in local storage.
+     * @param {Object} msg - The message object containing the payload with metaType and data.
+     */
+    SAVE_SCRAPED_META: async (msg) => {
+        const { metaType, data } = msg.payload;
+        const { scrapedMeta = { blocklists: [], parental_services: [], tlds: [], categories: [] } } = await browser.storage.local.get("scrapedMeta");
+        
+        scrapedMeta[metaType] = data;
+        await browser.storage.local.set({ scrapedMeta });
+        console.log(`[Background] Updated scraped metadata for: ${metaType}`);
+        return { success: true };
     }
 };

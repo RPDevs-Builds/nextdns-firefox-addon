@@ -1,6 +1,7 @@
 /**
  * DNS Forge - Popup UI Index
  * Re-exports modular components for browser (ESM) and tests.
+ * @module popup
  */
 
 export * from './ui/state.js';

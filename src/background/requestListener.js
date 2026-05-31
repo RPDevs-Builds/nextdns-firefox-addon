@@ -1,10 +1,19 @@
 /**
  * DNS Forge - WebRequest Listener
+ * @module background/requestListener
  */
 
 import { state } from './state.js';
 import { getMatch, handleBlockNotification } from './utils.js';
 
+/**
+ * Main listener for the browser.webRequest.onBeforeRequest event.
+ * Tracks outgoing requests by tab, matches them against the current allowlist/denylist, 
+ * and cancels requests that match the denylist.
+ * Also triggers block notifications.
+ * @param {Object} details - Details of the web request.
+ * @returns {Object} A blocking response object ({cancel: boolean}).
+ */
 export function requestListener(details) {
     if (details.tabId >= 0) {
         try {

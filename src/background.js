@@ -1,6 +1,7 @@
 /**
  * DNS Forge - Background Engine Index
  * Re-exports modular components for browser (ESM) and tests.
+ * @module background
  */
 
 export * from './background/state.js';

@@ -1,9 +1,15 @@
 /**
  * DNS Forge - Scheduler UI Module
+ * @module ui/scheduler
  */
 
 import { escapeHTML, setSafeHTML } from './utils.js';
 
+/**
+ * Loads the currently scheduled automation rules from the background and renders them in the UI.
+ * Attaches click listeners to the delete buttons.
+ * @async
+ */
 export async function loadRules() {
     const res = await browser.runtime.sendMessage({ type: "LIST_RULES" });
     const list = document.getElementById('rules-list');
@@ -32,6 +38,11 @@ export async function loadRules() {
     }
 }
 
+/**
+ * Reads form data from the scheduler UI and saves a new automation rule via the background script.
+ * Resets the form and reloads the rules list upon success.
+ * @async
+ */
 export async function saveAutomationRule() {
     const name = document.getElementById('rule-name').value;
     const trigger = document.getElementById('rule-trigger').value;
