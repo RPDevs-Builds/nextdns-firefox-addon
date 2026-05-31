@@ -32,7 +32,13 @@ DNS Forge is a high-performance Firefox extension designed for advanced [NextDNS
 - **Intelligent TLD & Blocklist Manager:** Manage 1,300+ TLDs and 80+ blocklists with alphabetical jump-links and advanced sorting.
 - **Profile Quick-Switcher:** Instant profile switching via a dropdown in the dashboard navigation bar.
 
+### 🤝 Community & Contribution
+- **Agentic Orchestration:** We provide an [AGENTS.md](AGENTS.md) to guide AI-assisted development.
+- **Structured Feedback:** Standardized templates for [Bug Reports](.github/ISSUE_TEMPLATE/bug_report.yml) and [Feature Requests](.github/ISSUE_TEMPLATE/feature_request.yml).
+- **Compliance Enforcement:** Every Pull Request is verified against our **AMO Compliance Checklist**.
+
 ### 📡 Reliability & Architecture
+- **Automated Auditing:** Continuous security scanning via **CodeQL** and **OpenSSF Scorecard**.
 - **100% Documentation Coverage:** Complete JSDoc instrumentation across all core modules, synchronized with our [Live Wiki](https://dns-forge.github.io/reference/background/).
 - **Modular Componentization (Phase 6):** Fully decoupled architecture with ES modules for background logic (`src/background/`) and UI components (`src/ui/`).
 - **MetadataManager Utility:** Centralized metadata loading with a three-tier robust fallback chain: **Local Storage → Remote GitHub (Main Repo) → Bundled Data**.
