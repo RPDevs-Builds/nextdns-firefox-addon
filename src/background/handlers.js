@@ -122,7 +122,8 @@ export const messageHandlers = {
             const r = await apiClient.fetchWithRetry(`/profiles`, { cache: 'no-store' });
             if (!r.success) return { success: false, data: [] };
             const json = await r.response.json();
-            return { success: true, data: json.data || [] };
+            const data = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+            return { success: true, data };
         } catch(e) { return { success: false, data: [] }; }
     },
     /**

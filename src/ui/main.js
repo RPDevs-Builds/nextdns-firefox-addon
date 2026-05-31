@@ -514,29 +514,31 @@ async function initializeApp() {
 
 async function initCustomizeUI() {
     const keys = ["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"];
-    const data = await browser.storage.sync.get(keys);
-    
-    const mapping = {
-        'master': 'webGuiMaster',
-        'tlds': 'webGuiTlds',
-        'blocklists': 'webGuiBlocklists',
-        'logs': 'webGuiLogActions',
-        'desc': 'webGuiDesc',
-        'notes': 'webGuiProfileNotes',
-        'filter': 'webGuiFilter'
-    };
+    try {
+        const data = await browser.storage.sync.get(keys);
+        
+        const mapping = {
+            'master': 'webGuiMaster',
+            'tlds': 'webGuiTlds',
+            'blocklists': 'webGuiBlocklists',
+            'logs': 'webGuiLogActions',
+            'desc': 'webGuiDesc',
+            'notes': 'webGuiProfileNotes',
+            'filter': 'webGuiFilter'
+        };
 
-    Object.entries(mapping).forEach(([id, key]) => {
-        const el = document.getElementById(`web-gui-${id}-toggle`);
-        if (el) el.checked = data[key] !== false; // Default to true
-    });
+        Object.entries(mapping).forEach(([id, key]) => {
+            const el = document.getElementById(`web-gui-${id}-toggle`);
+            if (el) el.checked = data[key] !== false; // Default to true
+        });
 
-    const masterEnabled = data.webGuiMaster !== false;
-    const features = document.getElementById('web-gui-features');
-    if (features) {
-        features.style.opacity = masterEnabled ? '1' : '0.5';
-        features.style.pointerEvents = masterEnabled ? 'all' : 'none';
-    }
+        const masterEnabled = data.webGuiMaster !== false;
+        const features = document.getElementById('web-gui-features');
+        if (features) {
+            features.style.opacity = masterEnabled ? '1' : '0.5';
+            features.style.pointerEvents = masterEnabled ? 'all' : 'none';
+        }
+    } catch (e) { console.error("[Init] Customize UI failed:", e); }
 }
 
 /**
@@ -549,22 +551,24 @@ async function initMirrorModeUI() {
     const saveBtn = document.getElementById('save-mirror-btn');
     if (!list || !saveBtn) return;
 
-    const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
-    const { mirrorProfiles = [] } = await browser.storage.sync.get("mirrorProfiles");
+    try {
+        const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
+        const { mirrorProfiles = [] } = await browser.storage.sync.get("mirrorProfiles");
 
-    if (res?.success) {
-        list.textContent = '';
-        res.data.forEach(p => {
-            if (p.id === state.activeProfile) return;
-            const label = document.createElement('label');
-            label.className = 'checkbox-label';
-            label.style.display = 'block';
-            label.style.marginBottom = '6px';
-            const isChecked = mirrorProfiles.includes(p.id);
-            setSafeHTML(label, `<input type="checkbox" data-id="${p.id}" ${isChecked ? 'checked' : ''}> ${escapeHTML(p.name)}`);
-            list.appendChild(label);
-        });
-    }
+        if (res?.success && Array.isArray(res.data)) {
+            list.textContent = '';
+            res.data.forEach(p => {
+                if (p.id === state.activeProfile) return;
+                const label = document.createElement('label');
+                label.className = 'checkbox-label';
+                label.style.display = 'block';
+                label.style.marginBottom = '6px';
+                const isChecked = Array.isArray(mirrorProfiles) && mirrorProfiles.includes(p.id);
+                setSafeHTML(label, `<input type="checkbox" data-id="${p.id}" ${isChecked ? 'checked' : ''}> ${escapeHTML(p.name)}`);
+                list.appendChild(label);
+            });
+        }
+    } catch (e) { console.error("[Init] Mirror Mode UI failed:", e); }
 }
 
 /**
@@ -593,46 +597,50 @@ async function initSettingsUI() {
         "autoRefreshLogs", "enableBlockNotifications", 
         "enableLabs", "autoRefreshTime"
     ];
-    const data = await browser.storage.sync.get(keys);
+    try {
+        const data = await browser.storage.sync.get(keys);
 
-    const apiKeyInput = document.getElementById('setting-api-key');
-    const profileSelect = document.getElementById('setting-profile-select');
-    const iconActionSelect = document.getElementById('setting-icon-action');
-    const autoRefreshCheck = document.getElementById('setting-auto-refresh');
-    const blockNotifCheck = document.getElementById('setting-block-notif');
-    const enableLabsCheck = document.getElementById('setting-enable-labs');
-    const refreshTimeInput = document.getElementById('setting-refresh-time');
+        const apiKeyInput = document.getElementById('setting-api-key');
+        const profileSelect = document.getElementById('setting-profile-select');
+        const iconActionSelect = document.getElementById('setting-icon-action');
+        const autoRefreshCheck = document.getElementById('setting-auto-refresh');
+        const blockNotifCheck = document.getElementById('setting-block-notif');
+        const enableLabsCheck = document.getElementById('setting-enable-labs');
+        const refreshTimeInput = document.getElementById('setting-refresh-time');
 
-    if (apiKeyInput) apiKeyInput.value = data.apiKey || '';
-    if (iconActionSelect) iconActionSelect.value = data.iconClickAction || 'popup';
-    if (autoRefreshCheck) autoRefreshCheck.checked = !!data.autoRefreshLogs;
-    if (blockNotifCheck) blockNotifCheck.checked = !!data.enableBlockNotifications;
-    if (enableLabsCheck) enableLabsCheck.checked = !!data.enableLabs;
-    if (refreshTimeInput) refreshTimeInput.value = data.autoRefreshTime || 5;
+        if (apiKeyInput) apiKeyInput.value = data.apiKey || '';
+        if (iconActionSelect) iconActionSelect.value = data.iconClickAction || 'popup';
+        if (autoRefreshCheck) autoRefreshCheck.checked = !!data.autoRefreshLogs;
+        if (blockNotifCheck) blockNotifCheck.checked = !!data.enableBlockNotifications;
+        if (enableLabsCheck) enableLabsCheck.checked = !!data.enableLabs;
+        if (refreshTimeInput) refreshTimeInput.value = data.autoRefreshTime || 5;
 
-    state.lastIconAction = data.iconClickAction || 'popup';
+        state.lastIconAction = data.iconClickAction || 'popup';
 
-    // Handle Profile Select
-    if (profileSelect) {
-        const loadProfiles = async () => {
-            const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
-            if (res?.success) {
-                setSafeHTML(profileSelect, '<option value="">Auto-Detect (Default)</option>');
-                res.data.forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p.id;
-                    opt.textContent = p.name;
-                    profileSelect.appendChild(opt);
-                });
-                profileSelect.value = data.activeProfile || '';
-            }
-        };
-
-        await loadProfiles();
-        document.getElementById('setting-fetch-profiles')?.addEventListener('click', loadProfiles);
+        // Handle Profile Select
+        if (profileSelect) {
+            const loadProfiles = async () => {
+                try {
+                    const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
+                    if (res?.success && Array.isArray(res.data)) {
+                        setSafeHTML(profileSelect, '<option value="">Auto-Detect (Default)</option>');
+                        res.data.forEach(p => {
+                            const opt = document.createElement('option');
+                            opt.value = p.id;
+                            opt.textContent = p.name;
+                            profileSelect.appendChild(opt);
+                        });
+                        profileSelect.value = data.activeProfile || '';
+                    }
+                } catch (e) { console.error("[Init] loadProfiles failed:", e); }
+            };
+            await loadProfiles();
+        }
+        return data;
+    } catch (e) { 
+        console.error("[Init] Settings UI core failed:", e); 
+        return {};
     }
-
-    return data;
 }
 
 /**
