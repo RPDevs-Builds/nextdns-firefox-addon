@@ -24,6 +24,7 @@ DNS Forge is a high-performance Firefox extension designed for advanced [NextDNS
 
 ### ⚡ Advanced Management
 - **Mirror Mode (Phase 6):** Automatically replicate setting changes across multiple selected profiles in real-time.
+- **Self-Updating Metadata Engine:** Automatically scrapes and saves NextDNS TLDs, Blocklists, and Services as you browse, ensuring the manager is always current.
 - **DNS Rewrites Manager:** Full CRUD support for custom domain-to-IP mappings (e.g., `nas.local` → `192.168.1.50`) directly from the browser.
 - **Config Presets:** One-click deployment of optimized settings (e.g., "Max Privacy", "Family Safe") via the new Presets engine.
 - **Profile Comparison Tool:** Perform deep diffs between two profiles to identify discrepancies in security and privacy configurations.
@@ -33,6 +34,7 @@ DNS Forge is a high-performance Firefox extension designed for advanced [NextDNS
 
 ### 📡 Reliability & Architecture
 - **Modular Componentization (Phase 6):** Fully decoupled architecture with ES modules for background logic (`src/background/`) and UI components (`src/ui/`).
+- **MetadataManager Utility:** Centralized metadata loading with a three-tier robust fallback chain: **Local Storage → Remote GitHub (Main Repo) → Bundled Data**.
 - **Centralized Storage Manager:** Synchronous memory cache with automatic healing from `sync` to `local` storage.
 - **Robust API Client:** Integrated exponential backoff retry logic and global rate-limiting awareness.
 - **100% AMO Compliance:** Fully hardened against XSS via `setSafeHTML` (DOMParser) and strict manifest permissions.
@@ -74,7 +76,14 @@ npm run lint:addon
 Every push to `main` triggers a GitHub Action that:
 1. Executes the full 35-test suite.
 2. Performs a 100%-compliance linting scan on the built artifact.
-3. Builds the production `.xpi` file using `web-ext`.
+3. Builds the production `.xpi` and `.zip` artifacts.
+4. **Automated Releases:** Creates a GitHub Release and uploads artifacts whenever a version tag (`v*`) is pushed.
+
+---
+
+## 🛡️ DNS Forge Wiki
+
+Explore our in-depth documentation, architecture diagrams, and technical references at [dns-forge.github.io](https://dns-forge.github.io/).
 
 ---
 
