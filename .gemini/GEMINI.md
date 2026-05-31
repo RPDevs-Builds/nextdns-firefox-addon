@@ -33,7 +33,7 @@ Manual testing is insufficient. All features must be locked behind automated ass
 
 ## Development Heuristics (Meta-Optimization)
 - **Scoped Linting:** To prevent performance timeouts, always execute `addons-linter` on a compiled `.xpi` artifact or a clean source directory. Avoid scanning the root if `node_modules` is present.
-- **Schema Rigor:** When fixing `manifest.json` errors flagged by the linter (e.g., `data_collection_permissions`), prioritize searching the linter's own message source code (`.tools/addons-linter/src/messages/`) to identify the exact expected JSON structure.
+- **Schema Rigor:** When fixing `manifest.json` errors flagged by the linter (e.g., `data_collection_permissions`), prioritize the official Mozilla Extension documentation to identify the exact expected JSON structure.
 - **XSS Prevention:** Prefer `textContent` or `setSafeHTML` helper (utilizing `DOMParser`) over `innerHTML` for all dynamic data injections.
 - **Mock DOM Parity:** When adding new top-level UI containers to `viewer.html` or `popup.html`, immediately update the corresponding mock DOM in `tests/viewer.test.js` and `tests/popup.test.js` to prevent selector-related regressions.
 - **Infrastructure Sync:** When refactoring core utilities (e.g., `storage.js`, `apiClient.js`), perform a mandatory audit of all test mocks (`tests/*.test.js`). Ensure they implement the full new interface, including events (`onChanged`) and initialization methods (`init`).
