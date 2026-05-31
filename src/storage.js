@@ -11,6 +11,8 @@ class StorageManager {
         this.cache = {};
         /** @type {boolean} Initialization status */
         this.initialized = false;
+        /** @type {Promise|null} Promise for ongoing initialization */
+        this.initPromise = null;
     }
 
     /**
@@ -21,32 +23,39 @@ class StorageManager {
      */
     async init() {
         if (this.initialized) return;
-        const syncData = await browser.storage.sync.get(null);
-        const localData = await browser.storage.local.get(null);
-        this.cache = { ...localData, ...syncData };
-        
-        const healObj = {};
-        for (let k in syncData) {
-            if (syncData[k] !== undefined && localData[k] === undefined) {
-                healObj[k] = syncData[k];
-            }
-        }
-        if (Object.keys(healObj).length > 0) {
-            await browser.storage.local.set(healObj);
-            console.log("[StorageManager] Healed local storage from sync.");
-        }
+        if (this.initPromise) return this.initPromise;
 
-        browser.storage.onChanged.addListener((changes, area) => {
-            for (let [key, { newValue }] of Object.entries(changes)) {
-                if (newValue === undefined) {
-                    delete this.cache[key];
-                } else {
-                    this.cache[key] = newValue;
+        this.initPromise = (async () => {
+            const syncData = await browser.storage.sync.get(null);
+            const localData = await browser.storage.local.get(null);
+            this.cache = { ...localData, ...syncData };
+            
+            const healObj = {};
+            for (let k in syncData) {
+                if (syncData[k] !== undefined && localData[k] === undefined) {
+                    healObj[k] = syncData[k];
                 }
             }
-        });
-        
-        this.initialized = true;
+            if (Object.keys(healObj).length > 0) {
+                await browser.storage.local.set(healObj);
+                console.log("[StorageManager] Healed local storage from sync.");
+            }
+
+            browser.storage.onChanged.addListener((changes, area) => {
+                for (let [key, { newValue }] of Object.entries(changes)) {
+                    if (newValue === undefined) {
+                        delete this.cache[key];
+                    } else {
+                        this.cache[key] = newValue;
+                    }
+                }
+            });
+            
+            this.initialized = true;
+            this.initPromise = null;
+        })();
+
+        return this.initPromise;
     }
 
     /**

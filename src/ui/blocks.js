@@ -22,6 +22,65 @@ export async function syncLists(force = false) {
     state.currentAllowlist = new Set((a?.data || []).filter(i => i?.id).map(i => i.id));
     state.currentDenylist = new Set((d?.data || []).filter(i => i?.id).map(i => i.id));
     state.listsSynced = true;
+
+    if (state.activeTab === 'lists') renderLists();
+}
+
+/**
+ * Renders the Allowlist or Denylist in the "Lists" tab.
+ * @param {string|null} [queryOverride=null] - Optional search query override.
+ */
+export function renderLists(queryOverride = null) {
+    const container = document.getElementById("list-items-container");
+    if (!container) return;
+
+    const listType = document.getElementById("list-type-select")?.value || 'denylist';
+    const query = (queryOverride !== null ? queryOverride : (document.getElementById("list-search-input")?.value || "")).toLowerCase();
+    
+    const items = listType === 'allowlist' ? state.currentAllowlist : state.currentDenylist;
+    
+    if (items.size === 0) {
+        setSafeHTML(container, `<div style="text-align:center; padding:20px; color:var(--text-muted);">No domains in this list.</div>`);
+        return;
+    }
+
+    const filtered = Array.from(items).filter(d => d.toLowerCase().includes(query)).sort();
+
+    if (filtered.length === 0) {
+        setSafeHTML(container, `<div style="text-align:center; padding:20px; color:var(--text-muted);">No domains match your search.</div>`);
+        return;
+    }
+
+    const html = filtered.map(domain => `
+        <div class="flex-between" style="padding:8px 12px; background:var(--bg-panel); border-radius:6px; margin-bottom:5px; border:1px solid var(--border-color);">
+            <span style="font-family:monospace; font-size:0.9em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:260px;">${escapeHTML(domain)}</span>
+            <button class="btn-deny list-delete-btn" data-domain="${escapeHTML(domain)}" style="width:auto; padding:2px 8px; font-size:0.7em;">Remove</button>
+        </div>
+    `).join('');
+    
+    setSafeHTML(container, html);
+
+    // Bind delete buttons
+    container.querySelectorAll('.list-delete-btn').forEach(btn => {
+        btn.onclick = async () => {
+            const domain = btn.getAttribute('data-domain');
+            btn.disabled = true; btn.textContent = "...";
+            const res = await browser.runtime.sendMessage({
+                type: "MANAGE_DOMAIN",
+                profileId: state.activeProfile,
+                listType,
+                domain,
+                action: "delete"
+            });
+            if (res.success) {
+                if (listType === 'allowlist') state.currentAllowlist.delete(domain);
+                else state.currentDenylist.delete(domain);
+                renderLists();
+            } else {
+                btn.disabled = false; btn.textContent = "Error";
+            }
+        };
+    });
 }
 
 /**

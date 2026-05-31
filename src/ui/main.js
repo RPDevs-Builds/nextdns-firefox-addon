@@ -10,7 +10,7 @@
 import { state, isPopoutMode, isSidebarMode, PRESET_THEMES, THEME_VARS, urlParams } from './state.js';
 import { setActiveTab, setSafeHTML, escapeHTML, downloadAsFile } from './utils.js';
 import { handleLiveLog, renderLogs, loadAnalytics, updateDashboardTabInfo, updateDynamicLinks, loadNativeLogs } from './dashboard.js';
-import { loadToggles, syncLists } from './blocks.js';
+import { loadToggles, syncLists, renderLists } from './blocks.js';
 import { runSecurityAudit, runIntelligentDebugger, exportDebuggerSnapshot, exportAuditReport } from './tools.js';
 import { loadRules, saveAutomationRule } from './scheduler.js';
 import { loadPresets } from './presets.js';
@@ -26,6 +26,70 @@ document.addEventListener("DOMContentLoaded", async () => {
     initTabNavigation();
     await initializeApp();
 });
+
+/**
+ * Handles adding a single domain to the selected list.
+ * @async
+ */
+async function handleAddDomain() {
+    const input = document.getElementById('list-new-domain');
+    const domain = input?.value.trim();
+    if (!domain) return;
+
+    const listType = document.getElementById('list-type-select').value;
+    const btn = document.getElementById('list-add-btn');
+    btn.disabled = true;
+
+    const res = await browser.runtime.sendMessage({
+        type: "MANAGE_DOMAIN",
+        profileId: state.activeProfile,
+        listType,
+        domain,
+        action: "add"
+    });
+
+    if (res.success) {
+        input.value = '';
+        await syncLists(true);
+    } else {
+        alert("Failed to add domain.");
+    }
+    btn.disabled = false;
+}
+
+/**
+ * Handles bulk adding multiple domains to the selected list.
+ * @async
+ */
+async function handleBulkAdd() {
+    const textarea = document.getElementById('list-bulk-domains');
+    const domains = textarea?.value.split('\n').map(d => d.trim()).filter(d => d.length > 0);
+    if (domains.length === 0) return;
+
+    const listType = document.getElementById('list-type-select').value;
+    const btn = document.getElementById('list-bulk-submit-btn');
+    btn.disabled = true;
+    btn.textContent = "Adding...";
+
+    let successCount = 0;
+    for (const domain of domains) {
+        const res = await browser.runtime.sendMessage({
+            type: "MANAGE_DOMAIN",
+            profileId: state.activeProfile,
+            listType,
+            domain,
+            action: "add"
+        });
+        if (res.success) successCount++;
+    }
+
+    alert(`Successfully added ${successCount} of ${domains.length} domains.`);
+    textarea.value = '';
+    document.getElementById('list-bulk-container').classList.add('hidden');
+    await syncLists(true);
+    btn.disabled = false;
+    btn.textContent = "Bulk Add";
+}
 
 /**
  * Detects and applies CSS classes based on the current window mode (Popout vs Sidebar).
@@ -109,7 +173,20 @@ function initGlobalEventListeners() {
             const tabId = btn.dataset.tab;
             setActiveTab(tabId);
             if (tabId === 'presets') loadPresets();
+            if (tabId === 'lists') renderLists();
         };
+    });
+
+    // Lists Tab Actions
+    document.getElementById('list-type-select')?.addEventListener('change', () => renderLists());
+    document.getElementById('list-search-input')?.addEventListener('input', (e) => renderLists(e.target.value));
+    document.getElementById('list-add-btn')?.addEventListener('click', handleAddDomain);
+    document.getElementById('list-bulk-toggle-btn')?.addEventListener('click', () => {
+        document.getElementById('list-bulk-container').classList.toggle('hidden');
+    });
+    document.getElementById('list-bulk-submit-btn')?.addEventListener('click', handleBulkAdd);
+    document.getElementById('list-bulk-cancel-btn')?.addEventListener('click', () => {
+        document.getElementById('list-bulk-container').classList.add('hidden');
     });
 
     // Dashboard Actions
@@ -154,7 +231,15 @@ function initTabNavigation() {
  * @async
  */
 async function initializeApp() {
-    const profile = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
+    const settings = await initSettingsUI();
+    
+    let profile = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
+    
+    // Fallback if profile detection fails but we have a stored profile ID
+    if (!profile && settings.activeProfile) {
+        profile = { id: settings.activeProfile, name: "Last Known Profile" };
+    }
+
     if (profile) {
         state.activeProfile = profile.id;
         const profStatus = document.getElementById("profile-status");
@@ -166,6 +251,11 @@ async function initializeApp() {
             setSafeHTML(profStatus, html);
         }
         browser.runtime.sendMessage({ type: "START_STREAM", profileId: state.activeProfile });
+    } else {
+        const profStatus = document.getElementById("profile-status");
+        if (profStatus) {
+            setSafeHTML(profStatus, `<span style="display:inline-block; width:8px; height:8px; background:var(--danger); border-radius:50%;"></span> Profile: Not Detected`);
+        }
     }
 
     window.addEventListener("unload", () => {
@@ -178,7 +268,6 @@ async function initializeApp() {
     await loadToggles();
     await loadRules();
     await initMirrorModeUI();
-    await initSettingsUI();
     updateDashboardTabInfo();
 }
 
@@ -228,6 +317,7 @@ async function saveMirrorMode() {
 /**
  * Initializes the Settings UI by loading values from storage and populating the form.
  * @async
+ * @returns {Promise<Object>} The loaded settings object.
  */
 async function initSettingsUI() {
     const keys = [
@@ -273,6 +363,8 @@ async function initSettingsUI() {
         await loadProfiles();
         document.getElementById('setting-fetch-profiles')?.addEventListener('click', loadProfiles);
     }
+
+    return data;
 }
 
 /**
@@ -319,7 +411,7 @@ async function saveSettings() {
 
 /**
  * Toggles the auto-refresh mechanism for native dashboard logs.
-... * Sets or clears an interval based on user preference and storage settings.
+ * Sets or clears an interval based on user preference and storage settings.
  * @async
  * @param {boolean} enable - Whether to enable or disable auto-refresh.
  */
