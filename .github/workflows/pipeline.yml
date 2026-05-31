@@ -2,10 +2,11 @@ name: Extension Pipeline
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+
+permissions: read-all
 
 jobs:
   pipeline:
@@ -26,36 +27,37 @@ jobs:
         run: npm ci
 
       - name: Run Jest Tests
-        run: npm test
-
-      - name: Build Artifacts
-        run: |
-          npm run build
-          # Create a .zip copy of the built extension
-          cd web-ext-artifacts
-          XPI_FILE=$(ls *.xpi)
-          ZIP_FILE="${XPI_FILE%.xpi}.zip"
-          cp "$XPI_FILE" "$ZIP_FILE"
-          cd ..
+        run: NODE_OPTIONS="--experimental-vm-modules" npm test
 
       - name: AMO Compliance Lint
         run: npm run lint:addon
 
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            web-ext-artifacts/*.xpi
-            web-ext-artifacts/*.zip
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build XPI
+        run: npm run build
 
-      - name: Upload Build Artifact (Internal)
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dns-forge-v${{ github.sha }}
-          path: web-ext-artifacts/*
+          name: dns-forge-xpi
+          path: web-ext-artifacts/
+          retention-days: 5
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: pipeline
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dns-forge-xpi
+          path: release-artifacts/
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-artifacts/*
+          generate_release_notes: true
