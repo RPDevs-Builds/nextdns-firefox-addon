@@ -35,8 +35,7 @@ Manual testing is insufficient. All features must be locked behind automated ass
 
 ## UI & DOM Conventions
 ## Commit & Security Protocol
-- **GPG Signing:** ALWAYS use GPG signing (e.g., `git commit -S`). Never bypass this requirement.
-- **Hardware Interaction:** I acknowledge that initiating a signed commit will trigger the user's FIDO2/GPG hardware key. I will wait for the user to perform the physical touch/password entry required to finalize the signature.
+- **GPG Signing Workflow:** ALWAYS use GPG signing (`git commit -S`). The agent is configured to pre-cache the passphrase in memory, so the user should only expect a hardware key interaction (FIDO2 touch) during the process. If the agent cache expires, ask the user to re-seed the agent.
 
 ## Development Heuristics (Meta-Optimization)
 - **Scoped Linting:** To prevent performance timeouts, always execute `addons-linter` on a compiled `.xpi` artifact or a clean source directory. Avoid scanning the root if `node_modules` is present.
