@@ -21,7 +21,14 @@ Manual testing is insufficient. All features must be locked behind automated ass
 - **Zero-Regression Mandate:** If a bug is found in main, a failing test must be written to reproduce the bug before fixing it, ensuring it can never regress.
 - **Dual-Storage Pattern:** Critical settings (API Keys, Active Profiles, Themes) must be saved to both `browser.storage.sync` and `browser.storage.local`. Always use `Promise.all` for simultaneous writes.
 
-## Testing & Environment
+## UI & Content Script Integrity
+- **Feature Completeness Audit:** When migrating functionality to a new architecture (e.g., src-layout), perform a mandatory audit for every UI tab and sub-tab. Ensure all event listeners, data loaders, and dynamic rendering logic are explicitly re-implemented or imported.
+- **Runtime Isolation:** Always wrap Node-style exports in `if (typeof module !== 'undefined')` for files shared between test environments and the browser runtime (e.g., content scripts, storage utilities).
+- **Storage Key Auditing:** Before implementing settings-related UI, perform a cross-file audit of storage keys using `grep_search` to ensure 100% consistency between the popup UI, background handlers, and content script listeners.
+- **Literal Integrity:** NEVER use omission placeholders (e.g., '...', '// ... rest of code') inside the `new_string` parameter of the `replace` tool. Provide the EXACT literal code to be inserted to prevent broken syntax injections.
+
+## Testing
+ & Environment
 - **Storage Mocking:** Jest tests require explicit mocking of both `local` and `sync` storage areas, as well as the `onChanged` listener. Update `jest.setup.js` immediately if new storage keys are added.
 - **Asynchronous UI:** When testing log rendering or metadata loads, always include a minimum `300ms` delay for JSDOM and async message handlers.
 - **Cleanup Validation:** Every injection routine in `content.js` must have a corresponding logic in `cleanupUI()` to restore the original page state (including visibility of hidden elements).

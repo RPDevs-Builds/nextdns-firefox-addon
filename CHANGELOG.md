@@ -6,19 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-## [0.9.4] - 2025-05-31
+## [0.9.4] - 2026-06-01
 
 ### Added
-- **100% JSDoc Coverage:** Completed a full documentation sweep across all background and UI modules.
+- **Full Configuration Backup & Restore:** Implement one-click full profile redundancy and settings migration.
+- **Diagnostic Snapshots:** Export correlated "Forge Debugger" findings as portable JSON bug reports.
+- **Auditor Reports:** Export Security Auditor health scores and recommendations as JSON.
+- **100% JSDoc Coverage:** Completed a full documentation sweep across all 20+ extension modules.
 - **Technical Reference Wiki:** Launched [dns-forge.github.io](https://dns-forge.github.io) with auto-generated API documentation.
-- **Architecture Diagrams:** Integrated interactive Mermaid.js sequence diagrams for system data flow visualization.
 
 ### Changed
-- **License Transition:** Re-licensed from MIT to **GPLv3** to ensure all derivative works and modifications remain public and open-source.
-- **Cleaner Wiki Structure:** Removed numbered subdirectories from the wiki, flattening the URL structure for better accessibility.
-- **Linter Standardization:** Migrated from local vendored linter to the official `addons-linter` npm package for improved stability.
-- **CI/CD Hardening:** Updated GitHub Actions pipeline to use `web-ext lint` for robust AMO compliance verification.
-- **Cleanup:** Purged unreferenced assets and temporary build artifacts from the repository.
+- **Major Toolchain Modernization:** Upgraded to **Jest v30** and **web-ext v10** with native ESM support.
+- **Native Fetch Implementation:** Removed `node-fetch` in favor of native Node.js 18+ `fetch` API for hardened testing.
+- **Pure ESM Architecture:** Fully transitioned extension logic and 35+ test suites to native ES Modules.
+- **Persistence Hardening:** Fixed security toggle persistence (Cryptojacking, etc.) by aligning with NextDNS API schema.
+- **License Transition:** Re-licensed to **GPLv3** to ensure all derivative works remain open-source.
 
 ## [0.9.3] - 2025-05-30
 
@@ -35,16 +37,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **DNS Rewrites Manager:** Full CRUD support for custom domain-to-IP mappings.
 - **Expert Performance Panel:** High-level resolution toggles (ECS, CNAME, Cache Boost).
 - **Automated Metadata Updates:** Implemented a self-updating metadata engine that scrapes and saves NextDNS TLDs, Blocklists, and Services as you browse.
-- **Consolidated Data Hosting:** Migrated remote metadata hosting to the main project repository for improved reliability.
-- **Version Bumper:** Automated synchronization of version strings across all manifest and metadata files.
 
 ### Changed
 - **Architectural Componentization:** Fully modular ES architecture for background logic and UI.
 - **ESM Migration:** Converted entire project to ES Modules, including core engine and 35+ tests.
 - **MetadataManager Utility:** Centralized metadata loading with a three-tier fallback (Storage → Remote → Bundle).
 - **Unified Pipeline:** Consolidated GitHub Actions into a single robust CI/CD workflow with automated releases.
-- **Hardened Linter:** Integrated official Mozilla `addons-linter` into the build process with version-agnostic automation.
-- **Storage Optimization:** Implemented a centralized StorageManager with caching and auto-healing logic.
+- **Hardened Linter:** Integrated official Mozilla `addons-linter` into the build process.
 
 ## [0.9.2] - 2026-05-28
 
@@ -52,7 +51,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **SSE Live Log Feed:** Real-time log streaming via Server-Sent Events.
 - **Profile Snapshots:** Take and restore configuration backups.
 - **Analytics Trends:** Visual indicators for query volume fluctuations.
-- **Profile Quick-Switcher:** Navigation bar dropdown for instant profile changes.
 
 ## [0.9.1] - 2026-05-15
 
@@ -60,7 +58,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Network Error Suppressor:** Suppresses intrusive NextDNS modals and replaces them with toasts.
 - **Device Aliasing:** Customizable nicknames for device IDs and IPs.
 - **Bulk List Management:** Select-all and bulk-delete for allow/deny lists.
-- **Real-Time Search:** In-page filtering for blocklists and TLDs.
 
 ## [0.9.0] - 2026-05-01
 
@@ -68,4 +65,3 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Core NextDNS API integration.
 - Dashboard with query and blocked stats.
 - Allow/Deny list management.
-- Basic TLD and Blocklist management.
