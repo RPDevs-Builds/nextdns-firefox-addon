@@ -35,7 +35,7 @@ Manual testing is insufficient. All features must be locked behind automated ass
 
 ## UI & DOM Conventions
 ## Commit & Security Protocol
-- **GPG Signing Workflow:** ALWAYS use GPG signing (`git commit -S`). The agent is configured to pre-cache the passphrase in memory, so the user should only expect a hardware key interaction (FIDO2 touch) during the process. If the agent cache expires, ask the user to re-seed the agent.
+- **SSH Signing Workflow**: ALWAYS use SSH signing (`sudo -E git commit -S`). The agent is configured with `SSH_ASKPASS` to pre-load the hardware key PIN, and `sudo -E` is used to ensure reliable hardware access. The user should only expect a hardware key interaction (FIDO2 touch) during the process. If the agent session expires, re-run the `.tools/askpass.sh` integration.
 
 ## Development Heuristics (Meta-Optimization)
 - **Scoped Linting:** To prevent performance timeouts, always execute `addons-linter` on a compiled `.xpi` artifact or a clean source directory. Avoid scanning the root if `node_modules` is present.

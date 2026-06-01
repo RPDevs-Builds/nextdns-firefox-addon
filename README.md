@@ -96,7 +96,7 @@ Explore our in-depth documentation, architecture diagrams, and technical referen
 
 ## 🗺️ Roadmap (Future)
 
-- [ ] **Exportable Security Reports:** Generate PDF/JSON audit reports for compliance.
+- [x] **Exportable Security Reports:** Generate JSON audit reports for compliance.
 - [ ] **Collaborative Profiles:** Support for managing shared team configurations.
 - [ ] **Internationalization (i18n):** Localization support for global users.
 - [ ] **Custom Presets:** Ability for users to save their own configuration templates.
