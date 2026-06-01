@@ -65,3 +65,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Core NextDNS API integration.
 - Dashboard with query and blocked stats.
 - Allow/Deny list management.
+
+
+
