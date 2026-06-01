@@ -367,7 +367,7 @@ export const messageHandlers = {
         const securityChecks = {
             dga: { name: "DGA Protection", score: 10 },
             nrd: { name: "Block Newly Registered Domains", score: 10 },
-            parkedDomains: { name: "Block Parked Domains", score: 5 },
+            parking: { name: "Block Parked Domains", score: 5 },
             csam: { name: "Block CSAM", score: 15 }
         };
 

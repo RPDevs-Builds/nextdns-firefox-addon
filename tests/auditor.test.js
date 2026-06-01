@@ -80,7 +80,7 @@ describe('Security Auditor (Phase 4.4)', () => {
             success: true,
             response: {
                 json: () => {
-                    if (url.includes('/security')) return Promise.resolve({ dga: false, nrd: false, parkedDomains: false, csam: false });
+                    if (url.includes('/security')) return Promise.resolve({ dga: false, nrd: false, parking: false, csam: false });
                     return Promise.resolve({});
                 }
             }
@@ -101,7 +101,7 @@ describe('Security Auditor (Phase 4.4)', () => {
             success: true,
             response: {
                 json: () => {
-                    if (url.includes('/security')) return Promise.resolve({ dga: true, nrd: true, parkedDomains: true, csam: true });
+                    if (url.includes('/security')) return Promise.resolve({ dga: true, nrd: true, parking: true, csam: true });
                     if (url.includes('/privacy')) return Promise.resolve({ blocklists: [{ id: 'dep-1', name: 'Old List' }] });
                     return Promise.resolve({});
                 }
