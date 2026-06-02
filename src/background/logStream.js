@@ -43,6 +43,17 @@ class LogStreamManager {
                 try {
                     const log = JSON.parse(e.data);
                     browser.runtime.sendMessage({ type: "LIVE_LOG", log }).catch(() => {});
+                    
+                    if (log.status === 'blocked' && ['malware', 'cryptojacking', 'c2'].includes(log.category)) {
+                        browser.runtime.sendMessage({
+                            type: "PUSH_NOTIFICATION",
+                            payload: {
+                                type: "security",
+                                severity: "high",
+                                message: `Blocked ${log.category} request: ${log.name || log.domain}`
+                            }
+                        }).catch(() => {});
+                    }
                 } catch (err) {}
             };
 

@@ -14,6 +14,7 @@
  * @property {Object} currentProfileData - Cached allowlist and denylist for the active profile.
  * @property {Object} lastNotificationTimes - Timestamp tracking for throttled notifications.
  * @property {boolean} isInitialized - Whether the background services have finished bootstrapping.
+ * @property {Array} notifications - List of recent security and maintenance notifications.
  */
 export const state = {
     tabRequests: {},
@@ -23,7 +24,8 @@ export const state = {
         denylist: new Set()
     },
     lastNotificationTimes: {},
-    isInitialized: false
+    isInitialized: false,
+    notifications: []
 };
 
 /** @constant {string} Base URL for the NextDNS API */

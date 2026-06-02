@@ -14,6 +14,7 @@ import { loadToggles, syncLists, renderLists } from './blocks.js';
 import { runSecurityAudit, runIntelligentDebugger, exportDebuggerSnapshot, exportAuditReport } from './tools.js';
 import { loadRules, saveAutomationRule } from './scheduler.js';
 import { loadPresets } from './presets.js';
+import { renderNotifications, initNotifications } from './notifications.js';
 
 /**
  * Global initialization handler. Runs on DOMContentLoaded.
@@ -27,6 +28,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         initWindowMode();
         initGlobalEventListeners();
         initTabNavigation();
+        initNotifications();
         console.log("[DNS Forge] UI Listeners bound.");
     } catch (e) { console.error("[DNS Forge] Sync UI setup failed:", e); }
 
@@ -238,6 +240,7 @@ function initGlobalEventListeners() {
             if (tabId === 'lists') renderLists();
             if (tabId === 'toggles') loadToggles();
             if (tabId === 'logs') loadNativeLogs();
+            if (tabId === 'notifications') renderNotifications();
         };
     });
 
@@ -414,6 +417,11 @@ function initGlobalEventListeners() {
     // Logs SSE listener
     browser.runtime.onMessage.addListener((msg) => {
         if (msg.type === "LIVE_LOG") handleLiveLog(msg.log);
+        if (msg.type === "PUSH_NOTIFICATION") {
+            state.notifications.unshift({ ...msg.payload, timestamp: Date.now() });
+            if (state.notifications.length > 50) state.notifications.pop();
+            renderNotifications();
+        }
     });
 
     // Delegated listeners for dynamic toggles

@@ -403,7 +403,36 @@ export const messageHandlers = {
             });
         } catch (e) { console.warn("Audit metadata load failed", e); }
 
-        return { success: true, score: Math.max(0, score), recommendations };
+        const finalScore = Math.max(0, score);
+        if (finalScore < 80) {
+            messageHandlers.PUSH_NOTIFICATION({
+                payload: {
+                    type: "maintenance",
+                    severity: finalScore < 50 ? "high" : "medium",
+                    message: `Security Audit Score: ${finalScore}. Review recommendations.`
+                }
+            });
+        }
+
+        return { success: true, score: finalScore, recommendations };
+    },
+    /**
+     * Pushes a new notification to the Action Center.
+     * @param {Object} msg - The notification payload.
+     */
+    PUSH_NOTIFICATION: async (msg) => {
+        const { type, severity, message } = msg.payload;
+        const notification = {
+            id: Date.now().toString(),
+            timestamp: Date.now(),
+            type,
+            severity,
+            message,
+            read: false
+        };
+        state.notifications.unshift(notification);
+        if (state.notifications.length > 50) state.notifications.pop();
+        return { success: true };
     },
     /**
      * Saves metadata scraped from the NextDNS dashboard by content scripts.

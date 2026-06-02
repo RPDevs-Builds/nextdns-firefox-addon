@@ -24,7 +24,8 @@ export const state = {
     lastBlocksData: null,
     activeTab: 'dashboard',
     activeThemeId: 'default-dark',
-    savedThemes: {}
+    savedThemes: {},
+    notifications: []
 };
 
 export const PRESET_THEMES = {
