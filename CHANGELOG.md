@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Auditor Reports:** Export Security Auditor health scores and recommendations as JSON.
 - **100% JSDoc Coverage:** Completed a full documentation sweep across all 20+ extension modules.
 - **Technical Reference Wiki:** Launched [dns-forge.github.io](https://dns-forge.github.io) with auto-generated API documentation.
+- **Action Center (Phase 8.1):** Implemented centralized notification infrastructure for real-time security alerts and maintenance recommendations.
 
 ### Changed
 - **Major Toolchain Modernization:** Upgraded to **Jest v30** and **web-ext v10** with native ESM support.
