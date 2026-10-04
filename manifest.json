@@ -34,6 +34,9 @@
       "matches": [
         "https://my.nextdns.io/*"
       ],
+      "css": [
+        "src/content.css"
+      ],
       "js": [
         "src/content.js"
       ]

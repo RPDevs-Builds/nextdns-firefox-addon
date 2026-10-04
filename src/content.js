@@ -1,29 +1,11 @@
 const INTERNAL_API = "https://api.nextdns.io/profiles";
 
-const MOBILE_CSS = `
-    @media (max-width: 600px) {
-        .container { width: 100% !important; padding: 10px !important; }
-        .navbar-brand { font-size: 1.1rem !important; }
-        .nav-link { padding: 0.5rem !important; }
-        .list-group-item { padding: 10px !important; }
-        .btn-sm { padding: 4px 8px !important; font-size: 0.75rem !important; }
-        .nxm-profile-note { margin: 10px 0 !important; }
-    }
-    .nxm-collapsible-header { cursor: pointer; user-select: none; }
-    .nxm-collapsible-header:hover { background: rgba(255,255,255,0.05); }
-    .nxm-collapse-btn { font-size: 0.8em; opacity: 0.6; }
-`;
-
 let webGuiConfig = { master: true, tlds: true, blocklists: true, logs: true, desc: true, notes: true, filter: true };
 let domSelectors = null;
 let hostnameAliases = {};
 
 // Initialize config and listen for live changes
 async function initConfig() {
-  const style = document.createElement('style');
-  style.id = 'nxm-mobile-css';
-  style.textContent = MOBILE_CSS;
-  document.head.appendChild(style);
 
   try {
     const url = browser.runtime.getURL("src/domSelectors.json");
@@ -316,10 +298,21 @@ async function injectPrivacyButtons() {
     const btnGroup = document.createElement('div');
     btnGroup.id = 'nxm-privacy-controls';
     btnGroup.style.cssText = 'display: inline-flex; gap: 8px; margin-left: 12px; vertical-align: middle; align-items: center;';
-    btnGroup.innerHTML = `
-      <input type="search" id="nxm-search-blocklists" placeholder="Filter Blocklists..." class="form-control form-control-sm" style="height: 22px; width: 150px; font-size: 0.75em;">
-      <button id="nxm-toggle-blocklists" class="btn btn-secondary" style="background: #6c757d; border-color: #6c757d; padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;" aria-label="Toggle Blocklists">👁️ Toggle List</button>
-    `;
+    const searchInput = document.createElement('input');
+    searchInput.type = 'search';
+    searchInput.id = 'nxm-search-blocklists';
+    searchInput.placeholder = 'Filter Blocklists...';
+    searchInput.className = 'form-control form-control-sm';
+    searchInput.style.cssText = 'height: 22px; width: 150px; font-size: 0.75em;';
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.id = 'nxm-toggle-blocklists';
+    toggleBtn.className = 'btn btn-secondary';
+    toggleBtn.style.cssText = 'background: #6c757d; border-color: #6c757d; padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;';
+    toggleBtn.setAttribute('aria-label', 'Toggle Blocklists');
+    toggleBtn.textContent = '👁️ Toggle List';
+
+    btnGroup.append(searchInput, toggleBtn);
     
     h5.style.display = 'inline-block';
     h5.style.margin = '0';
@@ -391,13 +384,39 @@ async function injectPageButtons() {
     const btnGroup = document.createElement('div');
     btnGroup.id = 'nxm-tld-controls';
     btnGroup.style.cssText = 'display: inline-flex; gap: 6px; margin-left: 12px; vertical-align: middle; align-items: center;';
-    btnGroup.innerHTML = `
-      <input type="search" id="nxm-search-tlds" placeholder="Filter TLDs..." class="form-control form-control-sm" style="height: 22px; width: 120px; font-size: 0.75em;">
-      <button id="nxm-enable-all" class="btn btn-primary" style="padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;">Enable ALL</button>
-      <button id="nxm-disable-all" class="btn btn-danger" style="padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;">Disable ALL</button>
-      <button id="nxm-restore" class="btn btn-secondary" style="display: none; padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;">Restore</button>
-      <button id="nxm-toggle-table" class="btn btn-secondary" style="background: #6c757d; border-color: #6c757d; padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;" aria-label="Toggle TLDs">👁️ Toggle</button>
-    `;
+    const searchInput = document.createElement('input');
+    searchInput.type = 'search';
+    searchInput.id = 'nxm-search-tlds';
+    searchInput.placeholder = 'Filter TLDs...';
+    searchInput.className = 'form-control form-control-sm';
+    searchInput.style.cssText = 'height: 22px; width: 120px; font-size: 0.75em;';
+
+    const enableAllBtn = document.createElement('button');
+    enableAllBtn.id = 'nxm-enable-all';
+    enableAllBtn.className = 'btn btn-primary';
+    enableAllBtn.style.cssText = 'padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;';
+    enableAllBtn.textContent = 'Enable ALL';
+
+    const disableAllBtn = document.createElement('button');
+    disableAllBtn.id = 'nxm-disable-all';
+    disableAllBtn.className = 'btn btn-danger';
+    disableAllBtn.style.cssText = 'padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;';
+    disableAllBtn.textContent = 'Disable ALL';
+
+    const restoreBtn = document.createElement('button');
+    restoreBtn.id = 'nxm-restore';
+    restoreBtn.className = 'btn btn-secondary';
+    restoreBtn.style.cssText = 'display: none; padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;';
+    restoreBtn.textContent = 'Restore';
+
+    const toggleTableBtn = document.createElement('button');
+    toggleTableBtn.id = 'nxm-toggle-table';
+    toggleTableBtn.className = 'btn btn-secondary';
+    toggleTableBtn.style.cssText = 'background: #6c757d; border-color: #6c757d; padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;';
+    toggleTableBtn.setAttribute('aria-label', 'Toggle TLDs');
+    toggleTableBtn.textContent = '👁️ Toggle';
+
+    btnGroup.append(searchInput, enableAllBtn, disableAllBtn, restoreBtn, toggleTableBtn);
     
     h5.style.display = 'inline-block';
     h5.style.margin = '0';
@@ -526,20 +545,57 @@ async function injectLogsSettingsControls() {
   // Phase 2.5: Compact Mode, Highlighting, and Search
   const extraControls = document.createElement('div');
   extraControls.className = 'd-flex align-items-center gap-3 ms-4';
-  extraControls.style.cssText = 'border-left: 1px solid var(--border-color); padding-left: 15px;';
-  extraControls.innerHTML = `
-    <div class="form-check form-switch" title="Highlight blocked rows in red and allowed in green">
-        <input class="form-check-input" type="checkbox" id="nxm-logs-highlight" checked>
-        <label class="form-check-label" style="font-size:0.8em; margin-left: 5px;">Highlight</label>
-    </div>
-    <div class="form-check form-switch" title="Reduce vertical padding in logs">
-        <input class="form-check-input" type="checkbox" id="nxm-logs-compact">
-        <label class="form-check-label" style="font-size:0.8em; margin-left: 5px;">Compact</label>
-    </div>
-    <input type="search" id="nxm-logs-search" class="form-control form-control-sm" placeholder="Search..." style="width: 120px; height: 24px; font-size: 0.8em;">
-    <button id="nxm-logs-refresh" class="btn btn-secondary" style="background: transparent; border: none; font-size: 1.2em; line-height: 1; padding: 0 5px; color: var(--text-color);" title="Refresh Logs">⟲</button>
-    <div id="nxm-log-counters" style="font-size: 0.8em; opacity: 0.8; margin-left: 10px; white-space: nowrap;"></div>
-  `;
+  const highlightDiv = document.createElement('div');
+  highlightDiv.className = 'form-check form-switch';
+  highlightDiv.title = 'Highlight blocked rows in red and allowed in green';
+
+  const highlightInput = document.createElement('input');
+  highlightInput.className = 'form-check-input';
+  highlightInput.type = 'checkbox';
+  highlightInput.id = 'nxm-logs-highlight';
+  highlightInput.checked = true;
+
+  const highlightLabel = document.createElement('label');
+  highlightLabel.className = 'form-check-label';
+  highlightLabel.style.cssText = 'font-size:0.8em; margin-left: 5px;';
+  highlightLabel.textContent = 'Highlight';
+  highlightDiv.append(highlightInput, highlightLabel);
+
+  const compactDiv = document.createElement('div');
+  compactDiv.className = 'form-check form-switch';
+  compactDiv.title = 'Reduce vertical padding in logs';
+
+  const compactInput = document.createElement('input');
+  compactInput.className = 'form-check-input';
+  compactInput.type = 'checkbox';
+  compactInput.id = 'nxm-logs-compact';
+
+  const compactLabel = document.createElement('label');
+  compactLabel.className = 'form-check-label';
+  compactLabel.style.cssText = 'font-size:0.8em; margin-left: 5px;';
+  compactLabel.textContent = 'Compact';
+  compactDiv.append(compactInput, compactLabel);
+
+  const searchInput = document.createElement('input');
+  searchInput.type = 'search';
+  searchInput.id = 'nxm-logs-search';
+  searchInput.className = 'form-control form-control-sm';
+  searchInput.placeholder = 'Search...';
+  searchInput.style.cssText = 'width: 120px; height: 24px; font-size: 0.8em;';
+
+  const refreshBtn = document.createElement('button');
+  refreshBtn.id = 'nxm-logs-refresh';
+  refreshBtn.className = 'btn btn-secondary';
+  refreshBtn.style.cssText = 'background: transparent; border: none; font-size: 1.2em; line-height: 1; padding: 0 5px; color: var(--text-color);';
+  refreshBtn.title = 'Refresh Logs';
+  refreshBtn.textContent = '⟲';
+  refreshBtn.onclick = () => location.reload();
+
+  const logCounters = document.createElement('div');
+  logCounters.id = 'nxm-log-counters';
+  logCounters.style.cssText = 'font-size: 0.8em; opacity: 0.8; margin-left: 10px; white-space: nowrap;';
+
+  extraControls.append(highlightDiv, compactDiv, searchInput, refreshBtn, logCounters);
   group.appendChild(extraControls);
 
   headerContainer.appendChild(group);
@@ -586,10 +642,6 @@ async function injectLogsSettingsControls() {
   };
 
   applyLogStyles();
-  
-  const refreshBtn = document.getElementById('nxm-logs-refresh');
-  if (refreshBtn) refreshBtn.onclick = () => location.reload();
-  
   updateLogCounters();
 }
 
@@ -1144,12 +1196,20 @@ function applyDomainListStyling() {
         
         // Bold root domain, lighten subdomains
         const parts = text.split('.');
+        domainEl.replaceChildren();
         if (parts.length > 2) {
             const root = parts.slice(-2).join('.');
             const sub = parts.slice(0, -2).join('.');
-            domainEl.innerHTML = `<span style="opacity: 0.6">${sub}.</span><strong>${root}</strong>`;
+            const subSpan = document.createElement('span');
+            subSpan.style.opacity = '0.6';
+            subSpan.textContent = `${sub}.`;
+            const strong = document.createElement('strong');
+            strong.textContent = root;
+            domainEl.append(subSpan, strong);
         } else {
-            domainEl.innerHTML = `<strong>${text}</strong>`;
+            const strong = document.createElement('strong');
+            strong.textContent = text;
+            domainEl.append(strong);
         }
     });
 }

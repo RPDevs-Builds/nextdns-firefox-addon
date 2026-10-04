@@ -1,0 +1,28 @@
+/**
+ * DNS Forge - NextDNS Content Stylesheet
+ * Injected declaratively into my.nextdns.io pages for responsive mobile layouts
+ * and custom collapsible UI elements.
+ */
+
+@media (max-width: 600px) {
+    .container { width: 100% !important; padding: 10px !important; }
+    .navbar-brand { font-size: 1.1rem !important; }
+    .nav-link { padding: 0.5rem !important; }
+    .list-group-item { padding: 10px !important; }
+    .btn-sm { padding: 4px 8px !important; font-size: 0.75rem !important; }
+    .nxm-profile-note { margin: 10px 0 !important; }
+}
+
+.nxm-collapsible-header {
+    cursor: pointer;
+    user-select: none;
+}
+
+.nxm-collapsible-header:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.nxm-collapse-btn {
+    font-size: 0.8em;
+    opacity: 0.6;
+}
