@@ -2,6 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DNS Forge</title>
   <style>
     /* CSS Variables for consistent theming */
@@ -43,10 +44,19 @@
       overflow: hidden;
     }
 
-    html.mode-sidebar, html.mode-popout,
-    body.mode-sidebar, body.mode-popout {
+    html.mode-sidebar, html.mode-popout, html.mode-tab,
+    body.mode-sidebar, body.mode-popout, body.mode-tab {
       width: 100%;
       height: 100%;
+    }
+
+    @media (max-width: 600px), (hover: none) and (pointer: coarse) {
+      html, body {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+      }
     }
 
     /* Custom scrollbars */

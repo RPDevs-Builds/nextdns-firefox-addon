@@ -54,11 +54,17 @@ export async function initializeBackground() {
     await setupContextMenus();
     
     // 3. Register Listeners
-    browser.webRequest.onBeforeRequest.addListener(
-        requestListener,
-        { urls: ["<all_urls>"] },
-        ["blocking"]
-    );
+    try {
+        if (browser.webRequest?.onBeforeRequest?.addListener) {
+            browser.webRequest.onBeforeRequest.addListener(
+                requestListener,
+                { urls: ["<all_urls>"] },
+                ["blocking"]
+            );
+        }
+    } catch (e) {
+        console.warn("[Background] webRequestBlocking not supported on this platform (e.g. Android):", e);
+    }
 
     browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (messageHandlers[msg.type]) {
@@ -138,15 +144,23 @@ browser.action.onClicked.addListener(async () => {
         const iconClickAction = await storage.get("iconClickAction", "popup");
         console.log("[Background] Icon clicked. Action:", iconClickAction);
         if (iconClickAction === 'sidebar') {
-            browser.sidebarAction.open();
+            if (browser.sidebarAction?.open) {
+                browser.sidebarAction.open();
+            } else if (browser.tabs?.create) {
+                browser.tabs.create({ url: browser.runtime.getURL('src/popup.html?mode=tab') });
+            }
         } else if (iconClickAction === 'popout') {
             const url = browser.runtime.getURL('src/popup.html?mode=popout');
-            browser.windows.create({
-                url,
-                type: 'popup',
-                width: 380,
-                height: 600
-            });
+            if (browser.windows?.create) {
+                browser.windows.create({
+                    url,
+                    type: 'popup',
+                    width: 380,
+                    height: 600
+                });
+            } else if (browser.tabs?.create) {
+                browser.tabs.create({ url });
+            }
         }
     } catch (e) {
         console.error("[Background] onClicked handler failed:", e);
@@ -155,43 +169,54 @@ browser.action.onClicked.addListener(async () => {
 
 /**
  * Creates the extension's context menu entries for allowing/denying domains.
+ * Safely guards against platforms without context menu support (e.g. Firefox for Android).
  * @async
  */
 async function setupContextMenus() {
-    await browser.menus.removeAll();
-    browser.menus.create({
-        id: "dns-forge-allow",
-        title: "Allow domain '%s'",
-        contexts: ["link", "page"],
-    });
-    browser.menus.create({
-        id: "dns-forge-deny",
-        title: "Deny domain '%s'",
-        contexts: ["link", "page"],
-    });
+    if (!browser.menus || !browser.menus.create) {
+        console.log("[Background] Context menus not supported on this platform (e.g. Android). Skipping.");
+        return;
+    }
+    try {
+        await browser.menus.removeAll();
+        browser.menus.create({
+            id: "dns-forge-allow",
+            title: "Allow domain '%s'",
+            contexts: ["link", "page"],
+        });
+        browser.menus.create({
+            id: "dns-forge-deny",
+            title: "Deny domain '%s'",
+            contexts: ["link", "page"],
+        });
+    } catch (e) {
+        console.warn("[Background] Failed to setup context menus:", e);
+    }
 }
 
 /**
  * Listener for context menu clicks.
  * Identifies the domain from the clicked context and updates the profile's allow/deny list.
  */
-browser.menus.onClicked.addListener(async (info, tab) => {
-    try {
-        const urlStr = info.linkUrl || info.pageUrl || tab?.url;
-        if (!urlStr) return;
-        const domain = new URL(urlStr).hostname;
-        const activeProfileId = await storage.get("activeProfile");
+if (browser.menus?.onClicked?.addListener) {
+    browser.menus.onClicked.addListener(async (info, tab) => {
+        try {
+            const urlStr = info.linkUrl || info.pageUrl || tab?.url;
+            if (!urlStr) return;
+            const domain = new URL(urlStr).hostname;
+            const activeProfileId = await storage.get("activeProfile");
 
-        if (info.menuItemId === "dns-forge-allow") {
-            await manageDomain(activeProfileId, "allowlist", domain, "add");
-        } else if (info.menuItemId === "dns-forge-deny") {
-            await manageDomain(activeProfileId, "denylist", domain, "add");
+            if (info.menuItemId === "dns-forge-allow") {
+                await manageDomain(activeProfileId, "allowlist", domain, "add");
+            } else if (info.menuItemId === "dns-forge-deny") {
+                await manageDomain(activeProfileId, "denylist", domain, "add");
+            }
+            await updateProfileCache();
+        } catch (e) {
+            console.error("[ContextMenus] Error handling click:", e);
         }
-        await updateProfileCache();
-    } catch (e) {
-        console.error("[ContextMenus] Error handling click:", e);
-    }
-});
+    });
+}
 
 // Start Init
 initializeBackground();

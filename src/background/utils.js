@@ -39,11 +39,17 @@ export async function handleBlockNotification(domain) {
     
     if (now - lastTime > 10000) {
         state.lastNotificationTimes[domain] = now;
-        browser.notifications.create({
-            type: "basic",
-            iconUrl: "/icons/icon-48.png",
-            title: "NextDNS Blocked",
-            message: `${domain} was blocked.`
-        });
+        try {
+            if (browser.notifications?.create) {
+                browser.notifications.create({
+                    type: "basic",
+                    iconUrl: "/icons/icon-48.png",
+                    title: "NextDNS Blocked",
+                    message: `${domain} was blocked.`
+                });
+            }
+        } catch (e) {
+            console.warn("[Background] Notification failed:", e);
+        }
     }
 }

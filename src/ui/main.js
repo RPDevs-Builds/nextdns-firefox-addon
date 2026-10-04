@@ -187,20 +187,31 @@ async function handleIconClickModeRedirect() {
     try {
         if (!window.browser?.storage?.sync) return false;
         const { iconClickAction } = await browser.storage.sync.get("iconClickAction");
-        if (iconClickAction === 'popout' && window.browser?.windows?.create) {
+        if (iconClickAction === 'popout') {
             const url = browser.runtime.getURL('src/popup.html?mode=popout');
-            await browser.windows.create({
-                url,
-                type: 'popup',
-                width: 400,
-                height: 600
-            });
+            if (window.browser?.windows?.create) {
+                await browser.windows.create({
+                    url,
+                    type: 'popup',
+                    width: 400,
+                    height: 600
+                });
+            } else if (window.browser?.tabs?.create) {
+                await browser.tabs.create({ url });
+            }
             window.close();
             return true;
-        } else if (iconClickAction === 'sidebar' && window.browser?.sidebarAction?.open) {
-            await browser.sidebarAction.open();
-            window.close();
-            return true;
+        } else if (iconClickAction === 'sidebar') {
+            if (window.browser?.sidebarAction?.open) {
+                await browser.sidebarAction.open();
+                window.close();
+                return true;
+            } else if (window.browser?.tabs?.create) {
+                const url = browser.runtime.getURL('src/popup.html?mode=tab');
+                await browser.tabs.create({ url });
+                window.close();
+                return true;
+            }
         }
     } catch (e) {
         console.warn("[DNS Forge] Error checking iconClickAction mode redirect:", e);
@@ -434,18 +445,26 @@ function initGlobalEventListeners() {
     });
 
     document.getElementById('sidebar-ui-btn')?.addEventListener('click', () => {
-        browser.sidebarAction.open();
+        if (browser.sidebarAction?.open) {
+            browser.sidebarAction.open();
+        } else if (browser.tabs?.create) {
+            browser.tabs.create({ url: browser.runtime.getURL('src/popup.html?mode=tab') });
+        }
         window.close();
     });
 
     document.getElementById('popout-ui-btn')?.addEventListener('click', () => {
         const url = browser.runtime.getURL('src/popup.html?mode=popout');
-        browser.windows.create({
-            url,
-            type: 'popup',
-            width: 380,
-            height: 600
-        });
+        if (browser.windows?.create) {
+            browser.windows.create({
+                url,
+                type: 'popup',
+                width: 380,
+                height: 600
+            });
+        } else if (browser.tabs?.create) {
+            browser.tabs.create({ url });
+        }
         window.close();
     });
 
