@@ -26,11 +26,11 @@ DNS Forge is a high-performance Firefox extension designed for advanced [NextDNS
 - **Mirror Mode (Phase 6):** Automatically replicate setting changes across multiple selected profiles in real-time.
 - **Self-Updating Metadata Engine:** Automatically scrapes and saves NextDNS TLDs, Blocklists, and Services as you browse, ensuring the manager is always current.
 - **DNS Rewrites Manager:** Full CRUD support for custom domain-to-IP mappings (e.g., `nas.local` → `192.168.1.50`) directly from the browser.
-- **Config Presets:** One-click deployment of optimized settings (e.g., "Max Privacy", "Family Safe") via the new Presets engine.
+- **Config Presets:** One-click deployment of curated security, privacy, and parental profiles (Security, Privacy, Balanced, Minimal, Extreme) directly inside Options.
 - **Profile Comparison Tool:** Perform deep diffs between two profiles to identify discrepancies in security and privacy configurations.
 - **Expert Performance Panel:** Fine-tune resolution speed with toggles for **ECS (EDNS Client Subnet)**, **CNAME Flattening**, **Cache Boost**, and **Web3 Support**.
 - **Intelligent TLD & Blocklist Manager:** Manage 1,300+ TLDs and 80+ blocklists with alphabetical jump-links and advanced sorting.
-- **Profile Quick-Switcher:** Instant profile switching via a dropdown in the dashboard navigation bar.
+- **Profile Quick-Switcher:** Instant profile switching and auto-detection via the dashboard header and options dropdown.
 
 ### 🤝 Community & Contribution
 - **Agentic Orchestration:** We provide an [AGENTS.md](AGENTS.md) to guide AI-assisted development.
@@ -48,6 +48,37 @@ DNS Forge is a high-performance Firefox extension designed for advanced [NextDNS
 
 ---
 
+## 🧭 Navigation & Menu Hierarchy
+
+DNS Forge features a streamlined two-tier navigation structure designed for swift access to telemetry and granular configuration.
+
+### 1. Main Navigation Tabs
+
+| Tab | Identifier | Key Capabilities |
+|---|---|---|
+| `🏠 Overview` | `dashboard` | Active domain quick actions (Allow, Deny, Temp Allow 5m), privacy grade score, 24-hour total and blocked query counters, real-time tab requests monitor, and the **Intelligent Tab Debugger**. |
+| `🛡️ Protection` | `toggles` | Categorized NextDNS protection controls across 6 sub-views: **Security**, **Privacy**, **Performance**, **Parental Control**, **Blocklists** (80+ lists with search and popularity sort), and **TLDs**. |
+| `📋 Lists` | `lists` | Full CRUD management for the profile's **Allowlist** and **Denylist**, with real-time domain filtering, single-domain addition, and multi-line bulk import. |
+| `📡 Logs` | `logs` | Real-time SSE query stream and native NextDNS query history with multi-condition filtering (Allowed, Blocked, Allowlist, Denylist), device selector, and protocol filter (DoH, DNS). |
+| `🔔 Alerts` | `notifications` | Centralized **Action Center** receiving live security notifications and system alerts with instant clear-all support. |
+| `⚙️ Options` | `settings` | Comprehensive extension configuration categorized into 9 dedicated functional sub-menus. |
+
+### 2. Options (`⚙️ Options`) Sub-Menu Hierarchy
+
+| Sub-Tab | Identifier | Description & Functions |
+|---|---|---|
+| `🔌 Connection` | `setup` | **Connection & Credentials**: Configure NextDNS API key, select or auto-detect active profile, and refresh account profiles.<br>**Browser & Extension Preferences**: Configure toolbar icon action (Popup, Sidebar, Popout), desktop block notifications, log auto-refresh toggling, and polling interval. |
+| `🪄 Presets` | `presets` | **Curated Profile Presets**: One-click application of optimized configuration templates (**Security**, **Privacy**, **Balanced**, **Minimal**, **Extreme**) to the active profile with instant setting synchronization. |
+| `🎨 Appearance` | `customize` | **Extension Theme Engine**: Switch between built-in themes (Default Dark, Default Light, OLED Black, Dracula, Gruvbox) or design custom palettes with live color pickers (Background, Panel, Border, Hover, Text, Muted Text). |
+| `🌐 Web Console` | `webgui` | **NextDNS Web GUI Enhancements**: Injects enhancements into `my.nextdns.io` (TLD rollups, blocklist rollups, inline log action buttons, extended query filters, contextual domain descriptions, and profile notes in header). |
+| `⏰ Automation` | `schedules` | **Time-Based Automation**: Create scheduled background rules to enable or disable specific parental control services or security shields at designated times of day. |
+| `🪞 Mirroring` | `mirror` | **Multi-Profile Replication**: Select one or more secondary profiles in your account to automatically mirror any configuration changes made in the extension. |
+| `💾 Data & Backup` | `manager` | **Settings Portability**: Export full extension configuration (sync + local storage) as JSON or restore from file.<br>**Query Log Storage**: Export cached query logs to CSV or clear records.<br>**Centralized Data Manager**: Shortcut to open the full-screen standalone management console (`viewer.html`). |
+| `📊 Analytics` | `analytics` | **Traffic Insights**: View 24-hour total queries, blocked percentage, and traffic overview fetched from the NextDNS Analytics API. |
+| `🛡️ Security Audit` | `audit` | **Profile Health Scanner**: Evaluates active profile settings against NextDNS best practices, renders a visual health score ring, and provides one-click remediation buttons for identified vulnerabilities. |
+
+---
+
 ## 🛠️ Engineering Standards
 
 This extension enforces a **Zero-Regression Mandate** via architectural isolation:
@@ -61,10 +92,10 @@ This extension enforces a **Zero-Regression Mandate** via architectural isolatio
 ## 🧪 Development & Testing
 
 A comprehensive Jest suite covers the entire lifecycle of the addon:
-- **ESM-Native Suite:** Entire test codebase (35+ tests) migrated to ESM for consistency with the core engine.
-- **Intelligent Logic:** Verification of the Debugger, Scheduler, Auditor, and SSE streaming.
-- **Persistence & Recovery:** Storage auto-heal and API key extraction.
-- **UI & Customization:** Real-time dashboard injection and surgical cleanup.
+- **ESM-Native Suite:** Entire test codebase (45 tests across 15 suites) running on native ESM for consistency with the core engine.
+- **Intelligent Logic:** Verification of the Debugger, Scheduler, Auditor, Presets engine, and SSE streaming.
+- **Persistence & Recovery:** Storage auto-heal, API key extraction, and multi-profile synchronization.
+- **UI & Customization:** Sub-menu scoping, real-time dashboard injection, and surgical cleanup.
 
 Run the full suite:
 ```bash
@@ -81,7 +112,7 @@ npm run lint:addon
 ## 📦 Build Pipeline
 
 Every push to `main` triggers a GitHub Action that:
-1. Executes the full 35-test suite.
+1. Executes the full 45-test suite across all 15 test modules.
 2. Performs a 100%-compliance linting scan on the built artifact.
 3. Builds the production `.xpi` and `.zip` artifacts.
 4. **Automated Releases:** Creates a GitHub Release and uploads artifacts whenever a version tag (`v*`) is pushed.

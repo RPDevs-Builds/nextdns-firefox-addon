@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.9.5] - 2026-10-04
+
+### Added
+- **Presets Sub-Menu Integration:** Moved configuration presets into Options as a dedicated sub-view with one-click deployment for Security, Privacy, Balanced, Minimal, and Extreme profiles.
+- **Nine-Category Options Sub-Nav:** Reorganized Options into 9 focused sub-tabs: `Connection`, `Presets`, `Appearance`, `Web Console`, `Automation`, `Mirroring`, `Data & Backup`, `Analytics`, and `Security Audit`.
+- **Three-Button Quick Domain Action:** Re-architected active domain control in the Overview tab into an intuitive grid with `Allow`, `Deny`, and `Temp (5m)`.
+
+### Changed
+- **Main Navigation Streamlining:** Streamlined the main tab bar to 6 primary views (`Overview`, `Protection`, `Lists`, `Logs`, `Alerts`, `Options`), eliminating top-level preset clutter.
+- **Connection vs Preference Decoupling:** Separated NextDNS credentials and profile selection from browser behavior preferences (toolbar icon action, notification toggles, polling intervals).
+- **Appearance vs Web Injections Decoupling:** Separated popup theme palette styling from NextDNS website DOM customization controls.
+- **Test Suite Expansion:** Expanded end-to-end integrity test suite to 45 passing tests across 15 test modules.
+
 ## [0.9.4] - 2026-06-01
 
 ### Added
