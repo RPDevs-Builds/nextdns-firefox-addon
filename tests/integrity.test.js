@@ -62,7 +62,7 @@ describe('System Integrity - End-to-End Wiring', () => {
     });
 
     test('All main navigation tabs are clickable and update state', () => {
-        const tabs = ['dashboard', 'logs', 'lists', 'toggles', 'presets', 'settings'];
+        const tabs = ['dashboard', 'logs', 'lists', 'toggles', 'notifications', 'settings'];
         tabs.forEach(tabId => {
             const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
             expect(btn).not.toBeNull();
@@ -122,5 +122,17 @@ describe('System Integrity - End-to-End Wiring', () => {
 
         expect(document.getElementById('settings-customize').classList.contains('active')).toBe(true);
         expect(document.getElementById('settings-setup').classList.contains('active')).toBe(false);
+    });
+
+    test('Presets sub-tab under Options is clickable and activates presets view', () => {
+        const settingsTab = document.querySelector('.tab-btn[data-tab="settings"]');
+        settingsTab.click();
+
+        const presetsBtn = document.querySelector('#settings-sub-nav .sub-tab-btn[data-sub="presets"]');
+        expect(presetsBtn).not.toBeNull();
+        presetsBtn.click();
+
+        expect(document.getElementById('settings-presets').classList.contains('active')).toBe(true);
+        expect(document.getElementById('presets-list')).not.toBeNull();
     });
 });

@@ -236,21 +236,20 @@
   </div>
 
   <div class="tab-bar">
-    <button class="tab-btn active" data-tab="dashboard">🏠 Dash</button>
-    <button class="tab-btn" data-tab="logs">📡 Logs</button>
+    <button class="tab-btn active" data-tab="dashboard">🏠 Overview</button>
+    <button class="tab-btn" data-tab="toggles">🛡️ Protection</button>
     <button class="tab-btn" data-tab="lists">📋 Lists</button>
-    <button class="tab-btn" data-tab="toggles">⚡ Blocks</button>
-    <button class="tab-btn" data-tab="presets">🪄 Presets</button>
+    <button class="tab-btn" data-tab="logs">📡 Logs</button>
     <button class="tab-btn" data-tab="notifications">🔔 Alerts</button>
     <button class="tab-btn hidden" id="tab-btn-labs" data-tab="labs">🧪 Labs</button>
     <button class="tab-btn" data-tab="settings">⚙️ Options</button>
   </div>
 
-  <!-- Tab: Dashboard -->
+  <!-- Tab: Dashboard / Overview -->
   <div id="tab-dashboard" class="tab-content active">
     <div class="sub-nav" id="dashboard-sub-nav" style="background: var(--bg-main);">
-      <button class="sub-tab-btn active" data-sub="overview">Overview</button>
-      <button class="sub-tab-btn" data-sub="debugger">Debugger</button>
+      <button class="sub-tab-btn active" data-sub="overview">📊 Overview</button>
+      <button class="sub-tab-btn" data-sub="debugger">🔍 Debugger</button>
     </div>
 
     <div id="dash-overview" class="dashboard-sub-content active" style="padding: 15px;">
@@ -259,16 +258,16 @@
           Profile: Detecting...
         </div>
         
-        <label for="domain-input" style="font-size: 0.85em; margin-bottom: 6px; display: block; font-weight: 600; color: var(--text-muted);">TARGET DOMAIN</label>
+        <label for="domain-input" style="font-size: 0.75em; margin-bottom: 6px; display: block; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px;">TARGET DOMAIN ACTIONS</label>
         <input type="text" id="domain-input" placeholder="Loading current domain...">
         
-        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 8px; margin-bottom: 15px;">
           <button id="allow-btn" class="btn-allow">Allow</button>
           <button id="deny-btn" class="btn-deny">Deny</button>
+          <button id="snooze-btn" class="btn-allow" style="background-color: var(--warning); padding: 8px 4px; font-size: 0.8em;">⏳ Temp (5m)</button>
         </div>
-        <button id="snooze-btn" class="btn-allow" style="background-color: var(--warning);">⏳ Temp Allow (5m)</button>
         
-        <div class="grid" style="margin-top: 15px;">
+        <div class="grid" style="margin-bottom: 15px;">
           <div class="panel-box flex-center" style="flex-direction: column; margin-bottom: 0;">
             <div style="font-size: 0.7em; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Page Grade</div>
             <div id="privacy-score" style="font-size: 2.2em; font-weight: 800; margin-top: 2px; color: var(--accent);">-</div>
@@ -276,12 +275,12 @@
           <div class="panel-box" style="margin-bottom: 0;">
             <div style="font-size: 0.7em; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">24h Queries</div>
             <div id="stat-total" style="font-size: 1.2em; margin-top: 5px; font-weight: 700;">...</div>
-            <div style="font-size: 0.85em; color: var(--danger); font-weight: 600;">Block: <span id="stat-blocked">...</span></div>
+            <div style="font-size: 0.85em; color: var(--danger); font-weight: 600;">Blocked: <span id="stat-blocked">...</span></div>
           </div>
         </div>
         
-        <div class="flex-between" style="margin: 15px 0 8px;">
-          <div id="tab-log-header" style="font-size: 0.9em; font-weight: 700; color: var(--text-muted);">TAB REQUESTS</div>
+        <div class="flex-between" style="margin: 0 0 8px;">
+          <div id="tab-log-header" style="font-size: 0.75em; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px;">ACTIVE TAB REQUESTS</div>
           <button id="toggle-tab-tracking-btn" class="btn-secondary" style="width: auto; padding: 4px 10px; font-size: 0.75em; font-weight: 700;">⏸️ LIVE</button>
         </div>
         <div id="tab-log" style="background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; max-height: 150px; overflow-y: auto; font-size: 0.85em; font-family: monospace;">
@@ -291,8 +290,8 @@
 
     <div id="dash-debugger" class="dashboard-sub-content" style="padding: 15px;">
         <div class="panel-box">
-            <h4>Intelligent Debugger</h4>
-            <p>Correlating tab requests with NextDNS logs to identify which blocklist is breaking this page.</p>
+            <h4>Intelligent Tab Debugger</h4>
+            <p>Correlate web requests from the active tab with your NextDNS logs to identify which blocklist is breaking this page.</p>
             <button id="run-debugger-btn" class="btn-allow" style="background-color: var(--accent);">🔍 Analyze This Page</button>
         </div>
         <div id="debugger-results" class="dashboard-panel" style="margin-top: 15px;">
@@ -380,20 +379,11 @@
     <div id="toggles-container" class="dashboard-panel" style="padding: 15px;"></div>
   </div>
 
-  <!-- Tab: Presets -->
-  <div id="tab-presets" class="tab-content" style="padding: 15px;">
-    <h3 style="margin-top:0;">Configuration Presets</h3>
-    <p style="font-size:0.8em; color:var(--text-muted); margin-bottom:15px;">Apply recommended settings with one click.</p>
-    <div id="presets-list">
-        <!-- Presets rendered here -->
-    </div>
-  </div>
-
   <!-- Tab: Notifications (Action Center) -->
   <div id="tab-notifications" class="tab-content" style="padding: 15px;">
     <div class="panel-box">
       <div class="flex-between">
-        <h4>Action Center</h4>
+        <h4>Action Center Alerts</h4>
         <button id="notifications-clear-btn" class="btn-secondary" style="width: auto; padding: 2px 8px; font-size: 0.7em;">Clear All</button>
       </div>
       <div id="notifications-container" class="dashboard-panel" style="margin-top: 10px;" aria-live="polite">
@@ -405,153 +395,81 @@
   <!-- Tab: Settings (Options) -->
   <div id="tab-settings" class="tab-content">
     <div class="sub-nav" id="settings-sub-nav">
-      <button class="sub-tab-btn active" data-sub="setup">Setup</button>
-      <button class="sub-tab-btn" data-sub="analytics">Analytics</button>
-      <button class="sub-tab-btn" data-sub="manager">Data Management</button>
-      <button class="sub-tab-btn" data-sub="customize">Customize</button>
-      <button class="sub-tab-btn" data-sub="schedules">Schedules</button>
-      <button class="sub-tab-btn" data-sub="audit">Audit</button>
+      <button class="sub-tab-btn active" data-sub="setup">🔌 Connection</button>
+      <button class="sub-tab-btn" data-sub="presets">🪄 Presets</button>
+      <button class="sub-tab-btn" data-sub="customize">🎨 Appearance</button>
+      <button class="sub-tab-btn" data-sub="webgui">🌐 Web Console</button>
+      <button class="sub-tab-btn" data-sub="schedules">⏰ Automation</button>
+      <button class="sub-tab-btn" data-sub="mirror">🪞 Mirroring</button>
+      <button class="sub-tab-btn" data-sub="manager">💾 Data & Backup</button>
+      <button class="sub-tab-btn" data-sub="analytics">📊 Analytics</button>
+      <button class="sub-tab-btn" data-sub="audit">🛡️ Security Audit</button>
     </div>
 
-    <!-- Setup Sub-Tab -->
+    <!-- 1. Connection Sub-Tab -->
     <div id="settings-setup" class="settings-sub-content active" style="padding: 15px;">
-      <div class="panel-box">
-        <h4>Connection Setup</h4>
-        <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85em; color: var(--text-muted);">API KEY</label>
-        <input type="text" id="setting-api-key" placeholder="Paste your API key here">
+      <div class="panel-box" style="margin-bottom: 15px;">
+        <h4>Connection & Credentials</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Link DNS Forge to your NextDNS account via your API key.</p>
         
-        <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85em; color: var(--text-muted);">PROFILE OVERRIDE</label>
-        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
-          <select id="setting-profile-select" style="margin-bottom: 0;">
-            <option value="">Auto-Detect (Default)</option>
+        <label for="setting-api-key" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">API Key</label>
+        <input type="text" id="setting-api-key" placeholder="Paste your NextDNS API key">
+        
+        <label for="setting-profile-select" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Active Profile</label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <select id="setting-profile-select" style="margin-bottom: 0; flex-grow: 1;">
+            <option value="">⚡ Auto-Detect (Default)</option>
           </select>
-          <button id="setting-fetch-profiles" class="btn-secondary" style="width: 42px;" title="Fetch Profiles">🔄</button>
+          <button id="setting-fetch-profiles" class="btn-secondary" style="width: 42px; height: 38px; display: flex; align-items: center; justify-content: center;" title="Fetch Profiles from NextDNS">🔄</button>
         </div>
+      </div>
 
-        <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85em; color: var(--text-muted);">ICON CLICK ACTION</label>
+      <div class="panel-box" style="margin-bottom: 15px;">
+        <h4>Browser & Extension Preferences</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Configure popup behavior and background monitoring.</p>
+        
+        <label for="setting-icon-action" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Toolbar Icon Action</label>
         <select id="setting-icon-action">
           <option value="popup">Open Dropdown Popup</option>
           <option value="sidebar">Open Native Sidebar</option>
           <option value="popout">Open Standalone Popout</option>
         </select>
 
-        <label class="checkbox-label"><input type="checkbox" id="setting-auto-refresh"> Auto-Refresh Logs by Default</label>
-        <label class="checkbox-label"><input type="checkbox" id="setting-block-notif"> Enable Block Notifications</label>
-        <label class="checkbox-label"><input type="checkbox" id="setting-enable-labs"> Enable Experimental Labs</label>
+        <label class="checkbox-label"><input type="checkbox" id="setting-auto-refresh"> Auto-Refresh Logs Automatically</label>
+        <label class="checkbox-label"><input type="checkbox" id="setting-block-notif"> Desktop Notifications on Blocked Requests</label>
+        <label class="checkbox-label"><input type="checkbox" id="setting-enable-labs"> Enable Experimental Labs Features</label>
 
-        <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85em; color: var(--text-muted);">REFRESH INTERVAL (SECONDS)</label>
-        <input type="number" id="setting-refresh-time" min="1" max="300">
+        <label for="setting-refresh-time" style="display: block; margin-top: 10px; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Log Refresh Interval (Seconds)</label>
+        <input type="number" id="setting-refresh-time" min="1" max="300" style="margin-bottom: 0;">
+      </div>
 
-        <button id="save-settings-btn" class="btn-allow">💾 Save Options</button>
+      <button id="save-settings-btn" class="btn-allow">💾 Save Options</button>
+    </div>
+
+    <!-- 2. Presets Sub-Tab (Moved under Options) -->
+    <div id="settings-presets" class="settings-sub-content" style="padding: 15px;">
+      <div class="panel-box">
+        <h4>Configuration Presets</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 15px;">Apply curated security, privacy, and parental control profiles with a single click.</p>
+        <div id="presets-list">
+          <!-- Presets rendered here by presets.js -->
+        </div>
       </div>
     </div>
 
-    <!-- Analytics Sub-Tab -->
-    <div id="settings-analytics" class="settings-sub-content" style="padding: 15px;">
-      <div class="panel-box">
-        <h4>Quick Insights</h4>
-        <div id="analytics-overview" style="font-size: 0.9em; color: var(--text-muted); line-height: 1.6;">
-          Connecting to analytics server...
-        </div>
-      </div>
-    </div>
-
-    <!-- Data Management Sub-Tab -->
-    <div id="settings-manager" class="settings-sub-content" style="padding: 15px;">
-      <div class="panel-box">
-        <h4>Mirror Mode</h4>
-        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Replicate settings changes to other profiles automatically.</p>
-        <div id="mirror-profiles-list" style="margin-bottom: 10px; max-height: 100px; overflow-y: auto;">
-          <!-- Populated by main.js -->
-        </div>
-        <button id="save-mirror-btn" class="btn-allow" style="width: 100%; height: 32px; padding: 0; font-size: 0.85em;">💾 Save Mirror Config</button>
-      </div>
-
-      <div class="panel-box" style="text-align: center; border-color: var(--accent);">
-        <h4 style="color: var(--text-main);">Centralized Data Manager</h4>
-        <p>Edit Domain Descriptions, Profile Notes, Log Filters, and Device Aliases in a full-screen window.</p>
-        <button id="launch-full-manager-btn" class="btn-allow" style="background-color: var(--accent);">🚀 Launch Manager</button>
-      </div>
-
-      <div class="panel-box">
-        <h4>Log Management</h4>
-        <div class="grid">
-          <button id="download-logs-btn" class="btn-secondary">📥 CSV Export</button>
-          <button id="wipe-logs-btn" class="btn-deny">🗑️ Clear Logs</button>
-        </div>
-      </div>
-
-      <div class="panel-box">
-        <h4>Settings Portability</h4>
-        <div class="grid">
-          <button id="export-settings-btn" class="btn-allow" style="background-color: #5d6d7e;">📤 Backup All</button>
-          <button id="import-settings-btn" class="btn-secondary">📥 Restore</button>
-        </div>
-        <input type="file" id="import-settings-file" class="hidden" accept=".json">
-      </div>
-    </div>
-
-    <!-- Customize Sub-Tab -->
+    <!-- 3. Appearance & Theme Engine Sub-Tab -->
     <div id="settings-customize" class="settings-sub-content" style="padding: 15px;">
       <div class="panel-box">
-        <h4>Website Customizations</h4>
-        <div class="flex-between" style="margin-bottom:12px;">
-          <label for="web-gui-master-toggle" style="font-size:0.9em; font-weight:bold; cursor:pointer; flex: 1;">Enable Website Customizations</label>
-          <label class="switch">
-            <input type="checkbox" id="web-gui-master-toggle">
-            <span class="slider round"></span>
-          </label>
-        </div>
-        
-        <div id="web-gui-features" style="margin-left: 5px; display: grid; gap: 10px; transition: opacity 0.3s; border-left: 2px solid var(--border-color); padding-left: 10px;">
-          <div style="margin-bottom: 5px;">
-            <strong style="display:block; margin-bottom:5px; font-size:0.85em; color:var(--text-muted); text-transform:uppercase;">TLD Options</strong>
-            <div class="flex-between" style="margin-bottom:8px;">
-              <label for="web-gui-tlds-toggle" style="font-size:0.8em; color:var(--text-main); cursor:pointer; flex: 1;">Rollup TLDs to Menu</label>
-              <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
-                <input type="checkbox" id="web-gui-tlds-toggle">
-                <span class="slider round"></span>
-              </label>
-            </div>
-          </div>
-          <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 2px 0;">
-          <div style="margin-bottom: 5px;">
-            <strong style="display:block; margin-bottom:5px; font-size:0.85em; color:var(--text-muted); text-transform:uppercase;">Privacy Options</strong>
-            <div class="flex-between" style="margin-bottom:8px;">
-              <label for="web-gui-blocklists-toggle" style="font-size:0.8em; color:var(--text-main); cursor:pointer; flex: 1;">Rollup Blocklists to Menu</label>
-              <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
-                <input type="checkbox" id="web-gui-blocklists-toggle">
-                <span class="slider round"></span>
-              </label>
-            </div>
-          </div>
-          <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 2px 0;">
-          <div style="margin-bottom: 5px;">
-            <strong style="display:block; margin-bottom:5px; font-size:0.85em; color:var(--text-muted); text-transform:uppercase;">Other Features</strong>
-            <label class="checkbox-label" style="font-size:0.8em; margin-bottom:8px;">
-               <input type="checkbox" id="web-gui-logs-toggle"> Logs Enhancements
-            </label>
-            <label class="checkbox-label" style="font-size:0.8em; margin-bottom:8px;">
-               <input type="checkbox" id="web-gui-filter-toggle"> Filters
-            </label>
-            <label class="checkbox-label" style="font-size:0.8em; margin-bottom:8px;">
-               <input type="checkbox" id="web-gui-desc-toggle"> Descriptions
-            </label>
-            <label class="checkbox-label" style="font-size:0.8em; margin-bottom:8px;">
-               <input type="checkbox" id="web-gui-notes-toggle"> Profile Notes
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel-box">
         <h4>Theme Engine</h4>
-        <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85em; color: var(--text-muted);">ACTIVE THEME</label>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Customize the appearance and color palette of DNS Forge.</p>
+        
+        <label for="theme-selector" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Active Theme</label>
         <div class="flex-between" style="gap: 8px; margin-bottom: 12px;">
           <select id="theme-selector" style="margin-bottom: 0; flex-grow: 1;"></select>
-          <button id="delete-theme-btn" class="btn-deny" style="width: 42px; display: none;">🗑️</button>
+          <button id="delete-theme-btn" class="btn-deny" style="width: 42px; display: none;" title="Delete Theme">🗑️</button>
         </div>
         
+        <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Custom Color Palette</label>
         <div class="grid" style="background: rgba(0,0,0,0.15); padding: 12px; border-radius: 6px;">
           <label class="flex-between" style="font-size: 0.8em;">BG <input type="color" id="color-bg-main"></label>
           <label class="flex-between" style="font-size: 0.8em;">Panel <input type="color" id="color-bg-panel"></label>
@@ -563,25 +481,92 @@
         
         <div style="display: flex; gap: 8px; margin-top: 12px;">
           <input type="text" id="theme-name-input" placeholder="New theme name..." style="margin-bottom: 0; flex-grow: 1;">
-          <button id="save-theme-btn" class="btn-allow flex-center" style="width: 42px; padding: 0;">💾</button>
+          <button id="save-theme-btn" class="btn-allow flex-center" style="width: 42px; padding: 0;" title="Save Custom Theme">💾</button>
         </div>
       </div>
     </div>
 
-    <!-- Schedules Sub-Tab -->
+    <!-- 4. Web Console Enhancements Sub-Tab -->
+    <div id="settings-webgui" class="settings-sub-content" style="padding: 15px;">
+      <div class="panel-box">
+        <h4>NextDNS Web Console Enhancements</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Inject usability enhancements into the official NextDNS web dashboard (my.nextdns.io).</p>
+        
+        <div class="flex-between" style="margin-bottom: 12px; background: rgba(0,0,0,0.15); padding: 10px 12px; border-radius: 6px;">
+          <div>
+            <label for="web-gui-master-toggle" style="font-size: 0.9em; font-weight: bold; cursor: pointer; display: block;">Enable Web Console Features</label>
+            <span style="font-size: 0.75em; color: var(--text-muted);">Activate UI enhancements on my.nextdns.io</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="web-gui-master-toggle">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        
+        <div id="web-gui-features" style="margin-left: 5px; display: grid; gap: 10px; transition: opacity 0.3s; border-left: 2px solid var(--border-color); padding-left: 10px;">
+          <div style="margin-bottom: 5px;">
+            <strong style="display: block; margin-bottom: 5px; font-size: 0.8em; color: var(--text-muted); text-transform: uppercase;">Navigation & Layout</strong>
+            <div class="flex-between" style="margin-bottom: 8px;">
+              <label for="web-gui-tlds-toggle" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Rollup TLDs to Sub-Menu</label>
+              <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+                <input type="checkbox" id="web-gui-tlds-toggle">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="flex-between" style="margin-bottom: 8px;">
+              <label for="web-gui-blocklists-toggle" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Rollup Blocklists to Sub-Menu</label>
+              <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+                <input type="checkbox" id="web-gui-blocklists-toggle">
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+          <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 2px 0;">
+          <div style="margin-bottom: 5px;">
+            <strong style="display: block; margin-bottom: 5px; font-size: 0.8em; color: var(--text-muted); text-transform: uppercase;">Log & Data Enhancements</strong>
+            <label class="checkbox-label" style="font-size: 0.85em; margin-bottom: 8px;">
+               <input type="checkbox" id="web-gui-logs-toggle"> Inline Quick-Action Buttons in Logs
+            </label>
+            <label class="checkbox-label" style="font-size: 0.85em; margin-bottom: 8px;">
+               <input type="checkbox" id="web-gui-filter-toggle"> Extended Query Log Filters
+            </label>
+            <label class="checkbox-label" style="font-size: 0.85em; margin-bottom: 8px;">
+               <input type="checkbox" id="web-gui-desc-toggle"> Contextual Domain Descriptions
+            </label>
+            <label class="checkbox-label" style="font-size: 0.85em; margin-bottom: 8px;">
+               <input type="checkbox" id="web-gui-notes-toggle"> Profile Notes in Header
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Automation Sub-Tab -->
     <div id="settings-schedules" class="settings-sub-content" style="padding: 15px;">
         <div class="panel-box">
             <h4>Automation Rules</h4>
+            <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Schedule parental control services and security toggles by time of day.</p>
             <div id="rules-list" style="margin-bottom: 15px; max-height: 180px; overflow-y: auto;" aria-live="polite"></div>
             <hr style="border-color: var(--border-color); border-style: dashed; margin: 15px 0;">
-            <input type="text" id="rule-name" placeholder="Rule Name" style="margin-bottom: 8px;">
+            
+            <label for="rule-name" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase;">Rule Name</label>
+            <input type="text" id="rule-name" placeholder="e.g. Bedtime YouTube Block" style="margin-bottom: 8px;">
+            
             <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                <input type="time" id="rule-trigger" style="margin-bottom: 0;">
-                <select id="rule-action" style="margin-bottom: 0; width: 120px;">
-                    <option value="enable">Enable</option>
-                    <option value="disable">Disable</option>
-                </select>
+                <div style="flex: 1;">
+                  <label for="rule-trigger" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase;">Time</label>
+                  <input type="time" id="rule-trigger" style="margin-bottom: 0;">
+                </div>
+                <div style="width: 120px;">
+                  <label for="rule-action" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase;">Action</label>
+                  <select id="rule-action" style="margin-bottom: 0;">
+                      <option value="enable">Enable</option>
+                      <option value="disable">Disable</option>
+                  </select>
+                </div>
             </div>
+            
+            <label for="rule-target" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase;">Target Setting</label>
             <select id="rule-target">
                 <option value="parentalControl/services:youtube">YouTube (Service)</option>
                 <option value="parentalControl/services:tiktok">TikTok (Service)</option>
@@ -591,11 +576,63 @@
         </div>
     </div>
 
-    <!-- Audit Sub-Tab -->
+    <!-- 6. Mirror Mode Sub-Tab -->
+    <div id="settings-mirror" class="settings-sub-content" style="padding: 15px;">
+      <div class="panel-box">
+        <h4>Mirror Mode (Multi-Profile Replication)</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Automatically replicate settings changes made in this extension to other profiles in your account.</p>
+        <div id="mirror-profiles-list" style="margin-bottom: 12px; max-height: 180px; overflow-y: auto;">
+          <!-- Populated by main.js -->
+        </div>
+        <button id="save-mirror-btn" class="btn-allow">💾 Save Mirror Config</button>
+      </div>
+    </div>
+
+    <!-- 7. Data & Backup Sub-Tab -->
+    <div id="settings-manager" class="settings-sub-content" style="padding: 15px;">
+      <div class="panel-box">
+        <h4>Settings Backup & Restore</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Export or restore all extension settings, custom themes, and scheduled rules as a JSON file.</p>
+        <div class="grid">
+          <button id="export-settings-btn" class="btn-allow" style="background-color: #5d6d7e;">📤 Backup All</button>
+          <button id="import-settings-btn" class="btn-secondary">📥 Restore</button>
+        </div>
+        <input type="file" id="import-settings-file" class="hidden" accept=".json">
+      </div>
+
+      <div class="panel-box">
+        <h4>Query Log Storage</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Export locally cached query logs or clear stored records.</p>
+        <div class="grid">
+          <button id="download-logs-btn" class="btn-secondary">📥 CSV Export</button>
+          <button id="wipe-logs-btn" class="btn-deny">🗑️ Clear Logs</button>
+        </div>
+      </div>
+
+      <div class="panel-box" style="text-align: center; border-color: var(--accent);">
+        <h4 style="color: var(--text-main);">Centralized Data Manager</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Manage domain notes, device aliases, and filters in a dedicated full-screen console.</p>
+        <button id="launch-full-manager-btn" class="btn-allow" style="background-color: var(--accent);">🚀 Launch Manager</button>
+      </div>
+    </div>
+
+    <!-- 8. Analytics Sub-Tab -->
+    <div id="settings-analytics" class="settings-sub-content" style="padding: 15px;">
+      <div class="panel-box">
+        <h4>Traffic Analytics & Insights</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Real-time query volume and blocked traffic statistics from NextDNS.</p>
+        <div id="analytics-overview" style="font-size: 0.9em; color: var(--text-muted); line-height: 1.6;">
+          Connecting to analytics server...
+        </div>
+      </div>
+    </div>
+
+    <!-- 9. Security Audit Sub-Tab -->
     <div id="settings-audit" class="settings-sub-content" style="padding: 15px;">
         <div class="panel-box" style="text-align: center;">
             <h4 style="margin-top: 0; color: var(--accent);">Security Auditor</h4>
-            <div id="audit-score-container" style="margin: 20px 0;">
+            <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 15px;">Scan your active profile against NextDNS best practices.</p>
+            <div id="audit-score-container" style="margin: 15px 0;">
                 <div id="audit-score-ring" style="font-size: 3em; font-weight: 800; color: var(--accent);">--</div>
             </div>
             <button id="run-audit-btn" class="btn-allow">🛡️ Run Security Scan</button>

@@ -241,7 +241,14 @@ function initGlobalEventListeners() {
                     refreshActiveProfileAndUI();
                 }
             }
-            if (tabId === 'settings') loadProfiles();
+            if (tabId === 'settings') {
+                loadProfiles();
+                const activeSub = document.querySelector('#settings-sub-nav .sub-tab-btn.active')?.dataset.sub;
+                if (activeSub === 'presets') loadPresets();
+                if (activeSub === 'mirror') initMirrorModeUI();
+                if (activeSub === 'schedules') loadRules();
+                if (activeSub === 'webgui') initCustomizeUI();
+            }
             if (tabId === 'presets') loadPresets();
             if (tabId === 'lists') renderLists();
             if (tabId === 'toggles') loadToggles();
@@ -272,8 +279,13 @@ function initGlobalEventListeners() {
             } else if (parentTab === 'settings') {
                 document.querySelectorAll('.settings-sub-content').forEach(p => p.classList.remove('active'));
                 document.getElementById(`settings-${subId}`)?.classList.add('active');
+                if (subId === 'presets') loadPresets();
                 if (subId === 'analytics') loadAnalytics();
-                if (subId === 'customize') initCustomizeUI();
+                if (subId === 'customize') populateThemeDropdown();
+                if (subId === 'webgui') initCustomizeUI();
+                if (subId === 'schedules') loadRules();
+                if (subId === 'mirror') initMirrorModeUI();
+                if (subId === 'setup') loadProfiles();
             }
         };
     });
