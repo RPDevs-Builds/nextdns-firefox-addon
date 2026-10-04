@@ -12,13 +12,62 @@ export function escapeHTML(str) {
 }
 
 /**
- * Helper to safely set HTML from a string (AMO compliance)
+ * Helper to recursively sanitize a DOM node tree by stripping
+ * dangerous tags, event handlers (on*), and javascript: URIs.
+ * @param {Node} node - DOM node to sanitize.
+ */
+function sanitizeNode(node) {
+    if (node.nodeType !== 1) return;
+
+    const dangerousTags = ['SCRIPT', 'IFRAME', 'OBJECT', 'EMBED', 'BASE'];
+    if (dangerousTags.includes(node.tagName)) {
+        node.remove();
+        return;
+    }
+
+    const attrs = Array.from(node.attributes);
+    for (const attr of attrs) {
+        const name = attr.name.toLowerCase();
+        const value = attr.value.trim().toLowerCase();
+
+        if (name.startsWith('on')) {
+            node.removeAttribute(attr.name);
+            continue;
+        }
+
+        if (['href', 'src', 'action', 'formaction', 'xlink:href'].includes(name)) {
+            const cleanVal = value.replace(/[\x00-\x1F\x7F-\x9F\s]/g, '');
+            if (cleanVal.startsWith('javascript:') || cleanVal.startsWith('vbscript:')) {
+                node.removeAttribute(attr.name);
+            }
+        }
+    }
+
+    const children = Array.from(node.childNodes);
+    for (const child of children) {
+        sanitizeNode(child);
+    }
+}
+
+/**
+ * Helper to safely set HTML from a string (AMO compliance).
+ * Sanitizes input through DOMParser and active node sanitization.
+ * @param {HTMLElement} el - Target element.
+ * @param {string} html - HTML content to inject safely.
  */
 export function setSafeHTML(el, html) {
     if (!el) return;
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
-    el.innerHTML = '';
+    
+    const rootNodes = Array.from(doc.body.childNodes);
+    for (const node of rootNodes) {
+        sanitizeNode(node);
+    }
+
+    while (el.firstChild) {
+        el.removeChild(el.firstChild);
+    }
     while (doc.body.firstChild) {
         el.appendChild(doc.body.firstChild);
     }

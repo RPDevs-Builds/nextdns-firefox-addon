@@ -228,10 +228,10 @@
   <div class="header-container flex-between">
     <h3>DNS Forge</h3>
     <div class="header-controls">
-      <button id="theme-toggle-btn" class="header-btn flex-center" title="Quick Toggle Light/Dark">🌗</button>
-      <button id="refresh-view-btn" class="header-btn flex-center" title="Refresh Active Tab">🔄</button>
-      <button id="sidebar-ui-btn" class="header-btn flex-center" title="Dock to Sidebar">🗂️</button>
-      <button id="popout-ui-btn" class="header-btn flex-center" title="Open in dedicated window">↗️</button>
+      <button id="theme-toggle-btn" class="header-btn flex-center" title="Quick Toggle Light/Dark" aria-label="Quick Toggle Light/Dark">🌗</button>
+      <button id="refresh-view-btn" class="header-btn flex-center" title="Refresh Active Tab" aria-label="Refresh Active Tab">🔄</button>
+      <button id="sidebar-ui-btn" class="header-btn flex-center" title="Dock to Sidebar" aria-label="Dock to Sidebar">🗂️</button>
+      <button id="popout-ui-btn" class="header-btn flex-center" title="Open in dedicated window" aria-label="Open in dedicated window">↗️</button>
     </div>
   </div>
 
@@ -329,7 +329,7 @@
         <option value="dns">DNS</option>
       </select>
     </div>
-    <div id="logs-container" class="dashboard-panel"></div>
+    <div id="logs-container" class="dashboard-panel" aria-live="polite"></div>
   </div>
 
   <!-- Tab: Lists -->
@@ -396,7 +396,7 @@
         <h4>Action Center</h4>
         <button id="notifications-clear-btn" class="btn-secondary" style="width: auto; padding: 2px 8px; font-size: 0.7em;">Clear All</button>
       </div>
-      <div id="notifications-container" class="dashboard-panel" style="margin-top: 10px;">
+      <div id="notifications-container" class="dashboard-panel" style="margin-top: 10px;" aria-live="polite">
         <div style="text-align: center; color: var(--text-muted); padding: 20px;">No new alerts.</div>
       </div>
     </div>
@@ -572,7 +572,7 @@
     <div id="settings-schedules" class="settings-sub-content" style="padding: 15px;">
         <div class="panel-box">
             <h4>Automation Rules</h4>
-            <div id="rules-list" style="margin-bottom: 15px; max-height: 180px; overflow-y: auto;"></div>
+            <div id="rules-list" style="margin-bottom: 15px; max-height: 180px; overflow-y: auto;" aria-live="polite"></div>
             <hr style="border-color: var(--border-color); border-style: dashed; margin: 15px 0;">
             <input type="text" id="rule-name" placeholder="Rule Name" style="margin-bottom: 8px;">
             <div style="display: flex; gap: 8px; margin-bottom: 8px;">

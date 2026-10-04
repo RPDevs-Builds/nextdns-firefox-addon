@@ -217,6 +217,8 @@ const observer = new MutationObserver((mutations) => {
                             node.style.opacity = '0';
                             console.warn("[DNS Forge] Suppressed NextDNS Network Error modal.");
                             showToast("Reconnecting to NextDNS...");
+                        } else if (node.textContent.includes('Add a blocklist')) {
+                            setTimeout(() => injectBlocklistModalSort(node), 100);
                         }
                     }
                     applyDeviceAliases(node);
@@ -316,7 +318,7 @@ async function injectPrivacyButtons() {
     btnGroup.style.cssText = 'display: inline-flex; gap: 8px; margin-left: 12px; vertical-align: middle; align-items: center;';
     btnGroup.innerHTML = `
       <input type="search" id="nxm-search-blocklists" placeholder="Filter Blocklists..." class="form-control form-control-sm" style="height: 22px; width: 150px; font-size: 0.75em;">
-      <button id="nxm-toggle-blocklists" class="btn btn-secondary" style="background: #6c757d; border-color: #6c757d; padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;">👁️ Toggle List</button>
+      <button id="nxm-toggle-blocklists" class="btn btn-secondary" style="background: #6c757d; border-color: #6c757d; padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;" aria-label="Toggle Blocklists">👁️ Toggle List</button>
     `;
     
     h5.style.display = 'inline-block';
@@ -394,7 +396,7 @@ async function injectPageButtons() {
       <button id="nxm-enable-all" class="btn btn-primary" style="padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;">Enable ALL</button>
       <button id="nxm-disable-all" class="btn btn-danger" style="padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;">Disable ALL</button>
       <button id="nxm-restore" class="btn btn-secondary" style="display: none; padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;">Restore</button>
-      <button id="nxm-toggle-table" class="btn btn-secondary" style="background: #6c757d; border-color: #6c757d; padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;">👁️ Toggle</button>
+      <button id="nxm-toggle-table" class="btn btn-secondary" style="background: #6c757d; border-color: #6c757d; padding: 1px 8px; font-size: 0.75em; height: 22px; line-height: 1;" aria-label="Toggle TLDs">👁️ Toggle</button>
     `;
     
     h5.style.display = 'inline-block';
@@ -535,6 +537,8 @@ async function injectLogsSettingsControls() {
         <label class="form-check-label" style="font-size:0.8em; margin-left: 5px;">Compact</label>
     </div>
     <input type="search" id="nxm-logs-search" class="form-control form-control-sm" placeholder="Search..." style="width: 120px; height: 24px; font-size: 0.8em;">
+    <button id="nxm-logs-refresh" class="btn btn-secondary" style="background: transparent; border: none; font-size: 1.2em; line-height: 1; padding: 0 5px; color: var(--text-color);" title="Refresh Logs">⟲</button>
+    <div id="nxm-log-counters" style="font-size: 0.8em; opacity: 0.8; margin-left: 10px; white-space: nowrap;"></div>
   `;
   group.appendChild(extraControls);
 
@@ -564,14 +568,38 @@ async function injectLogsSettingsControls() {
   document.getElementById('nxm-logs-highlight').onchange = applyLogStyles;
   
   document.getElementById('nxm-logs-search').oninput = (e) => {
-      const query = e.target.value.toLowerCase();
+      const terms = e.target.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
       const rows = document.querySelectorAll('.Logs .list-group-item:not(.bg-2)');
       rows.forEach(row => {
-          row.style.display = row.textContent.toLowerCase().includes(query) ? '' : 'none';
+          const text = row.textContent.toLowerCase();
+          let show = true;
+          for (const term of terms) {
+              if (term.startsWith('-') && term.length > 1) {
+                  if (text.includes(term.substring(1))) show = false;
+              } else {
+                  if (!text.includes(term)) show = false;
+              }
+          }
+          row.style.display = show ? '' : 'none';
       });
+      updateLogCounters();
   };
 
   applyLogStyles();
+  
+  const refreshBtn = document.getElementById('nxm-logs-refresh');
+  if (refreshBtn) refreshBtn.onclick = () => location.reload();
+  
+  updateLogCounters();
+}
+
+function updateLogCounters() {
+    const counters = document.getElementById('nxm-log-counters');
+    if (!counters) return;
+    const all = document.querySelectorAll('.Logs .list-group-item:not(.bg-2)');
+    let visible = 0;
+    all.forEach(r => { if (r.style.display !== 'none') visible++; });
+    counters.textContent = `Showing ${visible} of ${all.length}`;
 }
 
 async function applyLogFilters() {
@@ -624,6 +652,7 @@ function matchPattern(domain, pattern) {
 }
 
 async function injectDomainDescriptions() {
+  injectBulkAddDomains();
   const items = Array.from(document.querySelectorAll('.list-group-item'));
   const { domainDescriptions = {} } = await browser.storage.sync.get("domainDescriptions");
 
@@ -736,6 +765,17 @@ function injectLogActions() {
     if (!domainEl) return;
     const domain = domainEl.textContent.trim();
     if (!domain || domain.includes(' ')) return;
+
+    const timeEl = row.querySelector('time');
+    if (timeEl && timeEl.dateTime && !row.dataset.nxmTimeFixed) {
+        row.dataset.nxmTimeFixed = "true";
+        const d = new Date(timeEl.dateTime);
+        const timeStr = d.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const absSpan = document.createElement('span');
+        absSpan.textContent = ` [${timeStr}]`;
+        absSpan.style.cssText = 'font-size: 0.9em; opacity: 0.7; margin-left: 5px;';
+        if (timeEl.parentElement) timeEl.parentElement.appendChild(absSpan);
+    }
 
     const actionContainer = document.createElement('div');
     actionContainer.className = 'nxm-log-actions';
@@ -991,3 +1031,125 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true });
   }
 });
+
+function injectBlocklistModalSort(modal) {
+    if (modal.querySelector('#nxm-sort-blocklists')) return;
+    const header = modal.querySelector('.modal-header');
+    if (!header) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'nxm-sort-blocklists';
+    btn.className = 'btn btn-secondary btn-sm';
+    btn.textContent = 'Sort A-Z';
+    btn.onclick = () => {
+        const list = modal.querySelector('.list-group');
+        if (!list) return;
+        const items = Array.from(list.children);
+        items.sort((a, b) => {
+            const tA = a.querySelector('strong, h5, span:not(.badge)')?.textContent.trim().toLowerCase() || a.textContent.trim().toLowerCase();
+            const tB = b.querySelector('strong, h5, span:not(.badge)')?.textContent.trim().toLowerCase() || b.textContent.trim().toLowerCase();
+            return tA.localeCompare(tB);
+        });
+        items.forEach(i => list.appendChild(i));
+    };
+    header.style.position = 'relative';
+    header.appendChild(btn);
+}
+
+function injectBulkAddDomains() {
+    const isList = window.location.pathname.includes('allowlist') || window.location.pathname.includes('denylist');
+    if (!isList) return;
+    
+    let form = document.querySelector('form');
+    if (!form || document.getElementById('nxm-bulk-add-btn')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'nxm-bulk-add-btn';
+    btn.className = 'btn btn-secondary';
+    btn.textContent = 'Bulk Add';
+    btn.style.marginLeft = '10px';
+    btn.onclick = async (e) => {
+        e.preventDefault();
+        const domainsStr = prompt("Enter domains separated by commas or newlines:");
+        if (!domainsStr) return;
+        
+        const domains = domainsStr.split(/[\s,]+/).map(d => d.trim()).filter(d => d.length > 0 && d.includes('.'));
+        if (domains.length === 0) return alert("No valid domains found.");
+        if (!confirm(`Add ${domains.length} domains?`)) return;
+        
+        const profileId = window.location.pathname.split('/')[1] || getProfileId();
+        const listType = window.location.pathname.includes('allowlist') ? 'allowlist' : 'denylist';
+        
+        btn.disabled = true;
+        btn.textContent = 'Adding...';
+        
+        const batchSize = 5;
+        for (let i = 0; i < domains.length; i += batchSize) {
+            const batch = domains.slice(i, i + batchSize);
+            await Promise.all(batch.map(domain => 
+                browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId, listType, action: "add", domain })
+            ));
+        }
+        window.location.reload();
+    };
+    
+    // Find the submit button and insert after it
+    const submitBtn = form.querySelector('button[type="submit"]') || form.lastElementChild;
+    if (submitBtn) {
+        submitBtn.parentElement.appendChild(btn);
+    }
+}
+
+function applyDomainListStyling() {
+    const isList = window.location.pathname.includes('allowlist') || window.location.pathname.includes('denylist');
+    if (!isList) return;
+    
+    const list = document.querySelector('.list-group');
+    if (!list || list.dataset.nxmStyled) return;
+    list.dataset.nxmStyled = 'true';
+    
+    // Add Sort button
+    const container = list.parentElement;
+    if (container && !document.getElementById('nxm-sort-domains')) {
+        const sortBtn = document.createElement('button');
+        sortBtn.id = 'nxm-sort-domains';
+        sortBtn.className = 'btn btn-secondary btn-sm mb-2';
+        sortBtn.textContent = 'Sort A-Z';
+        sortBtn.onclick = () => {
+            const items = Array.from(list.children).filter(el => el.classList.contains('list-group-item') && !el.id.includes('nxm-bulk-header'));
+            items.sort((a, b) => {
+                const tA = a.querySelector('.notranslate')?.textContent.trim().toLowerCase() || "";
+                const tB = b.querySelector('.notranslate')?.textContent.trim().toLowerCase() || "";
+                
+                // Root domain sorting
+                const partsA = tA.split('.');
+                const rootA = partsA.slice(-2).join('.');
+                const partsB = tB.split('.');
+                const rootB = partsB.slice(-2).join('.');
+                
+                if (rootA !== rootB) return rootA.localeCompare(rootB);
+                return tA.localeCompare(tB);
+            });
+            items.forEach(i => list.appendChild(i));
+        };
+        container.insertBefore(sortBtn, list);
+    }
+    
+    // Apply styling to each item
+    const items = Array.from(list.querySelectorAll('.list-group-item:not(#nxm-bulk-header)'));
+    items.forEach(item => {
+        const domainEl = item.querySelector('.notranslate');
+        if (!domainEl) return;
+        const text = domainEl.textContent.trim();
+        
+        // Bold root domain, lighten subdomains
+        const parts = text.split('.');
+        if (parts.length > 2) {
+            const root = parts.slice(-2).join('.');
+            const sub = parts.slice(0, -2).join('.');
+            domainEl.innerHTML = `<span style="opacity: 0.6">${sub}.</span><strong>${root}</strong>`;
+        } else {
+            domainEl.innerHTML = `<strong>${text}</strong>`;
+        }
+    });
+}

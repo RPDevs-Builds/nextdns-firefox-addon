@@ -65,7 +65,10 @@ export const messageHandlers = {
             const json = await r.response.json();
             const data = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
             return { success: true, data };
-        } catch(e) { return { success: false, data: [] }; }
+        } catch(e) {
+            console.warn("[Handler] GET_LOGS failed:", e);
+            return { success: false, data: [] };
+        }
     },
     /**
      * Fetches the current allowlist and denylist for a profile.
@@ -84,7 +87,10 @@ export const messageHandlers = {
                 allowlist: (Array.isArray(aJson.data) ? aJson.data : (Array.isArray(aJson) ? aJson : [])).map(d => d.id),
                 denylist: (Array.isArray(dJson.data) ? dJson.data : (Array.isArray(dJson) ? dJson : [])).map(d => d.id)
             };
-        } catch (e) { return { success: false, allowlist: [], denylist: [] }; }
+        } catch (e) {
+            console.warn("[Handler] GET_PROFILE_DATA failed:", e);
+            return { success: false, allowlist: [], denylist: [] };
+        }
     },
     /**
      * Fetches analytics summary or time-series data for a profile.
@@ -108,7 +114,10 @@ export const messageHandlers = {
                     blockedPercent: total > 0 ? Math.round((blocked / total) * 100) : 0
                 }
             };
-        } catch(e) { return { success: false, data: {} }; }
+        } catch(e) {
+            console.warn("[Handler] GET_ANALYTICS failed:", e);
+            return { success: false, data: {} };
+        }
     },
     /**
      * Detects and returns the active profile ID and name.
@@ -124,7 +133,10 @@ export const messageHandlers = {
             const json = await r.response.json();
             const data = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
             return { success: true, data };
-        } catch(e) { return { success: false, data: [] }; }
+        } catch(e) {
+            console.warn("[Handler] GET_PROFILES_LIST failed:", e);
+            return { success: false, data: [] };
+        }
     },
     /**
      * Toggles a boolean or list-based setting in the NextDNS profile.
@@ -133,6 +145,18 @@ export const messageHandlers = {
      */
     TOGGLE_SETTING: async (msg) => {
         const { profileId, category, id, action, value, settingType } = msg;
+
+        // Input validation & path traversal guard
+        if (!profileId || typeof profileId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(profileId)) {
+            return { success: false, error: "Invalid profile ID" };
+        }
+        if (!category || typeof category !== 'string' || !/^[a-zA-Z0-9_-]+(\/[a-zA-Z0-9_-]+)*$/.test(category)) {
+            return { success: false, error: "Invalid setting category" };
+        }
+        if (id && (typeof id !== 'string' || id.includes('/') || id.includes('\\') || id.includes('..'))) {
+            return { success: false, error: "Invalid setting ID" };
+        }
+
         let endpoint = `/profiles/${profileId}/${category}`;
         let method = 'PATCH';
         let body = null;
@@ -159,7 +183,7 @@ export const messageHandlers = {
         
         // --- Mirror Mode Logic ---
         if (r.success) {
-            const { mirrorProfiles = [] } = await browser.storage.sync.get("mirrorProfiles");
+            const mirrorProfiles = await storage.get("mirrorProfiles", []);
             if (mirrorProfiles.length > 0 && !msg._mirrored) {
                 for (const mId of mirrorProfiles) {
                     if (mId === profileId) continue;
@@ -241,12 +265,12 @@ export const messageHandlers = {
             data: configRes.data
         };
 
-        const { profileSnapshots = {} } = await browser.storage.local.get("profileSnapshots");
+        const profileSnapshots = await storage.get("profileSnapshots", {});
         if (!profileSnapshots[profileId]) profileSnapshots[profileId] = [];
         profileSnapshots[profileId].unshift(snapshot);
         if (profileSnapshots[profileId].length > 10) profileSnapshots[profileId].pop();
         
-        await browser.storage.local.set({ profileSnapshots });
+        await storage.set("profileSnapshots", profileSnapshots);
         return { success: true, snapshot };
     },
     /**
@@ -254,7 +278,7 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId.
      */
     LIST_SNAPSHOTS: async (msg) => {
-        const { profileSnapshots = {} } = await browser.storage.local.get("profileSnapshots");
+        const profileSnapshots = await storage.get("profileSnapshots", {});
         return { success: true, snapshots: profileSnapshots[msg.profileId] || [] };
     },
     /**
@@ -262,10 +286,10 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId and snapshotId.
      */
     DELETE_SNAPSHOT: async (msg) => {
-        const { profileSnapshots = {} } = await browser.storage.local.get("profileSnapshots");
+        const profileSnapshots = await storage.get("profileSnapshots", {});
         if (profileSnapshots[msg.profileId]) {
             profileSnapshots[msg.profileId] = profileSnapshots[msg.profileId].filter(s => s.id !== msg.snapshotId);
-            await browser.storage.local.set({ profileSnapshots });
+            await storage.set("profileSnapshots", profileSnapshots);
         }
         return { success: true };
     },
@@ -295,7 +319,7 @@ export const messageHandlers = {
      * Lists all configured automation rules.
      */
     LIST_RULES: async () => {
-        const { forgeRules = [] } = await browser.storage.sync.get("forgeRules");
+        const forgeRules = await storage.get("forgeRules", []);
         return { success: true, rules: forgeRules };
     },
     /**
@@ -303,10 +327,10 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing the rule definition.
      */
     SAVE_RULE: async (msg) => {
-        const { forgeRules = [] } = await browser.storage.sync.get("forgeRules");
+        const forgeRules = await storage.get("forgeRules", []);
         const newRule = { id: Date.now().toString(), ...msg.rule, active: true };
         forgeRules.push(newRule);
-        await browser.storage.sync.set({ forgeRules });
+        await storage.set("forgeRules", forgeRules);
         return { success: true, rule: newRule };
     },
     /**
@@ -314,9 +338,9 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing ruleId.
      */
     DELETE_RULE: async (msg) => {
-        const { forgeRules = [] } = await browser.storage.sync.get("forgeRules");
+        const forgeRules = await storage.get("forgeRules", []);
         const updated = forgeRules.filter(r => r.id !== msg.ruleId);
-        await browser.storage.sync.set({ forgeRules: updated });
+        await storage.set("forgeRules", updated);
         return { success: true };
     },
     /**
@@ -417,7 +441,7 @@ export const messageHandlers = {
         return { success: true, score: finalScore, recommendations };
     },
     /**
-     * Pushes a new notification to the Action Center.
+     * Pushes a new notification to the Action Center and persists to storage.
      * @param {Object} msg - The notification payload.
      */
     PUSH_NOTIFICATION: async (msg) => {
@@ -432,19 +456,20 @@ export const messageHandlers = {
         };
         state.notifications.unshift(notification);
         if (state.notifications.length > 50) state.notifications.pop();
+        await storage.set("notifications", state.notifications);
         return { success: true };
     },
     /**
      * Saves metadata scraped from the NextDNS dashboard by content scripts.
-     * Merges the new data into the 'scrapedMeta' object in local storage.
+     * Merges the new data into the 'scrapedMeta' object in storage.
      * @param {Object} msg - The message object containing the payload with metaType and data.
      */
     SAVE_SCRAPED_META: async (msg) => {
         const { metaType, data } = msg.payload;
-        const { scrapedMeta = { blocklists: [], parental_services: [], tlds: [], categories: [] } } = await browser.storage.local.get("scrapedMeta");
+        const scrapedMeta = await storage.get("scrapedMeta", { blocklists: [], parental_services: [], tlds: [], categories: [] });
         
         scrapedMeta[metaType] = data;
-        await browser.storage.local.set({ scrapedMeta });
+        await storage.set("scrapedMeta", scrapedMeta);
         console.log(`[Background] Updated scraped metadata for: ${metaType}`);
         return { success: true };
     }

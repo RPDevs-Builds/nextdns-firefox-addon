@@ -290,15 +290,62 @@ async function refreshView() {
 }
 
 /**
+ * Helper to recursively sanitize a DOM node tree by stripping
+ * dangerous tags, event handlers (on*), and javascript: URIs.
+ * @param {Node} node - DOM node to sanitize.
+ */
+function sanitizeNode(node) {
+    if (node.nodeType !== 1) return;
+
+    const dangerousTags = ['SCRIPT', 'IFRAME', 'OBJECT', 'EMBED', 'BASE'];
+    if (dangerousTags.includes(node.tagName)) {
+        node.remove();
+        return;
+    }
+
+    const attrs = Array.from(node.attributes);
+    for (const attr of attrs) {
+        const name = attr.name.toLowerCase();
+        const value = attr.value.trim().toLowerCase();
+
+        if (name.startsWith('on')) {
+            node.removeAttribute(attr.name);
+            continue;
+        }
+
+        if (['href', 'src', 'action', 'formaction', 'xlink:href'].includes(name)) {
+            const cleanVal = value.replace(/[\x00-\x1F\x7F-\x9F\s]/g, '');
+            if (cleanVal.startsWith('javascript:') || cleanVal.startsWith('vbscript:')) {
+                node.removeAttribute(attr.name);
+            }
+        }
+    }
+
+    const children = Array.from(node.childNodes);
+    for (const child of children) {
+        sanitizeNode(child);
+    }
+}
+
+/**
  * Helper to safely set HTML from a string (AMO compliance).
- * Uses DOMParser to sanitize the HTML string before injection.
+ * Uses DOMParser and node sanitization before injection.
  * @param {HTMLElement} el - The element to update.
  * @param {string} html - The HTML string to inject.
  */
 function setSafeHTML(el, html) {
+    if (!el) return;
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
-    el.innerHTML = '';
+
+    const rootNodes = Array.from(doc.body.childNodes);
+    for (const node of rootNodes) {
+        sanitizeNode(node);
+    }
+
+    while (el.firstChild) {
+        el.removeChild(el.firstChild);
+    }
     while (doc.body.firstChild) {
         el.appendChild(doc.body.firstChild);
     }
@@ -322,12 +369,12 @@ async function loadSnapshots() {
             <div class="list-item" style="border-left: 4px solid var(--accent); padding-left: 15px;">
                 <div class="item-info">
                     <strong>${escapeHTML(s.name)}</strong>
-                    <div class="item-note" style="font-size: 0.8em;">${new Date(s.timestamp).toLocaleString()} • ${s.id}</div>
+                    <div class="item-note" style="font-size: 0.8em;">${new Date(s.timestamp).toLocaleString()} • ${escapeHTML(s.id)}</div>
                 </div>
                 <div class="item-actions">
-                    ${i > 0 ? `<button class="btn btn-edit compare-btn" data-id="${s.id}" style="background: var(--bg-panel); color: var(--accent); border: 1px solid var(--accent);">Diff</button>` : ''}
-                    <button class="btn btn-add restore-btn" data-id="${s.id}">Restore</button>
-                    <button class="btn btn-delete delete-snapshot-btn" data-id="${s.id}">Delete</button>
+                    ${i > 0 ? `<button class="btn btn-edit compare-btn" data-id="${escapeHTML(s.id)}" style="background: var(--bg-panel); color: var(--accent); border: 1px solid var(--accent);">Diff</button>` : ''}
+                    <button class="btn btn-add restore-btn" data-id="${escapeHTML(s.id)}">Restore</button>
+                    <button class="btn btn-delete delete-snapshot-btn" data-id="${escapeHTML(s.id)}">Delete</button>
                 </div>
             </div>
         `).join('');

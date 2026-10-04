@@ -57,7 +57,9 @@ export async function detectActiveProfile() {
                 const data = await res.response.json();
                 if (data?.profile) activeId = data.profile;
             }
-        } catch (e) {}
+        } catch (e) {
+            console.warn("[ProfileDetect] Test URL detection failed:", e);
+        }
     }
 
     if (!activeId && apiKey) {
@@ -67,7 +69,9 @@ export async function detectActiveProfile() {
                 const pData = await res.response.json();
                 if (pData.data?.length > 0) activeId = pData.data[0].id;
             }
-        } catch (e) {}
+        } catch (e) {
+            console.warn("[ProfileDetect] Account profiles fetch failed:", e);
+        }
     }
 
     if (activeId) {
@@ -83,7 +87,9 @@ export async function detectActiveProfile() {
                         profileName = `${matchedProfile.name} (${activeId})`;
                     }
                 }
-            } catch(e) {}
+            } catch(e) {
+                console.warn("[ProfileDetect] Profile name resolution failed:", e);
+            }
         }
 
         // Only save to storage if it changed or wasn't set to prevent redundant writes
@@ -100,6 +106,7 @@ export async function detectActiveProfile() {
 
 /**
  * Synchronizes the background state cache with the current profile's allowlist and denylist.
+ * Persists the lists to storage to survive event page suspension.
  * @async
  */
 export async function updateProfileCache() {
@@ -111,8 +118,14 @@ export async function updateProfileCache() {
         manageDomain(activeProfileId, "denylist", null, "list")
     ]);
 
-    state.currentProfileData.allowlist = new Set((allow?.data || []).filter(d => d?.id).map(d => d.id));
-    state.currentProfileData.denylist = new Set((deny?.data || []).filter(d => d?.id).map(d => d.id));
+    const allowList = (allow?.data || []).filter(d => d?.id).map(d => d.id);
+    const denyList = (deny?.data || []).filter(d => d?.id).map(d => d.id);
+
+    state.currentProfileData.allowlist = new Set(allowList);
+    state.currentProfileData.denylist = new Set(denyList);
+
+    await storage.set("cachedAllowlist", allowList);
+    await storage.set("cachedDenylist", denyList);
 }
 
 /**

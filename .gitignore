@@ -6,3 +6,4 @@ dist/
 .staging
 .source
 .wiki/
+web-ext-artifacts/

@@ -26,17 +26,21 @@ class LogStreamManager {
      * @returns {Promise<{success: boolean, error: string}>} Success status or error message (error only present on failure).
      */
     async start(profileId) {
-        if (this.eventSource && this.currentProfileId === profileId) return { success: true };
-        this.stop();
-        this.isExplicitlyStopped = false;
-
         const apiKey = await storage.get("apiKey");
         if (!apiKey) return { success: false, error: "API Key required" };
 
+        if (this.eventSource && this.currentProfileId === profileId && this.currentApiKey === apiKey) {
+            return { success: true };
+        }
+        this.stop();
+        this.isExplicitlyStopped = false;
+
         this.currentProfileId = profileId;
-        const url = `${API_BASE}/profiles/${profileId}/logs/stream?api_key=${apiKey}`;
+        this.currentApiKey = apiKey;
+        const url = `${API_BASE}/profiles/${profileId}/logs/stream?api_key=${encodeURIComponent(apiKey)}`;
 
         try {
+            console.log(`[SSE] Connecting to live log stream for profile: ${profileId}`);
             this.eventSource = new EventSource(url);
             
             this.eventSource.onmessage = (e) => {
@@ -54,13 +58,17 @@ class LogStreamManager {
                             }
                         }).catch(() => {});
                     }
-                } catch (err) {}
+                } catch (err) {
+                    console.warn("[SSE] Failed to parse stream event data:", err);
+                }
             };
 
             this.eventSource.onerror = (e) => {
-                console.warn("[SSE] Stream error, attempting reconnect in 5s...", e);
-                this.eventSource.close();
-                this.eventSource = null;
+                console.warn(`[SSE] Stream disconnected for profile ${profileId}, attempting reconnect in 5s...`);
+                if (this.eventSource) {
+                    this.eventSource.close();
+                    this.eventSource = null;
+                }
                 
                 if (!this.isExplicitlyStopped) {
                     clearTimeout(this.reconnectTimeout);
@@ -70,6 +78,7 @@ class LogStreamManager {
 
             return { success: true };
         } catch (e) {
+            console.error("[SSE] Failed to initialize EventSource:", e);
             return { success: false, error: e.message };
         }
     }

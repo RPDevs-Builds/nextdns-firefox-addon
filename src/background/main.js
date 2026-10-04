@@ -42,6 +42,13 @@ export async function initializeBackground() {
     // 1. Initialize core utilities
     await storage.init();
     apiClient.setStorage(storage);
+
+    // Hydrate in-memory state from persistent storage cache immediately for fast cold start
+    const cachedAllow = await storage.get("cachedAllowlist", []);
+    const cachedDeny = await storage.get("cachedDenylist", []);
+    state.currentProfileData.allowlist = new Set(cachedAllow);
+    state.currentProfileData.denylist = new Set(cachedDeny);
+    state.notifications = await storage.get("notifications", []);
     
     // 2. Setup Context Menus
     await setupContextMenus();
@@ -107,7 +114,7 @@ export async function initializeBackground() {
  */
 async function applyIconAction() {
     try {
-        const { iconClickAction = 'popup' } = await browser.storage.sync.get("iconClickAction");
+        const iconClickAction = await storage.get("iconClickAction", "popup");
         console.log("[Background] Applying icon click action:", iconClickAction);
         if (iconClickAction === 'sidebar' || iconClickAction === 'popout') {
             await browser.action.setPopup({ popup: "" });
@@ -127,7 +134,7 @@ async function applyIconAction() {
  */
 browser.action.onClicked.addListener(async () => {
     try {
-        const { iconClickAction = 'popup' } = await browser.storage.sync.get("iconClickAction");
+        const iconClickAction = await storage.get("iconClickAction", "popup");
         console.log("[Background] Icon clicked. Action:", iconClickAction);
         if (iconClickAction === 'sidebar') {
             browser.sidebarAction.open();
