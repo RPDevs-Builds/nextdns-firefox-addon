@@ -124,11 +124,25 @@ export const messageHandlers = {
      */
     GET_PROFILE: async () => await detectActiveProfile(),
     /**
+     * Explicit profile re-detection handler.
+     */
+    DETECT_PROFILE: async () => {
+        const profile = await detectActiveProfile();
+        return { success: !!profile, profile };
+    },
+    /**
      * Fetches the list of all available NextDNS profiles in the account.
      */
-    GET_PROFILES_LIST: async () => {
+    GET_PROFILES_LIST: async (msg) => {
         try {
-            const r = await apiClient.fetchWithRetry(`/profiles`, { cache: 'no-store' });
+            const fetchOptions = { cache: 'no-store' };
+            if (msg?.apiKey) {
+                fetchOptions.headers = {
+                    "Content-Type": "application/json",
+                    "X-Api-Key": msg.apiKey.trim()
+                };
+            }
+            const r = await apiClient.fetchWithRetry(`/profiles`, fetchOptions);
             if (!r.success) return { success: false, data: [] };
             const json = await r.response.json();
             const data = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);

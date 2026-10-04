@@ -59,7 +59,15 @@ describe('Website Customization Engine', () => {
     test('Blocklist injection and cleanup', async () => {
         // Trigger evaluatePage by mocking correct URL
         delete window.location;
-        window.location = new URL('https://my.nextdns.io/privacy');
+        window.location = {
+            href: 'https://my.nextdns.io/privacy',
+            pathname: '/privacy',
+            origin: 'https://my.nextdns.io',
+            search: '',
+            hash: '',
+            hostname: 'my.nextdns.io',
+            protocol: 'https:'
+        };
         
         // Add target headers to DOM
         const h5 = document.createElement('h5');

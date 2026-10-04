@@ -3,37 +3,32 @@
  */
 
 import { jest, beforeEach, test, expect, describe } from '@jest/globals';
+import { storage } from '../src/storage.js';
 
 describe('Background Scheduler & Automation Rules', () => {
     let checkAutomationRules;
-    let storageMock;
     let handlersMock;
+    let storedData;
 
     beforeEach(async () => {
-        jest.resetModules();
         jest.clearAllMocks();
 
-        const storedData = {
+        storedData = {
             activeProfile: 'profile-123',
             forgeRules: []
         };
 
-        storageMock = {
-            get: jest.fn(async (key, def) => storedData[key] !== undefined ? storedData[key] : def),
-            set: jest.fn(async (key, val) => { storedData[key] = val; })
-        };
+        jest.spyOn(storage, 'get').mockImplementation(async (key, def) => {
+            return storedData[key] !== undefined ? storedData[key] : def;
+        });
 
-        handlersMock = {
-            TOGGLE_SETTING: jest.fn().mockResolvedValue({ success: true })
-        };
+        jest.spyOn(storage, 'set').mockImplementation(async (key, val) => {
+            storedData[key] = val;
+        });
 
-        jest.unstable_mockModule('../src/storage.js', () => ({
-            storage: storageMock
-        }));
-
-        jest.unstable_mockModule('../src/background/handlers.js', () => ({
-            messageHandlers: handlersMock
-        }));
+        const { messageHandlers } = await import('../src/background/handlers.js');
+        handlersMock = messageHandlers;
+        jest.spyOn(handlersMock, 'TOGGLE_SETTING').mockImplementation(jest.fn().mockResolvedValue({ success: true }));
 
         const schedulerMod = await import('../src/background/scheduler.js');
         checkAutomationRules = schedulerMod.checkAutomationRules;
@@ -43,19 +38,16 @@ describe('Background Scheduler & Automation Rules', () => {
         const now = new Date();
         const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
-        storageMock.get.mockImplementation(async (key, def) => {
-            if (key === 'activeProfile') return 'profile-123';
-            if (key === 'forgeRules') return [{
-                id: 'rule-1',
-                name: 'Night Mode',
-                trigger: currentTime,
-                action: 'enable',
-                category: 'security',
-                targetId: 'block-dga',
-                active: true
-            }];
-            return def;
-        });
+        storedData.activeProfile = 'profile-123';
+        storedData.forgeRules = [{
+            id: 'rule-1',
+            name: 'Night Mode',
+            trigger: currentTime,
+            action: 'enable',
+            category: 'security',
+            targetId: 'block-dga',
+            active: true
+        }];
 
         await checkAutomationRules();
 
@@ -65,7 +57,7 @@ describe('Background Scheduler & Automation Rules', () => {
             id: 'block-dga',
             action: 'add'
         }));
-        expect(storageMock.set).toHaveBeenCalledWith('forgeRules', expect.any(Array));
+        expect(storage.set).toHaveBeenCalledWith('forgeRules', expect.any(Array));
     });
 
     test('Prevents duplicate execution on same day', async () => {
@@ -73,20 +65,17 @@ describe('Background Scheduler & Automation Rules', () => {
         const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-        storageMock.get.mockImplementation(async (key, def) => {
-            if (key === 'activeProfile') return 'profile-123';
-            if (key === 'forgeRules') return [{
-                id: 'rule-1',
-                name: 'Night Mode',
-                trigger: currentTime,
-                action: 'enable',
-                category: 'security',
-                targetId: 'block-dga',
-                active: true,
-                lastRunDate: todayStr
-            }];
-            return def;
-        });
+        storedData.activeProfile = 'profile-123';
+        storedData.forgeRules = [{
+            id: 'rule-1',
+            name: 'Night Mode',
+            trigger: currentTime,
+            action: 'enable',
+            category: 'security',
+            targetId: 'block-dga',
+            active: true,
+            lastRunDate: todayStr
+        }];
 
         await checkAutomationRules();
 
@@ -97,19 +86,16 @@ describe('Background Scheduler & Automation Rules', () => {
         const now = new Date();
         const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
-        storageMock.get.mockImplementation(async (key, def) => {
-            if (key === 'activeProfile') return 'profile-123';
-            if (key === 'forgeRules') return [{
-                id: 'rule-1',
-                name: 'Night Mode',
-                trigger: currentTime,
-                action: 'enable',
-                category: 'security',
-                targetId: 'block-dga',
-                active: false
-            }];
-            return def;
-        });
+        storedData.activeProfile = 'profile-123';
+        storedData.forgeRules = [{
+            id: 'rule-1',
+            name: 'Night Mode',
+            trigger: currentTime,
+            action: 'enable',
+            category: 'security',
+            targetId: 'block-dga',
+            active: false
+        }];
 
         await checkAutomationRules();
 

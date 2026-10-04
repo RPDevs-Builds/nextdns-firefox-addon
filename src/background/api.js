@@ -45,62 +45,77 @@ export async function manageDomain(profileId, listType, domain, action) {
  * @returns {Promise<{id: string, name: string}|null>} The detected profile object or null.
  */
 export async function detectActiveProfile() {
-    const manualProfileId = await storage.get("activeProfile");
+    const overrideId = await storage.get("overrideProfileId");
     const apiKey = await storage.get("apiKey");
 
-    let activeId = manualProfileId;
+    // Clean up any legacy invalid fingerprint stored as manualProfileId
+    const isManual = Boolean(overrideId && overrideId !== 'auto' && !overrideId.startsWith('fp'));
+    const activeId = isManual ? overrideId : null;
 
-    if (!activeId) {
+    let accountProfiles = [];
+    if (apiKey) {
         try {
-            const res = await apiClient.fetchWithRetry(TEST_URL, { cache: 'no-store' }, 2, 500);
-            if (res.success) {
-                const data = await res.response.json();
-                if (data?.profile) activeId = data.profile;
-            }
-        } catch (e) {
-            console.warn("[ProfileDetect] Test URL detection failed:", e);
-        }
-    }
-
-    if (!activeId && apiKey) {
-        try {
-            const res = await apiClient.fetchWithRetry(`${API_BASE}/profiles`, {}, 2, 500);
-            if (res.success) {
-                const pData = await res.response.json();
-                if (pData.data?.length > 0) activeId = pData.data[0].id;
+            const pRes = await apiClient.fetchWithRetry(`${API_BASE}/profiles`, {}, 2, 500);
+            if (pRes.success) {
+                const pData = await pRes.response.json();
+                accountProfiles = Array.isArray(pData.data) ? pData.data : [];
             }
         } catch (e) {
             console.warn("[ProfileDetect] Account profiles fetch failed:", e);
         }
     }
 
-    if (activeId) {
+    if (isManual) {
         let profileName = activeId;
-        if (apiKey) {
-            try {
-                const pRes = await apiClient.fetchWithRetry(`${API_BASE}/profiles`, {}, 2, 500);
-                if (pRes.success) {
-                    const pData = await pRes.response.json();
-                    const matchedProfile = pData.data.find(p => p.id === activeId || p.fingerprint === activeId);
-                    if (matchedProfile) {
-                        activeId = matchedProfile.id;
-                        profileName = `${matchedProfile.name} (${activeId})`;
+        const matched = accountProfiles.find(p => p.id === activeId);
+        if (matched) {
+            profileName = `${matched.name} (${activeId})`;
+        }
+        await storage.set("activeProfileName", profileName);
+        return { id: activeId, name: profileName, manual: true };
+    }
+
+    // Auto-detection mode
+    let detectedId = null;
+    let detectedName = null;
+
+    // 1. Try test.nextdns.io to identify active network profile
+    try {
+        const res = await apiClient.fetchWithRetry(TEST_URL, { cache: 'no-store' }, 2, 500);
+        if (res.success) {
+            const data = await res.response.json();
+            const networkProfile = data?.profile;
+            if (networkProfile) {
+                if (accountProfiles.length > 0) {
+                    const matched = accountProfiles.find(p => p.id === networkProfile || p.fingerprint === networkProfile);
+                    if (matched) {
+                        detectedId = matched.id;
+                        detectedName = `${matched.name} (${detectedId})`;
                     }
+                } else if (!networkProfile.startsWith('fp')) {
+                    detectedId = networkProfile;
+                    detectedName = networkProfile;
                 }
-            } catch(e) {
-                console.warn("[ProfileDetect] Profile name resolution failed:", e);
             }
         }
-
-        // Only save to storage if it changed or wasn't set to prevent redundant writes
-        const currentStored = await storage.get("activeProfile");
-        if (activeId !== currentStored) {
-            await storage.set("activeProfile", activeId);
-            await storage.set("activeProfileName", profileName);
-        }
-
-        return { id: activeId, name: profileName };
+    } catch (e) {
+        console.warn("[ProfileDetect] Test URL detection failed:", e);
     }
+
+    // 2. If test.nextdns.io didn't match, fall back to first account profile
+    if (!detectedId && accountProfiles.length > 0) {
+        const first = accountProfiles[0];
+        detectedId = first.id;
+        detectedName = `${first.name} (${detectedId})`;
+    }
+
+    if (detectedId) {
+        await storage.set("activeProfile", detectedId);
+        await storage.set("detectedProfileId", detectedId);
+        await storage.set("activeProfileName", detectedName);
+        return { id: detectedId, name: detectedName, autoDetected: true };
+    }
+
     return null;
 }
 
@@ -110,8 +125,8 @@ export async function detectActiveProfile() {
  * @async
  */
 export async function updateProfileCache() {
-    const activeProfileId = await storage.get("activeProfile");
-    if (!activeProfileId) return;
+    const activeProfileId = (await storage.get("activeProfile")) || (await storage.get("detectedProfileId"));
+    if (!activeProfileId || activeProfileId.startsWith('fp')) return;
     
     const [allow, deny] = await Promise.all([
         manageDomain(activeProfileId, "allowlist", null, "list"),
@@ -134,8 +149,8 @@ export async function updateProfileCache() {
  * @async
  */
 export async function checkAndUpdateLinkedIP() {
-    const activeProfileId = await storage.get("activeProfile");
-    if (!activeProfileId) return;
+    const activeProfileId = (await storage.get("activeProfile")) || (await storage.get("detectedProfileId"));
+    if (!activeProfileId || activeProfileId.startsWith('fp')) return;
 
     try {
         const res = await fetch("https://api.ipify.org?format=json");

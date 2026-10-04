@@ -236,6 +236,12 @@ function initGlobalEventListeners() {
         btn.onclick = () => {
             const tabId = btn.dataset.tab;
             setActiveTab(tabId);
+            if (tabId === 'dashboard') {
+                if (!state.activeProfile || document.getElementById("profile-status")?.textContent.includes("Not Detected")) {
+                    refreshActiveProfileAndUI();
+                }
+            }
+            if (tabId === 'settings') loadProfiles();
             if (tabId === 'presets') loadPresets();
             if (tabId === 'lists') renderLists();
             if (tabId === 'toggles') loadToggles();
@@ -344,6 +350,7 @@ function initGlobalEventListeners() {
 
     document.getElementById('save-mirror-btn')?.addEventListener('click', saveMirrorMode);
     document.getElementById('save-settings-btn')?.addEventListener('click', saveSettings);
+    document.getElementById('setting-fetch-profiles')?.addEventListener('click', handleFetchProfilesClick);
 
     // Header controls
     document.getElementById('refresh-view-btn')?.addEventListener('click', async () => {
@@ -498,30 +505,15 @@ async function initializeApp() {
         console.log("[Init] Settings UI ready.");
     } catch (e) { console.error("[Init] Settings UI failed:", e); }
 
-    let profile = null;
-    try {
-        profile = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
-        if (!profile && settings.activeProfile) {
-            profile = { id: settings.activeProfile, name: "Last Known Profile" };
-            console.log("[Init] Using fallback profile:", profile.id);
-        }
-    } catch (e) { console.error("[Init] Profile detection failed:", e); }
-
-    if (profile) {
-        state.activeProfile = profile.id;
+    let profile = await refreshActiveProfileAndUI();
+    if (!profile && settings.activeProfile) {
+        state.activeProfile = settings.activeProfile;
         const profStatus = document.getElementById("profile-status");
         if (profStatus) {
-            const html = `
+            setSafeHTML(profStatus, `
                 <span style="display:inline-block; width:8px; height:8px; background:var(--success); border-radius:50%; box-shadow: 0 0 6px var(--success);"></span>
-                Profile: ${escapeHTML(profile.name)}
-            `;
-            setSafeHTML(profStatus, html);
-        }
-        browser.runtime.sendMessage({ type: "START_STREAM", profileId: state.activeProfile });
-    } else {
-        const profStatus = document.getElementById("profile-status");
-        if (profStatus) {
-            setSafeHTML(profStatus, `<span style="display:inline-block; width:8px; height:8px; background:var(--danger); border-radius:50%;"></span> Profile: Not Detected`);
+                Profile: ${escapeHTML(settings.activeProfile)}
+            `);
         }
     }
 
@@ -635,6 +627,107 @@ async function saveMirrorMode() {
 }
 
 /**
+ * Loads available profiles from the NextDNS API and populates the Profile Override dropdown.
+ * @async
+ * @param {string|null} [customApiKey=null] - Optional API key to use for fetching.
+ * @returns {Promise<Array>} List of profiles.
+ */
+export async function loadProfiles(customApiKey = null) {
+    const profileSelect = document.getElementById('setting-profile-select');
+    if (!profileSelect) return [];
+
+    try {
+        const apiKey = customApiKey !== null 
+            ? customApiKey 
+            : (document.getElementById('setting-api-key')?.value.trim() || '');
+            
+        const res = await browser.runtime.sendMessage({ 
+            type: "GET_PROFILES_LIST",
+            apiKey: apiKey || undefined
+        });
+
+        const storedSync = await browser.storage.sync.get(["activeProfile", "detectedProfileId", "activeProfileName"]).catch(() => ({}));
+        const currentSelected = profileSelect.value !== undefined && profileSelect.value !== '' 
+            ? profileSelect.value 
+            : (storedSync.activeProfile || '');
+
+        setSafeHTML(profileSelect, '<option value="">⚡ Auto-Detect (Default)</option>');
+
+        if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
+            res.data.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `${p.name} (${p.id})`;
+                profileSelect.appendChild(opt);
+            });
+            profileSelect.value = currentSelected;
+            return res.data;
+        }
+        return [];
+    } catch (e) {
+        console.error("[Init] loadProfiles failed:", e);
+        return [];
+    }
+}
+
+/**
+ * Handles clicks on the fetch profiles 🔄 button.
+ * @async
+ * @param {Event} [e] - Click event.
+ */
+export async function handleFetchProfilesClick(e) {
+    if (e) e.preventDefault();
+    const btn = document.getElementById('setting-fetch-profiles');
+    if (btn) btn.classList.add('spinning');
+    const key = document.getElementById('setting-api-key')?.value.trim();
+    const list = await loadProfiles(key);
+    if (btn) setTimeout(() => btn.classList.remove('spinning'), 500);
+}
+
+/**
+ * Re-detects the active profile and refreshes the Overview page UI status and dashboard services.
+ * @async
+ * @returns {Promise<Object|null>} The detected profile.
+ */
+export async function refreshActiveProfileAndUI() {
+    const profStatus = document.getElementById("profile-status");
+    if (profStatus) {
+        setSafeHTML(profStatus, `
+            <span style="display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; box-shadow: 0 0 6px var(--accent);"></span>
+            Profile: Detecting...
+        `);
+    }
+
+    try {
+        const profile = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
+        if (profile && profile.id) {
+            state.activeProfile = profile.id;
+            if (profStatus) {
+                const html = `
+                    <span style="display:inline-block; width:8px; height:8px; background:var(--success); border-radius:50%; box-shadow: 0 0 6px var(--success);"></span>
+                    Profile: ${escapeHTML(profile.name)}
+                `;
+                setSafeHTML(profStatus, html);
+            }
+            browser.runtime.sendMessage({ type: "START_STREAM", profileId: state.activeProfile });
+            updateDynamicLinks();
+            syncLists();
+            loadAnalytics();
+            loadToggles();
+            return profile;
+        } else {
+            if (profStatus) {
+                setSafeHTML(profStatus, `<span style="display:inline-block; width:8px; height:8px; background:var(--danger); border-radius:50%;"></span> Profile: Not Detected`);
+            }
+            return null;
+        }
+    } catch (e) {
+        console.error("[RefreshProfile] Failed:", e);
+        return null;
+    }
+}
+
+/**
  * Initializes the Settings UI by loading values from storage and populating the form.
  * @async
  * @returns {Promise<Object>} The loaded settings object.
@@ -665,25 +758,27 @@ async function initSettingsUI() {
 
         state.lastIconAction = data.iconClickAction || 'popup';
 
-        // Handle Profile Select
+        // Load profiles into dropdown
         if (profileSelect) {
-            const loadProfiles = async () => {
-                try {
-                    const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
-                    if (res?.success && Array.isArray(res.data)) {
-                        setSafeHTML(profileSelect, '<option value="">Auto-Detect (Default)</option>');
-                        res.data.forEach(p => {
-                            const opt = document.createElement('option');
-                            opt.value = p.id;
-                            opt.textContent = p.name;
-                            profileSelect.appendChild(opt);
-                        });
-                        profileSelect.value = data.activeProfile || '';
-                    }
-                } catch (e) { console.error("[Init] loadProfiles failed:", e); }
-            };
-            await loadProfiles();
+            await loadProfiles(data.apiKey);
+            profileSelect.value = data.activeProfile || '';
         }
+
+        // Live fetch on API key input (debounced)
+        if (apiKeyInput && !apiKeyInput.dataset.bound) {
+            apiKeyInput.dataset.bound = "true";
+            let debounceTimer;
+            apiKeyInput.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(async () => {
+                    const val = apiKeyInput.value.trim();
+                    if (val.length >= 20) {
+                        await loadProfiles(val);
+                    }
+                }, 400);
+            });
+        }
+
         return data;
     } catch (e) { 
         console.error("[Init] Settings UI core failed:", e); 
@@ -699,8 +794,8 @@ async function saveSettings() {
     const saveBtn = document.getElementById('save-settings-btn');
     if (!saveBtn) return;
 
-    const apiKey = document.getElementById('setting-api-key')?.value.trim();
-    const activeProfile = document.getElementById('setting-profile-select')?.value;
+    const apiKey = document.getElementById('setting-api-key')?.value.trim() || '';
+    const activeProfile = document.getElementById('setting-profile-select')?.value || '';
     const iconClickAction = document.getElementById('setting-icon-action')?.value;
     const autoRefreshLogs = document.getElementById('setting-auto-refresh')?.checked;
     const enableBlockNotifications = document.getElementById('setting-block-notif')?.checked;
@@ -717,14 +812,20 @@ async function saveSettings() {
         autoRefreshTime: parseInt(autoRefreshTime) || 5
     };
 
+    saveBtn.textContent = "⏳ Saving...";
+    saveBtn.disabled = true;
+
     await browser.storage.sync.set(newSettings);
-    // Also set local for redundancy/background access speed
     await browser.storage.local.set(newSettings);
 
+    // Refresh profile detection and reload profiles
+    await loadProfiles(apiKey);
+    await refreshActiveProfileAndUI();
+
     saveBtn.textContent = "✅ Saved!";
+    saveBtn.disabled = false;
     setTimeout(() => { 
         saveBtn.textContent = "💾 Save Options"; 
-        // Trigger a reload to apply fundamental changes (like icon click action)
         if (iconClickAction !== state.lastIconAction) {
             browser.runtime.reload();
         }

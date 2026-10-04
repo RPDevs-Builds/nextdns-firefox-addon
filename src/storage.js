@@ -33,8 +33,12 @@ class StorageManager {
                 );
 
                 const loadData = async () => {
-                    const syncData = await browser.storage.sync.get(null).catch(() => ({}));
-                    const localData = await browser.storage.local.get(null).catch(() => ({}));
+                    const syncData = (typeof browser !== 'undefined' && browser.storage?.sync?.get)
+                        ? await browser.storage.sync.get(null).catch(() => ({}))
+                        : {};
+                    const localData = (typeof browser !== 'undefined' && browser.storage?.local?.get)
+                        ? await browser.storage.local.get(null).catch(() => ({}))
+                        : {};
                     return { syncData, localData };
                 };
 
@@ -48,19 +52,21 @@ class StorageManager {
                         healObj[k] = syncData[k];
                     }
                 }
-                if (Object.keys(healObj).length > 0) {
+                if (Object.keys(healObj).length > 0 && typeof browser !== 'undefined' && browser.storage?.local?.set) {
                     await browser.storage.local.set(healObj).catch(() => null);
                 }
 
-                browser.storage.onChanged.addListener((changes, area) => {
-                    for (let [key, { newValue }] of Object.entries(changes)) {
-                        if (newValue === undefined) {
-                            delete this.cache[key];
-                        } else {
-                            this.cache[key] = newValue;
+                if (typeof browser !== 'undefined' && browser.storage?.onChanged?.addListener) {
+                    browser.storage.onChanged.addListener((changes, area) => {
+                        for (let [key, { newValue }] of Object.entries(changes)) {
+                            if (newValue === undefined) {
+                                delete this.cache[key];
+                            } else {
+                                this.cache[key] = newValue;
+                            }
                         }
-                    }
-                });
+                    });
+                }
             } catch (e) {
                 console.warn("[StorageManager] Initialization partially failed or timed out:", e);
                 // Fallback to empty cache if everything failed, but mark as initialized to unblock
@@ -97,10 +103,12 @@ class StorageManager {
         if (!this.initialized) await this.init();
         this.cache[key] = value;
         const obj = { [key]: value };
-        await Promise.all([
-            browser.storage.sync.set(obj),
-            browser.storage.local.set(obj)
-        ]);
+        const promises = [];
+        if (typeof browser !== 'undefined' && browser.storage) {
+            if (browser.storage.sync?.set) promises.push(browser.storage.sync.set(obj).catch(() => null));
+            if (browser.storage.local?.set) promises.push(browser.storage.local.set(obj).catch(() => null));
+        }
+        await Promise.all(promises);
     }
 }
 
