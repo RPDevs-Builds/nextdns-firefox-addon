@@ -32,6 +32,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.log("[DNS Forge] UI Listeners bound.");
     } catch (e) { console.error("[DNS Forge] Sync UI setup failed:", e); }
 
+    // If popout or sidebar mode redirect is triggered, stop further popup initialization
+    if (await handleIconClickModeRedirect()) {
+        return;
+    }
+
     // 2. Async App Bootstrap (Parallel)
     initThemeEngine().then(() => console.log("[Init] Theme engine ready."));
     
@@ -157,12 +162,50 @@ async function handleBulkAdd() {
 
 /**
  * Detects and applies CSS classes based on the current window mode (Popout vs Sidebar).
- * Adjusts body classes to enable mode-specific styling.
+ * Adjusts html and body classes to enable mode-specific styling.
  */
 function initWindowMode() {
-    if (isPopoutMode) document.body.classList.add('mode-popout');
-    if (isSidebarMode) document.body.classList.add('mode-sidebar');
-    if (isSidebarMode) document.body.classList.add('sidebar-mode');
+    if (isPopoutMode) {
+        document.documentElement.classList.add('mode-popout');
+        document.body.classList.add('mode-popout');
+    }
+    if (isSidebarMode) {
+        document.documentElement.classList.add('mode-sidebar');
+        document.body.classList.add('mode-sidebar');
+        document.body.classList.add('sidebar-mode');
+    }
+}
+
+/**
+ * Handles redirecting to a standalone window or opening the sidebar
+ * if the user has configured iconClickAction to 'popout' or 'sidebar'.
+ * @async
+ * @returns {Promise<boolean>} True if redirected, false if proceeding in standard popup mode.
+ */
+async function handleIconClickModeRedirect() {
+    if (isPopoutMode || isSidebarMode) return false;
+    try {
+        if (!window.browser?.storage?.sync) return false;
+        const { iconClickAction } = await browser.storage.sync.get("iconClickAction");
+        if (iconClickAction === 'popout' && window.browser?.windows?.create) {
+            const url = browser.runtime.getURL('src/popup.html?mode=popout');
+            await browser.windows.create({
+                url,
+                type: 'popup',
+                width: 400,
+                height: 600
+            });
+            window.close();
+            return true;
+        } else if (iconClickAction === 'sidebar' && window.browser?.sidebarAction?.open) {
+            await browser.sidebarAction.open();
+            window.close();
+            return true;
+        }
+    } catch (e) {
+        console.warn("[DNS Forge] Error checking iconClickAction mode redirect:", e);
+    }
+    return false;
 }
 
 /**

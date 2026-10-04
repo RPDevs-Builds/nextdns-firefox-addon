@@ -21,25 +21,32 @@
     /* Reset and base styles */
     * { box-sizing: border-box; }
     
-    html, body { 
-      margin: 0; 
-      padding: 0; 
-      background: var(--bg-main); 
-      color: var(--text-main); 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      height: 100vh;
+    html {
+      width: 400px;
+      height: 600px;
+      margin: 0;
+      padding: 0;
+      background: var(--bg-main);
       overflow: hidden;
     }
 
-    /* Fixed dimensions for standard popup mode */
-    body:not(.mode-sidebar):not(.mode-popout) {
-      width: 400px;
-      height: 600px;
-    }
-
     body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: var(--bg-main);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+    }
+
+    html.mode-sidebar, html.mode-popout,
+    body.mode-sidebar, body.mode-popout {
+      width: 100%;
+      height: 100%;
     }
 
     /* Custom scrollbars */

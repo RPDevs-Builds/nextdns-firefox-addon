@@ -108,21 +108,22 @@ export async function initializeBackground() {
 }
 
 /**
- * Applies the user-configured icon click action (popup or sidebar).
- * Dynamically sets the popup path or clears it to enable the onClicked listener.
+ * Applies the user-configured icon click action (popup, popout, or sidebar).
+ * Always ensures the popup path is set so clicking the toolbar icon or the Unified
+ * Extensions panel reliably opens the extension interface (avoiding Mozilla Bug 1805908 / Bug 1814231
+ * where setting popup to "" causes only context menu items to appear).
  * @async
  */
 async function applyIconAction() {
     try {
         const iconClickAction = await storage.get("iconClickAction", "popup");
         console.log("[Background] Applying icon click action:", iconClickAction);
-        if (iconClickAction === 'sidebar' || iconClickAction === 'popout') {
-            await browser.action.setPopup({ popup: "" });
-            console.log("[Background] Popup disabled to enable onClicked listener.");
-        } else {
-            await browser.action.setPopup({ popup: "src/popup.html" });
-            console.log("[Background] Popup enabled (src/popup.html).");
-        }
+        // Note: In Firefox, setting popup to "" causes clicking on the extension
+        // in the Unified Extensions panel or toolbar to display the context menu
+        // with only menu items (Mozilla Bug 1805908).
+        // Therefore, we ALWAYS ensure the popup is set to "src/popup.html".
+        await browser.action.setPopup({ popup: "src/popup.html" });
+        console.log("[Background] Popup enabled (src/popup.html).");
     } catch (e) {
         console.error("[Background] Failed to apply icon action:", e);
     }
