@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.0] - 2026-10-04
+
+### Added
+- **Firefox for Android (Fenix) Support:** Full mobile compatibility with runtime API guards for unsupported desktop features (`browser.menus`, `webRequestBlocking`, `browser.windows`, `browser.sidebarAction`, `browser.notifications`), responsive viewport meta tags, dynamic touch CSS sizing, and full-screen tab fallback routing (`mode=tab`).
+- **Mozilla AMO Compliance & Icon Assets:** Added full multi-resolution icon set (16x16, 32x32, 48x48, 96x96, 128x128), top-level manifest `icons` declarations, extension description, and comprehensive `PRIVACY.md` policy.
+- **Dedicated Test Suites:** Expanded test coverage to 17 suites (63 tests) with new dedicated test modules for `apiClient` exponential backoff, `metadataManager` three-tier fallback, Data Manager `viewer` UI, and Android compatibility guards.
+
+### Changed
+- **Async Bootstrap & Theme Hardening:** Awaited `initThemeEngine` to eliminate theme flash during cold starts, added `.btn-dark` toggle state styling, and supported `mode-tab` window classes.
+- **Dependency & Build Pinning:** Pinned all development dependencies (`web-ext` v10.7, `jest-fetch-mock`, `jest-webextension-mock`) for reproducible builds, and removed unused dead code (`data/settings_groups.js`).
+- **Production Package Verification:** Validated production distribution package (`dns_forge-1.0.0.xpi`) with Mozilla `web-ext lint` achieving zero errors, zero notices, and zero warnings.
+
 ## [0.9.5] - 2026-10-04
 
 ### Added

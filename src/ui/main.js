@@ -7,7 +7,7 @@
  * @see {@link https://dns-forge.github.io/reference/ui/main/|Wiki Reference}
  */
 
-import { state, isPopoutMode, isSidebarMode, PRESET_THEMES, THEME_VARS, urlParams } from './state.js';
+import { state, isPopoutMode, isSidebarMode, isTabMode, PRESET_THEMES, THEME_VARS, urlParams } from './state.js';
 import { setActiveTab, setSafeHTML, escapeHTML, downloadAsFile } from './utils.js';
 import { handleLiveLog, renderLogs, loadAnalytics, updateDashboardTabInfo, updateDynamicLinks, loadNativeLogs, downloadLogsCSV, wipeLogs } from './dashboard.js';
 import { loadToggles, syncLists, renderLists } from './blocks.js';
@@ -37,8 +37,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
 
-    // 2. Async App Bootstrap (Parallel)
-    initThemeEngine().then(() => console.log("[Init] Theme engine ready."));
+    // 2. Async App Bootstrap
+    try {
+        await initThemeEngine();
+        console.log("[Init] Theme engine ready.");
+    } catch (e) {
+        console.error("[Init] Theme engine failed:", e);
+    }
     
     initializeApp().then(() => {
         console.log("[DNS Forge] Popup Fully Initialized.");
@@ -174,6 +179,10 @@ function initWindowMode() {
         document.body.classList.add('mode-sidebar');
         document.body.classList.add('sidebar-mode');
     }
+    if (isTabMode) {
+        document.documentElement.classList.add('mode-tab');
+        document.body.classList.add('mode-tab');
+    }
 }
 
 /**
@@ -183,7 +192,7 @@ function initWindowMode() {
  * @returns {Promise<boolean>} True if redirected, false if proceeding in standard popup mode.
  */
 async function handleIconClickModeRedirect() {
-    if (isPopoutMode || isSidebarMode) return false;
+    if (isPopoutMode || isSidebarMode || isTabMode) return false;
     try {
         if (!window.browser?.storage?.sync) return false;
         const { iconClickAction } = await browser.storage.sync.get("iconClickAction");

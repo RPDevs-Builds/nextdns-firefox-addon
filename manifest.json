@@ -1,7 +1,15 @@
 {
   "manifest_version": 3,
   "name": "DNS Forge",
-  "version": "0.9.5",
+  "version": "1.0.0",
+  "description": "Comprehensive NextDNS management tool: blocklists, allowlists, live query logs, analytics, scheduling, and web UI enhancements.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
+  },
   "permissions": [
     "storage",
     "alarms",
@@ -20,7 +28,11 @@
   ],
   "action": {
     "default_popup": "src/popup.html",
-    "default_icon": "icons/icon-48.png"
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
   },
   "background": {
     "type": "module",
@@ -68,6 +80,7 @@
     "default_panel": "src/popup.html?mode=sidebar",
     "default_icon": {
       "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
       "48": "icons/icon-48.png"
     }
   }

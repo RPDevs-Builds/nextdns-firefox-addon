@@ -5,7 +5,7 @@
  * 
  * @module apiClient
  */
-class APIClient {
+export class APIClient {
     /**
      * @param {string} [baseURL="https://api.nextdns.io"] - The base URL for the NextDNS API.
      */

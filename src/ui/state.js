@@ -41,3 +41,4 @@ export const THEME_VARS = ['bg-main', 'bg-panel', 'border-color', 'text-main', '
 export const urlParams = new URLSearchParams(window.location.search);
 export const isPopoutMode = urlParams.get('mode') === 'popout';
 export const isSidebarMode = urlParams.get('mode') === 'sidebar';
+export const isTabMode = urlParams.get('mode') === 'tab';

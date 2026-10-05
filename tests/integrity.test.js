@@ -55,7 +55,7 @@ describe('System Integrity - End-to-End Wiring', () => {
         document.dispatchEvent(event);
         
         // Wait for the async initializeApp to finish
-        await new Promise(res => setTimeout(res, 50));
+        await new Promise(res => setTimeout(res, 150));
         
         const stateModule = await import('../src/ui/state.js');
         state = stateModule.state;
@@ -92,6 +92,7 @@ describe('System Integrity - End-to-End Wiring', () => {
     test('Logs sub-tab correctly loads analytics', async () => {
         const analyticsTab = document.querySelector('.sub-tab-btn[data-sub="analytics"]');
         analyticsTab.click();
+        await new Promise(res => setTimeout(res, 30));
 
         expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
             type: 'GET_ANALYTICS'
