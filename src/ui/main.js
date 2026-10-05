@@ -530,6 +530,8 @@ function initGlobalEventListeners() {
             if (!res.success) {
                 e.target.checked = !e.target.checked;
                 alert("Failed to update setting.");
+            } else if (state.lastBlocksData && state.lastBlocksData[cat]) {
+                state.lastBlocksData[cat][id] = (action === 'add');
             }
         }
     });

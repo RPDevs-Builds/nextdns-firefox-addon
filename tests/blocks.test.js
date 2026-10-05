@@ -67,4 +67,31 @@ describe('Popup UI - Blocks Expansion Suite', () => {
         expect(container.textContent).not.toContain('NextDNS Ads & Trackers Blocklist');
         expect(container.textContent).toContain('No blocklists found.');
     });
+
+    test('Blocks UI - Privacy Toggles Status and Category Binding', async () => {
+        state.activeBlocksSubTab = 'privacy';
+        state.lastBlocksData.privacy = {
+            disguisedTrackers: true,
+            allowAffiliate: false,
+            natives: [{ id: 'apple' }]
+        };
+
+        await blocks.loadToggles();
+
+        const disguisedInput = document.querySelector('input[data-id="disguisedTrackers"]');
+        expect(disguisedInput).not.toBeNull();
+        expect(disguisedInput.dataset.cat).toBe('privacy');
+        expect(disguisedInput.checked).toBe(true);
+
+        const affiliateInput = document.querySelector('input[data-id="allowAffiliate"]');
+        expect(affiliateInput).not.toBeNull();
+        expect(affiliateInput.dataset.cat).toBe('privacy');
+        expect(affiliateInput.checked).toBe(false);
+
+        const appleInput = document.querySelector('input[data-id="apple"]');
+        expect(appleInput).not.toBeNull();
+        expect(appleInput.dataset.cat).toBe('privacy/natives');
+        expect(appleInput.checked).toBe(true);
+    });
 });
+

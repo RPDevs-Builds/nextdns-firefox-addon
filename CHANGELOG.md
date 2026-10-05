@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.3] - 2026-10-05
+
+### Fixed
+- **Privacy Toggles Binding & State:** Fixed "Block Disguised Trackers" (`disguisedTrackers`) and "Allow Affiliate Links" (`allowAffiliate`) in Blocks -> Privacy tab not showing their active profile status or persisting changes due to misconfigured API category mapping.
+- **Toggle State Synchronization:** Updated toggle event handlers in popup UI to synchronize `state.lastBlocksData` immediately upon API success, preventing stale states when switching sub-tabs.
+- **Unit Test Coverage:** Added unit test in `tests/blocks.test.js` validating privacy toggle status and category binding.
+
 ## [1.0.2] - 2026-10-05
 
 ### Added

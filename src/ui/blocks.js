@@ -173,7 +173,7 @@ function renderPerformanceToggles() {
                         <div style="font-size:0.7em; color:var(--text-muted);">${s.note}</div>
                     </div>
                     <label class="switch">
-                        <input type="checkbox" id="toggle-${s.id}" class="api-toggle" data-cat="settings" data-id="${s.id}" ${state.lastBlocksData.settings?.[s.id] ? 'checked' : ''}>
+                        <input type="checkbox" id="toggle-${s.id}" class="api-toggle" data-cat="settings" data-id="${s.id}" data-type="boolean" ${state.lastBlocksData.settings?.[s.id] ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 </div>
@@ -202,7 +202,7 @@ function renderPrivacyToggles() {
         { id: 'alexa', label: 'Alexa' }
     ];
 
-    let html = TRACKING.map(i => renderToggleRow(i, 'settings', !!state.lastBlocksData.settings?.[i.id], 'boolean')).join('');
+    let html = TRACKING.map(i => renderToggleRow(i, 'privacy', !!state.lastBlocksData.privacy?.[i.id], 'boolean')).join('');
     const privacyUrl = state.activeProfile ? `https://my.nextdns.io/${state.activeProfile}/privacy` : '#';
     
     html += `<hr style="border-top:1px solid var(--border-color); border-bottom:0; margin:10px 0;">
