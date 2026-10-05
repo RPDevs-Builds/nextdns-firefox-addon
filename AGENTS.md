@@ -49,6 +49,11 @@ This document defines the architectural constraints, engineering standards, and 
 ### 3. Linter Priority
 - Always use `web-ext lint` for final build validation. It is the single source of truth for AMO compliance.
 
+### 4. Semantic Versioning Protocol
+- **Small Changes & Fixes**: Bump the patch version (3rd digit, e.g. `v1.0.0` -> `v1.0.1`).
+- **Feature Additions**: Roll the minor version (2nd digit, e.g. `v1.0.x` -> `v1.1.0`).
+- **Synchronized Versioning**: With every change, synchronize `manifest.json`, `package.json`, and `CHANGELOG.md`, re-run `npm run build`, and test with `npx web-ext lint`.
+
 ---
 
 ## 🛠️ Preferred Tools

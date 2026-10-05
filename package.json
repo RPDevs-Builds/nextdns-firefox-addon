@@ -1,6 +1,6 @@
 {
   "name": "dns-forge-addon",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Firefox extension for managing NextDNS blocklists and allowlists",
   "main": "src/background/main.js",
   "license": "GPL-3.0-or-later",

@@ -6,11 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.1] - 2026-10-05
+
+### Added
+- **In-Page Filtered Logs Modal:** Added an interactive native modal dialog on the NextDNS logs web console (`https://my.nextdns.io/<id>/logs`) to manage custom log filters, search active rules, add exclusions with notes, prefill from log row hide icons, and toggle row visibility in real-time.
+- **Semantic Versioning Policy:** Formally adopted rolling versioning guidelines in `AGENTS.md` (patch updates `v1.0.x` for small changes, minor bumps `v1.x.0` for features).
+
 ## [1.0.0] - 2026-10-04
 
 ### Added
 - **Firefox for Android (Fenix) Support:** Full mobile compatibility with runtime API guards for unsupported desktop features (`browser.menus`, `webRequestBlocking`, `browser.windows`, `browser.sidebarAction`, `browser.notifications`), responsive viewport meta tags, dynamic touch CSS sizing, and full-screen tab fallback routing (`mode=tab`).
-- **In-Page Filtered Logs Modal:** Added interactive native modal popup on the NextDNS web console (`my.nextdns.io/<id>/logs`) to manage custom log filters, search active rules, add pattern exclusions, and prefill rules directly from log rows.
 - **Mozilla AMO Compliance & Icon Assets:** Added full multi-resolution icon set (16x16, 32x32, 48x48, 96x96, 128x128), top-level manifest `icons` declarations, extension description, and comprehensive `PRIVACY.md` policy.
 - **Dedicated Test Suites:** Expanded test coverage to 17 suites (63 tests) with new dedicated test modules for `apiClient` exponential backoff, `metadataManager` three-tier fallback, Data Manager `viewer` UI, and Android compatibility guards.
 
