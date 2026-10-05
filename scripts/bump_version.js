@@ -41,3 +41,23 @@ try {
 } catch (e) {
     console.warn("⚠️ Could not update CHANGELOG.md automatically.");
 }
+
+// Update updates.json
+const updatesPath = path.resolve(__dirname, '../updates.json');
+try {
+    if (fs.existsSync(updatesPath)) {
+        const updates = JSON.parse(fs.readFileSync(updatesPath, 'utf8'));
+        const addonId = '{56fda99b-4dd4-4a4a-a413-00ff1c2cffd8}';
+        if (updates.addons && updates.addons[addonId]) {
+            updates.addons[addonId].updates.unshift({
+                version: version,
+                update_link: `https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases/download/v${version}/dns_forge-${version}.xpi`
+            });
+            fs.writeFileSync(updatesPath, JSON.stringify(updates, null, 2) + '\n');
+            console.log(`✅ updates.json: Added update entry for ${version}`);
+        }
+    }
+} catch (e) {
+    console.warn("⚠️ Could not update updates.json automatically:", e.message);
+}
+

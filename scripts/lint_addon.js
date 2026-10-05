@@ -26,7 +26,7 @@ const targetXpi = xpiFiles[0].path;
 console.log(`🔍 Linting latest built addon package: ${xpiFiles[0].name}`);
 
 try {
-    execSync(`npx web-ext lint -s "${targetXpi}"`, {
+    execSync(`npx web-ext lint --self-hosted -s "${targetXpi}"`, {
         stdio: 'inherit',
         env: {
             ...process.env,
