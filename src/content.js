@@ -69,7 +69,7 @@ function cleanupUI() {
     const idsToRemove = [
         'nxm-tld-controls', 'nxm-modal-enable-all', 'nxm-modal-disable-all', 
         'nxm-privacy-controls', 'nxm-logs-filter-group', 'nxm-profile-note',
-        'nxm-progress-ui'
+        'nxm-progress-ui', 'nxm-filter-modal-backdrop'
     ];
     idsToRemove.forEach(id => {
         const el = document.getElementById(id);
@@ -530,17 +530,22 @@ async function injectLogsSettingsControls() {
   small.style.cursor = 'pointer';
   small.onclick = () => checkbox.click();
 
-  const viewerBtn = document.createElement('button');
-  viewerBtn.textContent = '📋';
-  viewerBtn.onclick = (e) => {
+  const manageBtn = document.createElement('button');
+  manageBtn.id = 'nxm-manage-filters-btn';
+  manageBtn.className = 'btn btn-sm btn-outline-info ms-2';
+  manageBtn.style.cssText = 'padding: 1px 8px; font-size: 0.75rem; border-radius: 10px; line-height: 1.3; font-weight: 600; cursor: pointer;';
+  manageBtn.title = 'Manage Filtered Logs Popup';
+  manageBtn.textContent = '⚙️ Manage';
+  manageBtn.onclick = (e) => {
     e.preventDefault(); e.stopPropagation();
-    browser.runtime.sendMessage({ type: "OPEN_VIEWER", tab: "filters" });
+    openFilteredLogsModal();
   };
 
   textWrapper.appendChild(small);
-  textWrapper.appendChild(viewerBtn);
+  textWrapper.appendChild(manageBtn);
   group.appendChild(switchWrapper);
   group.appendChild(textWrapper);
+  updateFilterCountBadge();
   
   // Phase 2.5: Compact Mode, Highlighting, and Search
   const extraControls = document.createElement('div');
@@ -658,7 +663,18 @@ async function applyLogFilters() {
   const rows = Array.from(document.querySelectorAll('.list-group-item'));
   const { logFilters = {} } = await browser.storage.sync.get("logFilters");
   const filterKeys = Object.keys(logFilters);
-  if (filterKeys.length === 0) return;
+
+  if (filterKeys.length === 0) {
+    rows.forEach(row => {
+      if (row.dataset.nxmFiltered) {
+        row.style.display = "";
+        delete row.dataset.nxmFiltered;
+      }
+    });
+    updateLogCounters();
+    updateFilterCountBadge(0);
+    return;
+  }
 
   rows.forEach(row => {
     const domainEl = row.querySelector('.notranslate');
@@ -682,6 +698,9 @@ async function applyLogFilters() {
       delete row.dataset.nxmFiltered;
     }
   });
+
+  updateLogCounters();
+  updateFilterCountBadge(filterKeys.length);
 }
 
 function matchPattern(domain, pattern) {
@@ -850,12 +869,285 @@ function injectLogActions() {
 }
 
 async function handleHideAction(domain) {
-  const pattern = prompt(`Enter filter pattern to hide:`, domain);
-  if (!pattern) return;
+  openFilteredLogsModal(domain);
+}
+
+/**
+ * Updates the filter count badge on the "Manage" button in the logs header.
+ * @param {number} [forcedCount] - Optional known count to avoid an extra storage read.
+ */
+async function updateFilterCountBadge(forcedCount) {
+  const btn = document.getElementById('nxm-manage-filters-btn');
+  if (!btn) return;
+  let count = forcedCount;
+  if (count === undefined) {
+    const { logFilters = {} } = await browser.storage.sync.get("logFilters");
+    count = Object.keys(logFilters).length;
+  }
+  btn.textContent = `⚙️ Manage (${count})`;
+}
+
+/**
+ * Closes and removes the Filtered Logs Manager modal dialog from the page.
+ */
+function closeFilteredLogsModal() {
+  const existing = document.getElementById('nxm-filter-modal-backdrop');
+  if (existing) existing.remove();
+}
+
+/**
+ * Opens an in-page modal dialog on my.nextdns.io/<id>/logs to view, add, search,
+ * and delete log filter patterns in real-time.
+ * @param {string} [prefilledPattern=""] - Optional initial pattern to pre-fill in the input field.
+ */
+async function openFilteredLogsModal(prefilledPattern = "") {
+  closeFilteredLogsModal();
+
   const { logFilters = {} } = await browser.storage.sync.get("logFilters");
-  logFilters[pattern] = "Hidden via Log Action";
-  await browser.storage.sync.set({ logFilters });
-  applyLogFilters();
+
+  // 1. Backdrop
+  const backdrop = document.createElement('div');
+  backdrop.id = 'nxm-filter-modal-backdrop';
+  backdrop.className = 'nxm-modal-backdrop';
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) closeFilteredLogsModal();
+  };
+
+  // 2. Dialog Container
+  const dialog = document.createElement('div');
+  dialog.className = 'nxm-modal-dialog';
+  dialog.onclick = (e) => e.stopPropagation();
+
+  // 3. Header
+  const header = document.createElement('div');
+  header.className = 'nxm-modal-header';
+
+  const title = document.createElement('h5');
+  title.className = 'nxm-modal-title';
+  title.textContent = '🛡️ Manage Filtered Logs';
+
+  const countBadge = document.createElement('span');
+  countBadge.id = 'nxm-modal-badge';
+  countBadge.className = 'nxm-filter-badge';
+  countBadge.textContent = `${Object.keys(logFilters).length} Active`;
+  title.appendChild(countBadge);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'nxm-modal-close';
+  closeBtn.textContent = '×';
+  closeBtn.title = 'Close (Esc)';
+  closeBtn.onclick = () => closeFilteredLogsModal();
+
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+
+  // 4. Body
+  const body = document.createElement('div');
+  body.className = 'nxm-modal-body';
+
+  // Add New Filter Box
+  const addBox = document.createElement('div');
+  addBox.className = 'nxm-filter-add-box';
+
+  const addTitle = document.createElement('div');
+  addTitle.style.cssText = 'font-weight: 600; font-size: 0.85em; color: #4facf7; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;';
+  addTitle.textContent = 'Add Filter Rule';
+
+  const addRow = document.createElement('div');
+  addRow.style.cssText = 'display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;';
+
+  const patternInput = document.createElement('input');
+  patternInput.type = 'text';
+  patternInput.id = 'nxm-new-filter-pattern';
+  patternInput.className = 'form-control form-control-sm';
+  patternInput.placeholder = 'Domain or pattern (e.g. *.doubleclick.net)';
+  patternInput.style.cssText = 'flex: 2; min-width: 180px; background: #0f172a; color: #fff; border: 1px solid #475569;';
+  if (prefilledPattern) {
+    patternInput.value = prefilledPattern;
+  }
+
+  const noteInput = document.createElement('input');
+  noteInput.type = 'text';
+  noteInput.id = 'nxm-new-filter-note';
+  noteInput.className = 'form-control form-control-sm';
+  noteInput.placeholder = 'Note / Reason (optional)';
+  noteInput.style.cssText = 'flex: 1.5; min-width: 130px; background: #0f172a; color: #fff; border: 1px solid #475569;';
+
+  const addSubmitBtn = document.createElement('button');
+  addSubmitBtn.className = 'btn btn-sm btn-primary';
+  addSubmitBtn.style.cssText = 'padding: 4px 14px; font-weight: 600;';
+  addSubmitBtn.textContent = '+ Add Filter';
+
+  const hint = document.createElement('small');
+  hint.style.cssText = 'display: block; color: #94a3b8; font-size: 0.75em; line-height: 1.4;';
+  hint.textContent = 'Supported: exact (domain.com), wildcard (*.domain.com), or subdomains & root (**.domain.com).';
+
+  addRow.appendChild(patternInput);
+  addRow.appendChild(noteInput);
+  addRow.appendChild(addSubmitBtn);
+  addBox.appendChild(addTitle);
+  addBox.appendChild(addRow);
+  addBox.appendChild(hint);
+  body.appendChild(addBox);
+
+  // Filter Rules Header & Search
+  const listHeaderRow = document.createElement('div');
+  listHeaderRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;';
+
+  const listHeading = document.createElement('span');
+  listHeading.style.cssText = 'font-weight: 600; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8;';
+  listHeading.textContent = 'Active Filter Rules';
+
+  const searchInput = document.createElement('input');
+  searchInput.type = 'search';
+  searchInput.className = 'form-control form-control-sm';
+  searchInput.placeholder = 'Search rules...';
+  searchInput.style.cssText = 'width: 150px; background: #1e293b; color: #fff; border: 1px solid #475569; font-size: 0.8em;';
+
+  listHeaderRow.appendChild(listHeading);
+  listHeaderRow.appendChild(searchInput);
+  body.appendChild(listHeaderRow);
+
+  // Filter List Container
+  const listContainer = document.createElement('div');
+  listContainer.id = 'nxm-modal-filter-list';
+  listContainer.className = 'nxm-filter-list';
+  body.appendChild(listContainer);
+
+  // 5. Footer
+  const footer = document.createElement('div');
+  footer.className = 'nxm-modal-footer';
+
+  const footerStatus = document.createElement('small');
+  footerStatus.id = 'nxm-modal-footer-status';
+  footerStatus.style.cssText = 'color: #94a3b8; font-size: 0.8em;';
+  footerStatus.textContent = 'Filter rules hide matching log rows in real-time.';
+
+  const footerButtons = document.createElement('div');
+  footerButtons.style.cssText = 'display: flex; gap: 8px;';
+
+  const clearAllBtn = document.createElement('button');
+  clearAllBtn.className = 'btn btn-sm btn-outline-danger';
+  clearAllBtn.textContent = 'Clear All';
+
+  const doneBtn = document.createElement('button');
+  doneBtn.className = 'btn btn-sm btn-secondary';
+  doneBtn.textContent = 'Close';
+  doneBtn.onclick = () => closeFilteredLogsModal();
+
+  footerButtons.appendChild(clearAllBtn);
+  footerButtons.appendChild(doneBtn);
+  footer.appendChild(footerStatus);
+  footer.appendChild(footerButtons);
+
+  dialog.appendChild(header);
+  dialog.appendChild(body);
+  dialog.appendChild(footer);
+  backdrop.appendChild(dialog);
+  document.body.appendChild(backdrop);
+
+  // Render entries
+  const renderList = (filterTerm = '') => {
+    listContainer.replaceChildren();
+    const entries = Object.entries(logFilters);
+    const term = filterTerm.toLowerCase().trim();
+    const filteredEntries = entries.filter(([pattern, note]) => {
+      if (!term) return true;
+      return pattern.toLowerCase().includes(term) || (note && note.toLowerCase().includes(term));
+    });
+
+    countBadge.textContent = `${entries.length} Active`;
+    updateFilterCountBadge(entries.length);
+
+    if (filteredEntries.length === 0) {
+      const emptyMsg = document.createElement('div');
+      emptyMsg.style.cssText = 'text-align: center; padding: 25px 15px; color: #94a3b8; font-size: 0.85em; background: #1e293b; border-radius: 6px; border: 1px dashed #334155;';
+      emptyMsg.textContent = entries.length === 0
+        ? 'No filter rules defined. Add a domain or pattern above, or click 👁️‍🗨️ on any log row to hide it.'
+        : 'No filter rules match your search.';
+      listContainer.appendChild(emptyMsg);
+      return;
+    }
+
+    filteredEntries.forEach(([pattern, note]) => {
+      const item = document.createElement('div');
+      item.className = 'nxm-filter-item';
+
+      const left = document.createElement('div');
+      left.style.cssText = 'display: flex; align-items: center; gap: 8px; overflow: hidden;';
+
+      const patSpan = document.createElement('span');
+      patSpan.className = 'nxm-filter-pattern';
+      patSpan.textContent = pattern;
+
+      const noteSpan = document.createElement('span');
+      noteSpan.className = 'nxm-filter-note';
+      noteSpan.textContent = note || '';
+
+      left.appendChild(patSpan);
+      if (note) left.appendChild(noteSpan);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'nxm-filter-delete-btn';
+      delBtn.textContent = 'Remove';
+      delBtn.onclick = async () => {
+        delete logFilters[pattern];
+        await browser.storage.sync.set({ logFilters });
+        await applyLogFilters();
+        renderList(searchInput.value);
+      };
+
+      item.appendChild(left);
+      item.appendChild(delBtn);
+      listContainer.appendChild(item);
+    });
+  };
+
+  renderList();
+
+  searchInput.oninput = (e) => renderList(e.target.value);
+
+  const handleAdd = async () => {
+    let pattern = patternInput.value.trim().toLowerCase();
+    pattern = pattern.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    if (!pattern) return;
+
+    const note = noteInput.value.trim() || 'Custom Log Filter';
+    logFilters[pattern] = note;
+    await browser.storage.sync.set({ logFilters });
+    patternInput.value = '';
+    noteInput.value = '';
+    await applyLogFilters();
+    renderList(searchInput.value);
+    patternInput.focus();
+  };
+
+  addSubmitBtn.onclick = handleAdd;
+  patternInput.onkeydown = (e) => { if (e.key === 'Enter') handleAdd(); };
+  noteInput.onkeydown = (e) => { if (e.key === 'Enter') handleAdd(); };
+
+  clearAllBtn.onclick = async () => {
+    if (!confirm('Are you sure you want to clear all log filter rules? All hidden domains will reappear in the log stream.')) return;
+    for (const k of Object.keys(logFilters)) {
+      delete logFilters[k];
+    }
+    await browser.storage.sync.set({ logFilters: {} });
+    await applyLogFilters();
+    renderList();
+  };
+
+  const keyHandler = (e) => {
+    if (e.key === 'Escape') {
+      closeFilteredLogsModal();
+      document.removeEventListener('keydown', keyHandler);
+    }
+  };
+  document.addEventListener('keydown', keyHandler);
+
+  if (prefilledPattern) {
+    patternInput.focus();
+    patternInput.select();
+  }
 }
 
 async function handleLogAction(domain, listType) {

@@ -26,3 +26,165 @@
     font-size: 0.8em;
     opacity: 0.6;
 }
+
+/* Filtered Logs Manager Modal */
+.nxm-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(4px);
+    z-index: 10500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: nxmFadeIn 0.15s ease-out;
+}
+
+@keyframes nxmFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.nxm-modal-dialog {
+    background: #0f172a;
+    color: #f8fafc;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 650px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+}
+
+.nxm-modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #334155;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #1e293b;
+}
+
+.nxm-modal-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0;
+    color: #4facf7;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nxm-modal-close {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.nxm-modal-close:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.nxm-modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.nxm-filter-add-box {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 18px;
+}
+
+.nxm-filter-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.nxm-filter-item {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.15s;
+}
+
+.nxm-filter-item:hover {
+    border-color: #4facf7;
+    background: #253348;
+}
+
+.nxm-filter-pattern {
+    font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.nxm-filter-note {
+    font-size: 0.8em;
+    color: #94a3b8;
+    margin-left: 8px;
+}
+
+.nxm-filter-delete-btn {
+    background: transparent;
+    border: 1px solid #ef4444;
+    color: #ef4444;
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-size: 0.8em;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.nxm-filter-delete-btn:hover {
+    background: #ef4444;
+    color: #ffffff;
+}
+
+.nxm-modal-footer {
+    padding: 12px 20px;
+    border-top: 1px solid #334155;
+    background: #1e293b;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.nxm-filter-badge {
+    background: #334155;
+    color: #f8fafc;
+    border: 1px solid #475569;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 0.75em;
+    font-weight: 600;
+}
