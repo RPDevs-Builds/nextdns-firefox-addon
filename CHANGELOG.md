@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.2] - 2026-10-05
+
+### Added
+- **Self-Hosted GitHub Auto-Updates:** Configured native Firefox `update_url` pointing to repository `updates.json` manifest for direct updates from GitHub Releases without requiring public AMO store distribution.
+- **Automated Mozilla Unlisted Signing:** Integrated automated unlisted signing via Mozilla API keys (`npm run sign`) in GitHub Actions workflows for continuous delivery of signed packages.
+- **Workflow & Build Hardening:** Added workflow concurrency cancellation, robust built-package linter script (`scripts/lint_addon.js`), and automated tag release triggers.
+- **Dependency Consolidation:** Consolidated test runner dependencies on Jest 30.5.2, jest-environment-jsdom 30.5.2, and @testing-library/jest-dom 7.0.1.
+
 ## [1.0.1] - 2026-10-05
 
 ### Added
