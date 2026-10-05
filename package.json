@@ -7,16 +7,16 @@
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
-    "lint:addon": "NODE_OPTIONS='--max-old-space-size=4096' web-ext lint -s web-ext-artifacts/*.xpi",
+    "lint:addon": "node scripts/lint_addon.js",
     "build": "web-ext build --overwrite-dest --filename \"{name}-{version}.xpi\" --ignore-files \"tests/**\" \"tests\" \"scripts/**\" \"scripts\" \"node_modules/**\" \".git/**\" \".github/**\" \".vscode/**\" \".staging/**\" \".staging\" \".tools/**\" \".tools\" \"package.json\" \"package-lock.json\" \"jest.setup.js\" \".gitignore\" \"README.md\" \"CHANGELOG.md\" \"LICENSE\" \"AGENTS.md\" \"babel.config.json\" \".gemini/**\" \"*.skill\" \"**/*.test.js\" \"*-results.json\" \"reports/**\" \"web-ext-artifacts/**\"",
     "bump": "node scripts/bump_version.js"
   },
   "devDependencies": {
     "@babel/preset-env": "^8.0.2",
     "@testing-library/dom": "^10.4.2",
-    "@testing-library/jest-dom": "^6.1.4",
-    "jest": "^30.4.2",
-    "jest-environment-jsdom": "^30.4.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "jest": "^30.5.2",
+    "jest-environment-jsdom": "^30.5.2",
     "jest-fetch-mock": "^4.2.0",
     "jest-webextension-mock": "^4.2.0",
     "jsdoc-to-markdown": "^9.1.3",
