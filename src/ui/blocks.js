@@ -166,18 +166,7 @@ function renderPerformanceToggles() {
     return `
         <div class="panel-section">
             <h4 style="margin-top:0;">Expert Performance</h4>
-            ${ITEMS.map(s => `
-                <div class="flex-between" style="margin-bottom:12px;">
-                    <div>
-                        <div style="font-size:0.9em;">${s.label}</div>
-                        <div style="font-size:0.7em; color:var(--text-muted);">${s.note}</div>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" id="toggle-${s.id}" class="api-toggle" data-cat="settings" data-id="${s.id}" data-type="boolean" ${state.lastBlocksData.settings?.[s.id] ? 'checked' : ''}>
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-            `).join('')}
+            ${ITEMS.map(s => renderToggleRow(s, 'settings', !!state.lastBlocksData.settings?.[s.id], 'boolean')).join('')}
         </div>
     `;
 }
@@ -271,17 +260,15 @@ function renderParentalToggles(query) {
 
     html += '<hr style="border-top:1px solid var(--border-color); border-bottom:0; margin:10px 0;"><div style="font-weight:bold; margin:0 0 5px; font-size: 0.85em;">Services</div>';
     const activeServices = new Set((state.lastBlocksData.parentalcontrol?.services || []).map(s => s.id));
-    html += (state.blocksMeta.parental_services || []).filter(s => s.name.toLowerCase().includes(query)).map(s => {
-        const active = activeServices.has(s.id);
-        return `
-            <div class="flex-between" style="padding:8px; background:var(--bg-panel); border-radius:6px; margin-bottom:5px;">
-                <span style="font-size:0.9em;">${escapeHTML(s.name)}</span>
-                <button class="api-toggle-btn ${active?'btn-deny':'btn-allow'}"
-                    data-cat="parentalcontrol/services" data-id="${s.id}" data-type="list" data-active="${active}"
-                    style="width:auto; padding:4px 10px; font-size: 0.7em;">${active?'OFF':'ON'}</button>
-            </div>
-        `;
-    }).join('');
+    const filteredServices = (state.blocksMeta.parental_services || []).filter(s => s.name.toLowerCase().includes(query));
+    if (filteredServices.length === 0) {
+        html += '<div style="text-align:center; opacity:0.5; padding:10px; font-size:0.85em;">No services found.</div>';
+    } else {
+        html += filteredServices.map(s => {
+            const active = activeServices.has(s.id);
+            return renderToggleRow(s, 'parentalcontrol/services', active, 'list');
+        }).join('');
+    }
 
     return html;
 }
@@ -323,9 +310,10 @@ function renderTldsGrid(query) {
                     return `
                         <div class="flex-between" style="background:rgba(0,0,0,0.1); padding:4px 8px; border-radius:4px;">
                             <span style="font-size: 0.85em; font-family:monospace;">.${escapeHTML(t)}</span>
-                            <button class="api-toggle-btn ${active?'btn-deny':'btn-allow'}"
-                                data-cat="security/tlds" data-id="${t}" data-type="list" data-active="${active}"
-                                style="width:auto; padding:2px 6px; font-size: 0.75em;">${active?'OFF':'ON'}</button>
+                            <label class="switch" style="transform: scale(0.75); margin: 0;">
+                                <input type="checkbox" id="toggle-tld-${t}" class="api-toggle" data-cat="security/tlds" data-id="${t}" data-type="list" ${active ? 'checked' : ''}>
+                                <span class="slider round"></span>
+                            </label>
                         </div>`;
                 }).join('')}
             </div>
@@ -337,7 +325,7 @@ function renderTldsGrid(query) {
 
 /**
  * Renders a standard toggle row for boolean or list-based settings.
- * @param {Object} item - The setting item (id, label/name).
+ * @param {Object} item - The setting item (id, label/name, optional note).
  * @param {string} cat - The category path for the API call.
  * @param {boolean} isActive - Whether the setting is currently active.
  * @param {string} type - The setting type ('boolean' or 'list').
@@ -346,9 +334,12 @@ function renderTldsGrid(query) {
 function renderToggleRow(item, cat, isActive, type) {
     return `
         <div class="flex-between" style="margin-bottom:12px;">
-            <div style="font-size:0.9em;">${escapeHTML(item.label || item.name)}</div>
+            <div>
+                <div style="font-size:0.9em;">${escapeHTML(item.label || item.name)}</div>
+                ${item.note ? `<div style="font-size:0.7em; color:var(--text-muted);">${escapeHTML(item.note)}</div>` : ''}
+            </div>
             <label class="switch">
-                <input type="checkbox" class="api-toggle" data-cat="${cat}" data-id="${item.id}" data-type="${type}" ${isActive ? 'checked' : ''}>
+                <input type="checkbox" id="toggle-${item.id}" class="api-toggle" data-cat="${cat}" data-id="${item.id}" data-type="${type}" ${isActive ? 'checked' : ''}>
                 <span class="slider round"></span>
             </label>
         </div>

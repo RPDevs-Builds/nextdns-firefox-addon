@@ -93,5 +93,93 @@ describe('Popup UI - Blocks Expansion Suite', () => {
         expect(appleInput.dataset.cat).toBe('privacy/natives');
         expect(appleInput.checked).toBe(true);
     });
+
+    test('Blocks UI - Parental Services Unified Toggle and Category Binding', async () => {
+        state.activeBlocksSubTab = 'parental';
+        state.blocksMeta.parental_services = [
+            { id: 'tiktok', name: 'TikTok' },
+            { id: 'facebook', name: 'Facebook' }
+        ];
+        state.lastBlocksData.parentalcontrol = {
+            safeSearch: true,
+            categories: [{ id: 'dating' }],
+            services: [{ id: 'tiktok' }]
+        };
+
+        await blocks.loadToggles();
+
+        // TikTok is active (filter enabled) -> switch should be checked
+        const tiktokInput = document.querySelector('input[data-id="tiktok"]');
+        expect(tiktokInput).not.toBeNull();
+        expect(tiktokInput.dataset.cat).toBe('parentalcontrol/services');
+        expect(tiktokInput.dataset.type).toBe('list');
+        expect(tiktokInput.checked).toBe(true);
+
+        // Facebook is inactive (filter disabled) -> switch should be unchecked
+        const facebookInput = document.querySelector('input[data-id="facebook"]');
+        expect(facebookInput).not.toBeNull();
+        expect(facebookInput.dataset.cat).toBe('parentalcontrol/services');
+        expect(facebookInput.dataset.type).toBe('list');
+        expect(facebookInput.checked).toBe(false);
+
+        // Ensure no legacy button showing 'OFF' or 'ON' text exists for services
+        const legacyBtn = document.querySelector('.api-toggle-btn[data-cat="parentalcontrol/services"]');
+        expect(legacyBtn).toBeNull();
+    });
+
+    test('Blocks UI - TLDs Unified Switch Toggle and Status Binding', async () => {
+        state.activeBlocksSubTab = 'tlds';
+        state.blocksMeta.tlds = ['com', 'app'];
+        state.lastBlocksData.security = {
+            tlds: [{ id: 'com' }]
+        };
+
+        await blocks.loadToggles();
+
+        const comInput = document.querySelector('input[data-id="com"]');
+        expect(comInput).not.toBeNull();
+        expect(comInput.dataset.cat).toBe('security/tlds');
+        expect(comInput.dataset.type).toBe('list');
+        expect(comInput.checked).toBe(true);
+
+        const appInput = document.querySelector('input[data-id="app"]');
+        expect(appInput).not.toBeNull();
+        expect(appInput.dataset.cat).toBe('security/tlds');
+        expect(appInput.dataset.type).toBe('list');
+        expect(appInput.checked).toBe(false);
+
+        // Ensure no legacy button showing 'OFF' or 'ON' text exists for TLDs
+        const legacyBtn = document.querySelector('.api-toggle-btn[data-cat="security/tlds"]');
+        expect(legacyBtn).toBeNull();
+    });
+
+    test('Blocks UI - updateLocalBlocksCache synchronizes sub-resource lists and booleans', async () => {
+        const { updateLocalBlocksCache } = await import('../src/ui/main.js');
+
+        state.lastBlocksData = {
+            parentalcontrol: { services: [] },
+            security: { threatIntelligenceFeeds: false, tlds: [{ id: 'zip' }] },
+            privacy: { disguisedTrackers: false, natives: [] }
+        };
+
+        // Add service to list
+        updateLocalBlocksCache('parentalcontrol/services', 'tiktok', 'add');
+        expect(state.lastBlocksData.parentalcontrol.services).toEqual([{ id: 'tiktok' }]);
+
+        // Delete service from list
+        updateLocalBlocksCache('parentalcontrol/services', 'tiktok', 'delete');
+        expect(state.lastBlocksData.parentalcontrol.services).toEqual([]);
+
+        // Delete TLD from list
+        updateLocalBlocksCache('security/tlds', 'zip', 'delete');
+        expect(state.lastBlocksData.security.tlds).toEqual([]);
+
+        // Boolean toggle update
+        updateLocalBlocksCache('privacy', 'disguisedTrackers', 'add');
+        expect(state.lastBlocksData.privacy.disguisedTrackers).toBe(true);
+        updateLocalBlocksCache('privacy', 'disguisedTrackers', 'delete');
+        expect(state.lastBlocksData.privacy.disguisedTrackers).toBe(false);
+    });
 });
+
 

@@ -530,8 +530,8 @@ function initGlobalEventListeners() {
             if (!res.success) {
                 e.target.checked = !e.target.checked;
                 alert("Failed to update setting.");
-            } else if (state.lastBlocksData && state.lastBlocksData[cat]) {
-                state.lastBlocksData[cat][id] = (action === 'add');
+            } else {
+                updateLocalBlocksCache(cat, id, action);
             }
         }
     });
@@ -557,12 +557,41 @@ function initGlobalEventListeners() {
                 btn.textContent = action === 'add' ? 'Remove' : 'Add';
                 btn.classList.toggle('btn-allow', action === 'delete');
                 btn.classList.toggle('btn-deny', action === 'add');
+                updateLocalBlocksCache(cat, id, action);
             } else {
                 alert("Failed to update.");
             }
             btn.disabled = false;
         }
     });
+}
+
+/**
+ * Synchronizes the in-memory lastBlocksData cache when a setting or list item is toggled.
+ * Handles top-level categories as well as sub-resource lists (e.g. privacy/natives, parentalcontrol/services).
+ * @param {string} cat - Category path (e.g., 'privacy', 'parentalcontrol/services')
+ * @param {string} id - Identifier of the setting or item
+ * @param {string} action - 'add' or 'delete'
+ */
+export function updateLocalBlocksCache(cat, id, action) {
+    if (!state.lastBlocksData) return;
+    if (cat && cat.includes('/')) {
+        const [parentCat, subCat] = cat.split('/');
+        if (state.lastBlocksData[parentCat]) {
+            if (!Array.isArray(state.lastBlocksData[parentCat][subCat])) {
+                state.lastBlocksData[parentCat][subCat] = [];
+            }
+            if (action === 'add') {
+                if (!state.lastBlocksData[parentCat][subCat].some(item => item.id === id)) {
+                    state.lastBlocksData[parentCat][subCat].push({ id });
+                }
+            } else {
+                state.lastBlocksData[parentCat][subCat] = state.lastBlocksData[parentCat][subCat].filter(item => item.id !== id);
+            }
+        }
+    } else if (cat && state.lastBlocksData[cat]) {
+        state.lastBlocksData[cat][id] = (action === 'add');
+    }
 }
 
 /**

@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.4] - 2026-10-05
+
+### Changed
+- **Unified Switch Toggles Across All Pages:** Standardized Parental Control Services and TLDs to use consistent slider switch toggles (`renderToggleRow`) instead of legacy buttons with confusing, inverted `OFF`/`ON` text. Switch ON now consistently represents filter enabled (blocked) across all categories.
+- **Enhanced `renderToggleRow` Component:** Added support for optional subtitle notes (`item.note`) and explicit element IDs, eliminating one-off manual switch structures in Performance toggles.
+- **Unified Sub-Resource State Synchronization:** Introduced `updateLocalBlocksCache` in popup engine to automatically synchronize both nested sub-resource lists (`privacy/natives`, `parentalcontrol/services`, `parentalcontrol/categories`, `security/tlds`, `privacy/blocklists`) and top-level boolean settings in `state.lastBlocksData` immediately upon API toggle success.
+- **Test Suite Expansion:** Added automated unit tests in `tests/blocks.test.js` validating parental services switches, TLDs switches, and cache synchronization for list and boolean settings (17 suites, 67 tests passing).
+
 ## [1.0.3] - 2026-10-05
 
 ### Fixed
