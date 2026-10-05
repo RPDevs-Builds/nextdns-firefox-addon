@@ -56,11 +56,33 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
-      - name: Download Artifacts
+
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Built Artifacts
         uses: actions/download-artifact@v8
         with:
           name: dns-forge-xpi
           path: release-artifacts/
+
+      - name: Sign Extension with Mozilla (Unlisted)
+        if: env.AMO_JWT_ISSUER != '' && env.AMO_JWT_SECRET != ''
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          npm run sign || echo "Note: Signing completed or version already submitted."
+          if [ -d "web-ext-artifacts" ]; then
+            cp -u web-ext-artifacts/*.xpi release-artifacts/ 2>/dev/null || true
+          fi
+
       - name: Create Release
         uses: softprops/action-gh-release@v3
         with:

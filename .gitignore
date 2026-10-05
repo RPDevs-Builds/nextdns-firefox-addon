@@ -7,3 +7,4 @@ dist/
 .source
 .wiki/
 web-ext-artifacts/
+.amo-upload-uuid
