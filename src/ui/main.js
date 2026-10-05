@@ -577,17 +577,29 @@ export function updateLocalBlocksCache(cat, id, action) {
     if (!state.lastBlocksData) return;
     if (cat && cat.includes('/')) {
         const [parentCat, subCat] = cat.split('/');
-        if (state.lastBlocksData[parentCat]) {
-            if (!Array.isArray(state.lastBlocksData[parentCat][subCat])) {
-                state.lastBlocksData[parentCat][subCat] = [];
+        if (!state.lastBlocksData[parentCat]) {
+            state.lastBlocksData[parentCat] = {};
+        }
+        if (subCat === 'performance') {
+            if (!state.lastBlocksData[parentCat].performance) {
+                state.lastBlocksData[parentCat].performance = {};
             }
-            if (action === 'add') {
-                if (!state.lastBlocksData[parentCat][subCat].some(item => item.id === id)) {
-                    state.lastBlocksData[parentCat][subCat].push({ id });
-                }
-            } else {
-                state.lastBlocksData[parentCat][subCat] = state.lastBlocksData[parentCat][subCat].filter(item => item.id !== id);
+            state.lastBlocksData[parentCat].performance[id] = (action === 'add');
+            state.lastBlocksData[parentCat][id] = (action === 'add');
+            if (state.lastBlocksData['settings/performance']) {
+                state.lastBlocksData['settings/performance'][id] = (action === 'add');
             }
+            return;
+        }
+        if (!Array.isArray(state.lastBlocksData[parentCat][subCat])) {
+            state.lastBlocksData[parentCat][subCat] = [];
+        }
+        if (action === 'add') {
+            if (!state.lastBlocksData[parentCat][subCat].some(item => item.id === id)) {
+                state.lastBlocksData[parentCat][subCat].push({ id });
+            }
+        } else {
+            state.lastBlocksData[parentCat][subCat] = state.lastBlocksData[parentCat][subCat].filter(item => item.id !== id);
         }
     } else if (cat && state.lastBlocksData[cat]) {
         state.lastBlocksData[cat][id] = (action === 'add');

@@ -221,7 +221,7 @@ export const messageHandlers = {
      */
     GET_ALL_SETTINGS: async (msg) => {
         const { profileId } = msg;
-        const categories = ['security', 'privacy', 'parentalcontrol', 'settings'];
+        const categories = ['security', 'privacy', 'parentalcontrol', 'settings', 'settings/performance'];
         const results = await Promise.all(categories.map(c => apiClient.fetchWithRetry(`/profiles/${profileId}/${c}`, { cache: 'no-store' })));
         const data = {};
         for (let i = 0; i < categories.length; i++) {
@@ -229,6 +229,19 @@ export const messageHandlers = {
                 const json = await results[i].response.json();
                 data[categories[i]] = json.data || json;
             }
+        }
+        // Normalize settings/performance across flat and nested structures
+        if (data['settings/performance']) {
+            if (!data.settings) data.settings = {};
+            data.settings.performance = { ...(data.settings.performance || {}), ...data['settings/performance'] };
+            data.settings.ecs = data['settings/performance'].ecs ?? data.settings.ecs;
+            data.settings.cacheBoost = data['settings/performance'].cacheBoost ?? data.settings.cacheBoost;
+            data.settings.cnameFlattening = data['settings/performance'].cnameFlattening ?? data.settings.cnameFlattening;
+        } else if (data.settings?.performance) {
+            data['settings/performance'] = data.settings.performance;
+            data.settings.ecs = data.settings.performance.ecs ?? data.settings.ecs;
+            data.settings.cacheBoost = data.settings.performance.cacheBoost ?? data.settings.cacheBoost;
+            data.settings.cnameFlattening = data.settings.performance.cnameFlattening ?? data.settings.cnameFlattening;
         }
         return { success: true, data };
     },

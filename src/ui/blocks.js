@@ -157,16 +157,21 @@ function renderSecurityToggles() {
  */
 function renderPerformanceToggles() {
     const ITEMS = [
-        { id: 'ecs', label: 'EDNS Client Subnet (ECS)', note: 'Improves global CDN performance.' },
-        { id: 'cnameFlattening', label: 'CNAME Flattening', note: 'Speeds up resolution of CNAME chains.' },
-        { id: 'cacheBoost', label: 'Cache Boost', note: 'Forces minimum TTL to reduce lookups.' },
-        { id: 'web3', label: 'Web3 Support', note: 'Enables .eth and .crypto resolution.' }
+        { id: 'ecs', label: 'EDNS Client Subnet (ECS)', note: 'Improves global CDN performance.', cat: 'settings/performance' },
+        { id: 'cnameFlattening', label: 'CNAME Flattening', note: 'Speeds up resolution of CNAME chains.', cat: 'settings/performance' },
+        { id: 'cacheBoost', label: 'Cache Boost', note: 'Forces minimum TTL to reduce lookups.', cat: 'settings/performance' },
+        { id: 'web3', label: 'Web3 Support', note: 'Enables .eth and .crypto resolution.', cat: 'settings' }
     ];
 
     return `
         <div class="panel-section">
             <h4 style="margin-top:0;">Expert Performance</h4>
-            ${ITEMS.map(s => renderToggleRow(s, 'settings', !!state.lastBlocksData.settings?.[s.id], 'boolean')).join('')}
+            ${ITEMS.map(s => {
+                const isActive = s.cat === 'settings/performance'
+                    ? !!(state.lastBlocksData.settings?.performance?.[s.id] ?? state.lastBlocksData['settings/performance']?.[s.id] ?? state.lastBlocksData.settings?.[s.id])
+                    : !!state.lastBlocksData.settings?.[s.id];
+                return renderToggleRow(s, s.cat, isActive, 'boolean');
+            }).join('')}
         </div>
     `;
 }

@@ -179,7 +179,54 @@ describe('Popup UI - Blocks Expansion Suite', () => {
         expect(state.lastBlocksData.privacy.disguisedTrackers).toBe(true);
         updateLocalBlocksCache('privacy', 'disguisedTrackers', 'delete');
         expect(state.lastBlocksData.privacy.disguisedTrackers).toBe(false);
+
+        // Performance sub-category update
+        updateLocalBlocksCache('settings/performance', 'ecs', 'add');
+        expect(state.lastBlocksData.settings.performance.ecs).toBe(true);
+        expect(state.lastBlocksData.settings.ecs).toBe(true);
+        updateLocalBlocksCache('settings/performance', 'ecs', 'delete');
+        expect(state.lastBlocksData.settings.performance.ecs).toBe(false);
+        expect(state.lastBlocksData.settings.ecs).toBe(false);
+    });
+
+    test('Blocks UI - Expert Performance Toggles Status and Category Binding', async () => {
+        state.activeBlocksSubTab = 'performance';
+        state.lastBlocksData.settings = {
+            web3: true,
+            performance: {
+                ecs: true,
+                cnameFlattening: false,
+                cacheBoost: true
+            }
+        };
+
+        await blocks.loadToggles();
+
+        const ecsInput = document.querySelector('input[data-id="ecs"]');
+        expect(ecsInput).not.toBeNull();
+        expect(ecsInput.dataset.cat).toBe('settings/performance');
+        expect(ecsInput.dataset.type).toBe('boolean');
+        expect(ecsInput.checked).toBe(true);
+
+        const cnameInput = document.querySelector('input[data-id="cnameFlattening"]');
+        expect(cnameInput).not.toBeNull();
+        expect(cnameInput.dataset.cat).toBe('settings/performance');
+        expect(cnameInput.dataset.type).toBe('boolean');
+        expect(cnameInput.checked).toBe(false);
+
+        const cacheBoostInput = document.querySelector('input[data-id="cacheBoost"]');
+        expect(cacheBoostInput).not.toBeNull();
+        expect(cacheBoostInput.dataset.cat).toBe('settings/performance');
+        expect(cacheBoostInput.dataset.type).toBe('boolean');
+        expect(cacheBoostInput.checked).toBe(true);
+
+        const web3Input = document.querySelector('input[data-id="web3"]');
+        expect(web3Input).not.toBeNull();
+        expect(web3Input.dataset.cat).toBe('settings');
+        expect(web3Input.dataset.type).toBe('boolean');
+        expect(web3Input.checked).toBe(true);
     });
 });
+
 
 

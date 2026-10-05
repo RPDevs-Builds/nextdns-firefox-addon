@@ -64,10 +64,13 @@ async function applyPreset(preset) {
         if (category === 'blocklists' || category === 'tlds' || category === 'categories') continue;
         
         for (const [id, value] of Object.entries(settings)) {
+            const targetCategory = (category === 'settings' && ['ecs', 'cacheBoost', 'cnameFlattening'].includes(id))
+                ? 'settings/performance'
+                : category;
             promises.push(browser.runtime.sendMessage({
                 type: "TOGGLE_SETTING",
                 profileId: state.activeProfile,
-                category,
+                category: targetCategory,
                 id,
                 action: value ? 'add' : 'delete',
                 settingType: 'boolean'

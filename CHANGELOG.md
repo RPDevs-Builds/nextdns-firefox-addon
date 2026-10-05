@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.5] - 2026-10-05
+
+### Fixed
+- **Expert Performance Settings Binding & State:** Fixed "EDNS Client Subnet (ECS)", "CNAME Flattening", and "Cache Boost" not displaying their active profile state or persisting changes. Routed them to the NextDNS `/settings/performance` endpoint, updated `GET_ALL_SETTINGS` to fetch and normalize `settings/performance`, and updated presets application and local state synchronization.
+- **Unit Test Coverage:** Added unit test in `tests/blocks.test.js` validating Expert Performance toggles binding, category assignment (`settings/performance`), and cache synchronization (17 suites, 68 tests passing).
+
 ## [1.0.4] - 2026-10-05
 
 ### Changed
