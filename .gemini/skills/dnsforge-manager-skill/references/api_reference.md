@@ -41,7 +41,7 @@
 - `parentalcontrol/categories`: List of blocked categories (Porn, Gambling).
 - `parentalcontrol`: Booleans (`safeSearch`, `youtubeRestrictedMode`).
 - `security/tlds`: List of blocked TLDs.
-- `settings`: Expert toggles (`ecs`, `cnameFlattening`, `cacheBoost`, `web3`).
+- `settings`: Expert toggles (`ecs`, `cnameFlattening`, `cacheBoost`, `bav`, `web3`).
 
 ## Mirror Mode (Internal)
 Extension logic replicates `TOGGLE_SETTING` calls across `mirrorProfiles` defined in `sync` storage. Non-recursive via `_mirrored` flag.

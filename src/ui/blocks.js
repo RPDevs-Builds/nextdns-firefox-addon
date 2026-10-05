@@ -160,6 +160,7 @@ function renderPerformanceToggles() {
         { id: 'ecs', label: 'EDNS Client Subnet (ECS)', note: 'Improves global CDN performance.', cat: 'settings/performance' },
         { id: 'cnameFlattening', label: 'CNAME Flattening', note: 'Speeds up resolution of CNAME chains.', cat: 'settings/performance' },
         { id: 'cacheBoost', label: 'Cache Boost', note: 'Forces minimum TTL to reduce lookups.', cat: 'settings/performance' },
+        { id: 'bav', label: 'Bypass Age Verification', note: 'Automatically bypasses age checks on supported websites.', cat: 'settings' },
         { id: 'web3', label: 'Web3 Support', note: 'Enables .eth and .crypto resolution.', cat: 'settings' }
     ];
 

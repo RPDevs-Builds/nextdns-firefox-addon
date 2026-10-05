@@ -28,7 +28,7 @@ DNS Forge is a high-performance Firefox extension designed for advanced [NextDNS
 - **DNS Rewrites Manager:** Full CRUD support for custom domain-to-IP mappings (e.g., `nas.local` → `192.168.1.50`) directly from the browser.
 - **Config Presets:** One-click deployment of curated security, privacy, and parental profiles (Security, Privacy, Balanced, Minimal, Extreme) directly inside Options.
 - **Profile Comparison Tool:** Perform deep diffs between two profiles to identify discrepancies in security and privacy configurations.
-- **Expert Performance Panel:** Fine-tune resolution speed with toggles for **ECS (EDNS Client Subnet)**, **CNAME Flattening**, **Cache Boost**, and **Web3 Support**.
+- **Expert Performance Panel:** Fine-tune resolution speed and settings with toggles for **ECS (EDNS Client Subnet)**, **CNAME Flattening**, **Cache Boost**, **Bypass Age Verification (BAV)**, and **Web3 Support**.
 - **Intelligent TLD & Blocklist Manager:** Manage 1,300+ TLDs and 80+ blocklists with alphabetical jump-links and advanced sorting.
 - **Profile Quick-Switcher:** Instant profile switching and auto-detection via the dashboard header and options dropdown.
 

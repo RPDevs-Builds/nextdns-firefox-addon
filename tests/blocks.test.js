@@ -187,12 +187,19 @@ describe('Popup UI - Blocks Expansion Suite', () => {
         updateLocalBlocksCache('settings/performance', 'ecs', 'delete');
         expect(state.lastBlocksData.settings.performance.ecs).toBe(false);
         expect(state.lastBlocksData.settings.ecs).toBe(false);
+
+        // Settings toggle (Bypass Age Verification) update
+        updateLocalBlocksCache('settings', 'bav', 'add');
+        expect(state.lastBlocksData.settings.bav).toBe(true);
+        updateLocalBlocksCache('settings', 'bav', 'delete');
+        expect(state.lastBlocksData.settings.bav).toBe(false);
     });
 
     test('Blocks UI - Expert Performance Toggles Status and Category Binding', async () => {
         state.activeBlocksSubTab = 'performance';
         state.lastBlocksData.settings = {
             web3: true,
+            bav: true,
             performance: {
                 ecs: true,
                 cnameFlattening: false,
@@ -219,6 +226,12 @@ describe('Popup UI - Blocks Expansion Suite', () => {
         expect(cacheBoostInput.dataset.cat).toBe('settings/performance');
         expect(cacheBoostInput.dataset.type).toBe('boolean');
         expect(cacheBoostInput.checked).toBe(true);
+
+        const bavInput = document.querySelector('input[data-id="bav"]');
+        expect(bavInput).not.toBeNull();
+        expect(bavInput.dataset.cat).toBe('settings');
+        expect(bavInput.dataset.type).toBe('boolean');
+        expect(bavInput.checked).toBe(true);
 
         const web3Input = document.querySelector('input[data-id="web3"]');
         expect(web3Input).not.toBeNull();

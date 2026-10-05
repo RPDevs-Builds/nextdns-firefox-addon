@@ -601,7 +601,10 @@ export function updateLocalBlocksCache(cat, id, action) {
         } else {
             state.lastBlocksData[parentCat][subCat] = state.lastBlocksData[parentCat][subCat].filter(item => item.id !== id);
         }
-    } else if (cat && state.lastBlocksData[cat]) {
+    } else if (cat) {
+        if (!state.lastBlocksData[cat]) {
+            state.lastBlocksData[cat] = {};
+        }
         state.lastBlocksData[cat][id] = (action === 'add');
     }
 }

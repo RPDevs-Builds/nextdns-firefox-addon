@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.6] - 2026-10-05
+
+### Added
+- **Bypass Age Verification (BAV) Toggle:** Added the "Bypass Age Verification" setting toggle to the Expert Performance & Settings panel (`src/ui/blocks.js`), bound to the NextDNS `settings` category (`id: 'bav'`) with descriptive helper note.
+- **Cache Synchronization & Defensive State Management:** Enhanced `updateLocalBlocksCache` in `src/ui/main.js` to initialize category buckets if undefined and synchronize `settings.bav` immediately upon toggling.
+- **Automated Test Coverage:** Expanded `tests/blocks.test.js` to validate `bav` switch rendering, active checked state, category assignment, and local cache updates.
+
+
 ## [1.0.5] - 2026-10-05
 
 ### Fixed
