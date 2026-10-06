@@ -23,11 +23,13 @@ export async function syncLists(force = false) {
     state.currentDenylist = new Set((d?.data || []).filter(i => i?.id).map(i => i.id));
     state.listsSynced = true;
 
-    if (state.activeTab === 'lists') renderLists();
+    if (state.activeTab === 'lists' || (state.activeTab === 'toggles' && state.activeBlocksSubTab === 'lists')) {
+        renderLists();
+    }
 }
 
 /**
- * Renders the Allowlist or Denylist in the "Lists" tab.
+ * Renders the Allowlist or Denylist in the "Lists" tab or Protection sub-tab.
  * @param {string|null} [queryOverride=null] - Optional search query override.
  */
 export function renderLists(queryOverride = null) {
@@ -90,7 +92,33 @@ export function renderLists(queryOverride = null) {
  */
 export async function loadToggles(queryOverride = null) {
     if (!state.activeProfile) return;
-    
+
+    const container = document.getElementById("toggles-container");
+    if (!container) return;
+
+    const listsContainer = document.getElementById("toggles-lists-container");
+    const query = (queryOverride !== null ? queryOverride : (document.getElementById("blocks-search-input")?.value || "")).toLowerCase();
+
+    // UI visibility logic for search/sort
+    const searchContainer = document.getElementById("blocks-search-container");
+    if (searchContainer) {
+        const needsSearch = ['blocklists', 'parental', 'tlds'].includes(state.activeBlocksSubTab);
+        searchContainer.classList.toggle('hidden', !needsSearch);
+        document.getElementById("blocks-sort-select")?.classList.toggle('hidden', state.activeBlocksSubTab !== 'blocklists');
+    }
+
+    if (state.activeBlocksSubTab === 'lists') {
+        container.classList.add('hidden');
+        if (listsContainer) listsContainer.classList.remove('hidden');
+        renderLists(queryOverride);
+        await syncLists();
+        renderLists(queryOverride);
+        return;
+    } else {
+        container.classList.remove('hidden');
+        if (listsContainer) listsContainer.classList.add('hidden');
+    }
+
     // Ensure metadata is loaded for blocklists/tlds
     if (!state.blocksMeta || state.blocksMeta.blocklists.length === 0) {
         state.blocksMeta = await loadMetadata();
@@ -99,20 +127,6 @@ export async function loadToggles(queryOverride = null) {
     if (!state.lastBlocksData) {
         const res = await browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: state.activeProfile });
         state.lastBlocksData = res?.data || {};
-    }
-
-    const container = document.getElementById("toggles-container");
-    if (!container) return;
-
-    const query = (queryOverride !== null ? queryOverride : (document.getElementById("blocks-search-input")?.value || "")).toLowerCase();
-
-    
-    // UI visibility logic for search/sort
-    const searchContainer = document.getElementById("blocks-search-container");
-    if (searchContainer) {
-        const needsSearch = ['blocklists', 'parental', 'tlds'].includes(state.activeBlocksSubTab);
-        searchContainer.classList.toggle('hidden', !needsSearch);
-        document.getElementById("blocks-sort-select")?.classList.toggle('hidden', state.activeBlocksSubTab !== 'blocklists');
     }
 
     let html = '';

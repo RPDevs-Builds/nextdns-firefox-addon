@@ -62,7 +62,7 @@ describe('System Integrity - End-to-End Wiring', () => {
     });
 
     test('All main navigation tabs are clickable and update state', () => {
-        const tabs = ['dashboard', 'logs', 'lists', 'toggles', 'settings'];
+        const tabs = ['dashboard', 'logs', 'toggles', 'settings'];
         tabs.forEach(tabId => {
             const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
             expect(btn).not.toBeNull();
@@ -73,6 +73,31 @@ describe('System Integrity - End-to-End Wiring', () => {
             const content = document.getElementById(`tab-${tabId}`);
             expect(content.classList.contains('active')).toBe(true);
         });
+    });
+
+    test('Lists sub-tab under Protection is clickable and displays domain lists', async () => {
+        const protectionBtn = document.querySelector('.tab-btn[data-tab="toggles"]');
+        expect(protectionBtn).not.toBeNull();
+        protectionBtn.click();
+        expect(state.activeTab).toBe('toggles');
+
+        const listsSubBtn = document.querySelector('#blocks-sub-nav .sub-tab-btn[data-sub="lists"]');
+        expect(listsSubBtn).not.toBeNull();
+
+        listsSubBtn.click();
+        await new Promise(res => setTimeout(res, 50));
+
+        expect(state.activeBlocksSubTab).toBe('lists');
+
+        const listsContainer = document.getElementById('toggles-lists-container');
+        expect(listsContainer).not.toBeNull();
+        expect(listsContainer.classList.contains('hidden')).toBe(false);
+
+        const togglesContainer = document.getElementById('toggles-container');
+        expect(togglesContainer.classList.contains('hidden')).toBe(true);
+
+        const listItems = document.getElementById('list-items-container');
+        expect(listItems).not.toBeNull();
     });
 
     test('Header alerts toggle button displays and hides popover', () => {

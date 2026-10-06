@@ -322,7 +322,6 @@
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="dashboard">🏠 Overview</button>
     <button class="tab-btn" data-tab="toggles">🛡️ Protection</button>
-    <button class="tab-btn" data-tab="lists">📋 Lists</button>
     <button class="tab-btn" data-tab="logs">📡 Logs</button>
     <button class="tab-btn hidden" id="tab-btn-labs" data-tab="labs">🧪 Labs</button>
     <button class="tab-btn" data-tab="settings">⚙️ Options</button>
@@ -414,33 +413,7 @@
     <div id="logs-container" class="dashboard-panel" aria-live="polite"></div>
   </div>
 
-  <!-- Tab: Lists -->
-  <div id="tab-lists" class="tab-content" style="padding: 15px;">
-    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-      <select id="list-type-select" style="margin-bottom: 0; flex-grow: 1;">
-        <option value="denylist">Denylist (Blocked)</option>
-        <option value="allowlist">Allowlist (Allowed)</option>
-      </select>
-      <button id="list-bulk-toggle-btn" class="btn-secondary" style="width: auto; padding: 0 15px;">Bulk</button>
-    </div>
-    <input type="text" id="list-search-input" placeholder="Filter list..." style="margin-bottom: 12px;">
-    
-    <div id="list-bulk-container" class="hidden" style="flex-direction: column; gap: 10px; margin-bottom: 15px; background: var(--bg-panel); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
-      <textarea id="list-bulk-domains" rows="6" placeholder="domain.com&#10;another.com" style="margin-bottom: 0; font-family: monospace;"></textarea>
-      <div style="display: flex; gap: 8px;">
-        <button id="list-bulk-submit-btn" class="btn-allow">Bulk Add</button>
-        <button id="list-bulk-cancel-btn" class="btn-secondary">Cancel</button>
-      </div>
-    </div>
-
-    <div style="display: flex; gap: 8px; margin-bottom: 15px;">
-      <input type="text" id="list-new-domain" placeholder="Add domain.com..." style="margin-bottom: 0;">
-      <button id="list-add-btn" class="btn-allow" style="width: auto; padding: 0 20px;">Add</button>
-    </div>
-    <div id="list-items-container" class="dashboard-panel"></div>
-  </div>
-
-  <!-- Tab: Toggles (Blocks) -->
+  <!-- Tab: Toggles (Protection) -->
   <div id="tab-toggles" class="tab-content">
     <div class="sub-nav" id="blocks-sub-nav">
       <button class="sub-tab-btn active" data-sub="security">Security</button>
@@ -448,6 +421,7 @@
       <button class="sub-tab-btn" data-sub="performance">Performance</button>
       <button class="sub-tab-btn" data-sub="parental">Parental</button>
       <button class="sub-tab-btn" data-sub="blocklists">Blocklists</button>
+      <button class="sub-tab-btn" data-sub="lists">Lists</button>
       <button class="sub-tab-btn" data-sub="tlds">TLDs</button>
     </div>
     <div id="blocks-search-container" class="hidden" style="padding: 12px 15px 5px; gap: 8px;">
@@ -460,6 +434,32 @@
        </select>
     </div>
     <div id="toggles-container" class="dashboard-panel" style="padding: 15px;"></div>
+
+    <!-- Lists Submenu Content -->
+    <div id="toggles-lists-container" class="hidden" style="padding: 15px;">
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <select id="list-type-select" style="margin-bottom: 0; flex-grow: 1;">
+          <option value="denylist">Denylist (Blocked)</option>
+          <option value="allowlist">Allowlist (Allowed)</option>
+        </select>
+        <button id="list-bulk-toggle-btn" class="btn-secondary" style="width: auto; padding: 0 15px;">Bulk</button>
+      </div>
+      <input type="text" id="list-search-input" placeholder="Filter list..." style="margin-bottom: 12px;">
+      
+      <div id="list-bulk-container" class="hidden" style="flex-direction: column; gap: 10px; margin-bottom: 15px; background: var(--bg-panel); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+        <textarea id="list-bulk-domains" rows="6" placeholder="domain.com&#10;another.com" style="margin-bottom: 0; font-family: monospace;"></textarea>
+        <div style="display: flex; gap: 8px;">
+          <button id="list-bulk-submit-btn" class="btn-allow">Bulk Add</button>
+          <button id="list-bulk-cancel-btn" class="btn-secondary">Cancel</button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+        <input type="text" id="list-new-domain" placeholder="Add domain.com..." style="margin-bottom: 0;">
+        <button id="list-add-btn" class="btn-allow" style="width: auto; padding: 0 20px;">Add</button>
+      </div>
+      <div id="list-items-container" class="dashboard-panel"></div>
+    </div>
   </div>
 
 

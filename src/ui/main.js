@@ -313,7 +313,6 @@ function initGlobalEventListeners() {
                 if (activeSub === 'webgui') initCustomizeUI();
             }
             if (tabId === 'presets') loadPresets();
-            if (tabId === 'lists') renderLists();
             if (tabId === 'toggles') loadToggles();
             if (tabId === 'logs') loadNativeLogs();
         };
