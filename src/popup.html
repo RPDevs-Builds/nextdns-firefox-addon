@@ -464,7 +464,7 @@
   <div id="tab-settings" class="tab-content">
     <div class="sub-nav" id="settings-sub-nav">
       <button class="sub-tab-btn active" data-sub="setup">🔌 Connection</button>
-      <button class="sub-tab-btn" data-sub="presets">🪄 Presets</button>
+      <button class="sub-tab-btn" data-sub="alerts">🔔 Alerts</button>
       <button class="sub-tab-btn" data-sub="customize">🎨 Appearance</button>
       <button class="sub-tab-btn" data-sub="webgui">🌐 Web Console</button>
       <button class="sub-tab-btn" data-sub="schedules">⏰ Automation</button>
@@ -514,14 +514,51 @@
       <button id="save-settings-btn" class="btn-allow">💾 Save Options</button>
     </div>
 
-    <!-- 2. Presets Sub-Tab (Moved under Options) -->
-    <div id="settings-presets" class="settings-sub-content" style="padding: 15px;">
-      <div class="panel-box">
-        <h4>Configuration Presets</h4>
-        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 15px;">Apply curated security, privacy, and parental control profiles with a single click.</p>
-        <div id="presets-list">
-          <!-- Presets rendered here by presets.js -->
-        </div>
+    <!-- 2. Alerts Sub-Tab -->
+    <div id="settings-alerts" class="settings-sub-content" style="padding: 15px;">
+      <div class="panel-box" style="margin-bottom: 15px;">
+        <h4>Alerts & Notifications Delivery</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Configure system alerts and notifications delivery.</p>
+        
+        <label class="checkbox-label">
+          <input type="checkbox" id="alert-setting-enabled" checked>
+          <span><strong>Enable Alerts System</strong> (Master Toggle)</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="alert-setting-desktop">
+          <span>Desktop OS Notifications</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="alert-setting-action-center" checked>
+          <span>Action Center Feed (📢 Megaphone Menu)</span>
+        </label>
+      </div>
+
+      <div class="panel-box" style="margin-bottom: 15px;">
+        <h4>Items That Trigger Alerts</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Choose which security and network events trigger an alert.</p>
+        
+        <label class="checkbox-label">
+          <input type="checkbox" id="alert-trigger-threats" checked>
+          <span>Security Threats (Malware, Cryptojacking, C2)</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="alert-trigger-denylist" checked>
+          <span>Custom Denylist Domain Blocks</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="alert-trigger-audit" checked>
+          <span>Security Audit & Configuration Warnings</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="alert-trigger-parental">
+          <span>Parental Control & Restricted Content Blocks</span>
+        </label>
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <button id="alert-test-btn" class="btn-allow" style="background-color: var(--accent); flex: 1;">📢 Send Test Alert</button>
+        <button id="alert-save-btn" class="btn-allow" style="flex: 1;">💾 Save Alert Options</button>
       </div>
     </div>
 

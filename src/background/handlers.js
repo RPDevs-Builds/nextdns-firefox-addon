@@ -469,10 +469,42 @@ export const messageHandlers = {
     },
     /**
      * Pushes a new notification to the Action Center and persists to storage.
+     * Evaluates alert settings for enabled state, trigger filters, and delivery targets.
      * @param {Object} msg - The notification payload.
      */
     PUSH_NOTIFICATION: async (msg) => {
-        const { type, severity, message } = msg.payload;
+        const { type, severity, message } = msg.payload || {};
+        const alertSettings = await storage.get("alertSettings", {
+            enabled: true,
+            desktop: false,
+            actionCenter: true,
+            triggerThreats: true,
+            triggerDenylist: true,
+            triggerAudit: true,
+            triggerParental: false
+        });
+
+        // 1. Master toggle check
+        if (alertSettings.enabled === false) {
+            return { success: false, reason: "alerts_disabled" };
+        }
+
+        // 2. Trigger category filter check
+        let isTriggerEnabled = true;
+        if (type === 'security') {
+            isTriggerEnabled = alertSettings.triggerThreats !== false;
+        } else if (type === 'denylist' || type === 'block') {
+            isTriggerEnabled = alertSettings.triggerDenylist !== false;
+        } else if (type === 'maintenance' || type === 'audit') {
+            isTriggerEnabled = alertSettings.triggerAudit !== false;
+        } else if (type === 'parental') {
+            isTriggerEnabled = alertSettings.triggerParental !== false;
+        }
+
+        if (!isTriggerEnabled) {
+            return { success: false, reason: "trigger_type_disabled" };
+        }
+
         const notification = {
             id: Date.now().toString(),
             timestamp: Date.now(),
@@ -481,9 +513,31 @@ export const messageHandlers = {
             message,
             read: false
         };
-        state.notifications.unshift(notification);
-        if (state.notifications.length > 50) state.notifications.pop();
-        await storage.set("notifications", state.notifications);
+
+        // 3. Action Center feed delivery
+        if (alertSettings.actionCenter !== false) {
+            state.notifications = state.notifications || [];
+            state.notifications.unshift(notification);
+            if (state.notifications.length > 50) state.notifications.pop();
+            await storage.set("notifications", state.notifications);
+        }
+
+        // 4. Desktop OS notification delivery
+        if (alertSettings.desktop) {
+            try {
+                if (typeof browser !== 'undefined' && browser.notifications?.create) {
+                    await browser.notifications.create({
+                        type: "basic",
+                        iconUrl: "/icons/icon-48.png",
+                        title: `NextDNS ${severity === 'high' ? 'Alert' : 'Notice'}`,
+                        message: message
+                    });
+                }
+            } catch (err) {
+                console.warn("[Background] Desktop notification creation failed:", err);
+            }
+        }
+
         return { success: true };
     },
     /**

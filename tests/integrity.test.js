@@ -59,6 +59,9 @@ describe('System Integrity - End-to-End Wiring', () => {
         
         const stateModule = await import('../src/ui/state.js');
         state = stateModule.state;
+        if (!state.activeProfile) {
+            state.activeProfile = 'p1';
+        }
     });
 
     test('All main navigation tabs are clickable and update state', () => {
@@ -164,15 +167,15 @@ describe('System Integrity - End-to-End Wiring', () => {
         expect(document.getElementById('settings-setup').classList.contains('active')).toBe(false);
     });
 
-    test('Presets sub-tab under Options is clickable and activates presets view', () => {
+    test('Alerts sub-tab under Options is clickable and activates alerts view', () => {
         const settingsTab = document.querySelector('.tab-btn[data-tab="settings"]');
         settingsTab.click();
 
-        const presetsBtn = document.querySelector('#settings-sub-nav .sub-tab-btn[data-sub="presets"]');
-        expect(presetsBtn).not.toBeNull();
-        presetsBtn.click();
+        const alertsBtn = document.querySelector('#settings-sub-nav .sub-tab-btn[data-sub="alerts"]');
+        expect(alertsBtn).not.toBeNull();
+        alertsBtn.click();
 
-        expect(document.getElementById('settings-presets').classList.contains('active')).toBe(true);
-        expect(document.getElementById('presets-list')).not.toBeNull();
+        expect(document.getElementById('settings-alerts').classList.contains('active')).toBe(true);
+        expect(document.getElementById('alert-setting-enabled')).not.toBeNull();
     });
 });
