@@ -25,31 +25,58 @@ export function getMatch(domain, listSet) {
 }
 
 /**
- * Handles the logic for showing a browser notification when a request is blocked.
+ * Handles the logic for showing notifications when a request is blocked.
  * Implements a 10-second debouncing per domain to prevent notification spam.
+ * Respects alert settings for master enabled, denylist triggers, desktop, and action center.
  * @async
  * @param {string} domain - The blocked domain.
  */
 export async function handleBlockNotification(domain) {
-    const blockNotif = await storage.get("blockNotif");
-    if (!blockNotif) return;
+    const alertSettings = await storage.get("alertSettings", null);
+    const legacyBlockNotif = await storage.get("blockNotif");
+
+    const isAlertsEnabled = alertSettings ? alertSettings.enabled !== false : true;
+    const isDenylistTrigger = alertSettings ? alertSettings.triggerDenylist !== false : true;
+    const isDesktopEnabled = alertSettings ? !!alertSettings.desktop : !!legacyBlockNotif;
+    const isActionCenterEnabled = alertSettings ? alertSettings.actionCenter !== false : false;
+
+    if (!isAlertsEnabled || !isDenylistTrigger) return;
+    if (!isDesktopEnabled && !isActionCenterEnabled) return;
 
     const now = Date.now();
     const lastTime = state.lastNotificationTimes[domain] || 0;
     
     if (now - lastTime > 10000) {
         state.lastNotificationTimes[domain] = now;
-        try {
-            if (browser.notifications?.create) {
-                browser.notifications.create({
-                    type: "basic",
-                    iconUrl: "/icons/icon-48.png",
-                    title: "NextDNS Blocked",
-                    message: `${domain} was blocked.`
-                });
+
+        if (isActionCenterEnabled) {
+            const notification = {
+                id: Date.now().toString(),
+                timestamp: Date.now(),
+                type: "denylist",
+                severity: "medium",
+                message: `${domain} was blocked by Denylist.`,
+                read: false
+            };
+            state.notifications = state.notifications || [];
+            state.notifications.unshift(notification);
+            if (state.notifications.length > 50) state.notifications.pop();
+            await storage.set("notifications", state.notifications).catch(() => {});
+        }
+
+        if (isDesktopEnabled) {
+            try {
+                if (typeof browser !== 'undefined' && browser.notifications?.create) {
+                    browser.notifications.create({
+                        type: "basic",
+                        iconUrl: "/icons/icon-48.png",
+                        title: "NextDNS Blocked",
+                        message: `${domain} was blocked.`
+                    });
+                }
+            } catch (e) {
+                console.warn("[Background] Notification failed:", e);
             }
-        } catch (e) {
-            console.warn("[Background] Notification failed:", e);
         }
     }
 }

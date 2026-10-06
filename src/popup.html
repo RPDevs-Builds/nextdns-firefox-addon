@@ -77,6 +77,7 @@
       background: var(--bg-main); 
       z-index: 10; 
       flex-shrink: 0; 
+      position: relative;
     }
     .header-container h3 { margin: 0; font-size: 1.1em; font-weight: 700; color: var(--text-main); }
     .header-controls { display: flex; gap: 6px; }
@@ -91,6 +92,52 @@
       color: var(--text-muted); 
     }
     .header-btn:hover { background: var(--hover-bg); color: var(--text-main); transform: translateY(-1px); }
+
+    /* Alerts Dropdown Popover */
+    .alerts-popover {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 12px;
+      width: 330px;
+      max-width: calc(100vw - 24px);
+      max-height: 400px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .alerts-popover-header {
+      padding: 10px 14px;
+      background: var(--bg-main);
+      border-bottom: 1px solid var(--border-color);
+      font-weight: 700;
+      font-size: 0.85em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .alerts-popover-body {
+      padding: 10px;
+      overflow-y: auto;
+      max-height: 340px;
+      flex-grow: 1;
+    }
+    .alerts-badge {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      width: 8px;
+      height: 8px;
+      background-color: var(--danger);
+      border-radius: 50%;
+      box-shadow: 0 0 4px var(--danger);
+      pointer-events: none;
+    }
 
     /* Main Tab Navigation */
     .tab-bar { 
@@ -248,19 +295,31 @@
   <div class="header-container flex-between">
     <h3>DNS Forge</h3>
     <div class="header-controls">
-      <button id="theme-toggle-btn" class="header-btn flex-center" title="Quick Toggle Light/Dark" aria-label="Quick Toggle Light/Dark">🌗</button>
-      <button id="refresh-view-btn" class="header-btn flex-center" title="Refresh Active Tab" aria-label="Refresh Active Tab">🔄</button>
-      <button id="sidebar-ui-btn" class="header-btn flex-center" title="Dock to Sidebar" aria-label="Dock to Sidebar">🗂️</button>
+      <button id="alerts-toggle-btn" class="header-btn flex-center" title="Action Center Alerts" aria-label="Action Center Alerts" style="position: relative;">
+        📢
+        <span id="alerts-badge" class="alerts-badge hidden"></span>
+      </button>
       <button id="popout-ui-btn" class="header-btn flex-center" title="Open in dedicated window" aria-label="Open in dedicated window">↗️</button>
+    </div>
+
+    <!-- Alerts Dropdown Popover -->
+    <div id="alerts-popover" class="alerts-popover hidden" aria-live="polite">
+      <div class="alerts-popover-header flex-between">
+        <div style="font-weight: 700; font-size: 0.9em; display: flex; align-items: center; gap: 6px;">
+          <span>📢</span> Action Center Alerts
+        </div>
+        <button id="notifications-clear-btn" class="btn-secondary" style="width: auto; padding: 2px 8px; font-size: 0.75em;">Clear All</button>
+      </div>
+      <div id="notifications-container" class="alerts-popover-body">
+        <div style="text-align: center; color: var(--text-muted); padding: 20px;">No new alerts.</div>
+      </div>
     </div>
   </div>
 
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="dashboard">🏠 Overview</button>
     <button class="tab-btn" data-tab="toggles">🛡️ Protection</button>
-    <button class="tab-btn" data-tab="lists">📋 Lists</button>
     <button class="tab-btn" data-tab="logs">📡 Logs</button>
-    <button class="tab-btn" data-tab="notifications">🔔 Alerts</button>
     <button class="tab-btn hidden" id="tab-btn-labs" data-tab="labs">🧪 Labs</button>
     <button class="tab-btn" data-tab="settings">⚙️ Options</button>
   </div>
@@ -351,33 +410,7 @@
     <div id="logs-container" class="dashboard-panel" aria-live="polite"></div>
   </div>
 
-  <!-- Tab: Lists -->
-  <div id="tab-lists" class="tab-content" style="padding: 15px;">
-    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-      <select id="list-type-select" style="margin-bottom: 0; flex-grow: 1;">
-        <option value="denylist">Denylist (Blocked)</option>
-        <option value="allowlist">Allowlist (Allowed)</option>
-      </select>
-      <button id="list-bulk-toggle-btn" class="btn-secondary" style="width: auto; padding: 0 15px;">Bulk</button>
-    </div>
-    <input type="text" id="list-search-input" placeholder="Filter list..." style="margin-bottom: 12px;">
-    
-    <div id="list-bulk-container" class="hidden" style="flex-direction: column; gap: 10px; margin-bottom: 15px; background: var(--bg-panel); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
-      <textarea id="list-bulk-domains" rows="6" placeholder="domain.com&#10;another.com" style="margin-bottom: 0; font-family: monospace;"></textarea>
-      <div style="display: flex; gap: 8px;">
-        <button id="list-bulk-submit-btn" class="btn-allow">Bulk Add</button>
-        <button id="list-bulk-cancel-btn" class="btn-secondary">Cancel</button>
-      </div>
-    </div>
-
-    <div style="display: flex; gap: 8px; margin-bottom: 15px;">
-      <input type="text" id="list-new-domain" placeholder="Add domain.com..." style="margin-bottom: 0;">
-      <button id="list-add-btn" class="btn-allow" style="width: auto; padding: 0 20px;">Add</button>
-    </div>
-    <div id="list-items-container" class="dashboard-panel"></div>
-  </div>
-
-  <!-- Tab: Toggles (Blocks) -->
+  <!-- Tab: Toggles (Protection) -->
   <div id="tab-toggles" class="tab-content">
     <div class="sub-nav" id="blocks-sub-nav">
       <button class="sub-tab-btn active" data-sub="security">Security</button>
@@ -385,6 +418,7 @@
       <button class="sub-tab-btn" data-sub="performance">Performance</button>
       <button class="sub-tab-btn" data-sub="parental">Parental</button>
       <button class="sub-tab-btn" data-sub="blocklists">Blocklists</button>
+      <button class="sub-tab-btn" data-sub="lists">Lists</button>
       <button class="sub-tab-btn" data-sub="tlds">TLDs</button>
     </div>
     <div id="blocks-search-container" class="hidden" style="padding: 12px 15px 5px; gap: 8px;">
@@ -397,26 +431,40 @@
        </select>
     </div>
     <div id="toggles-container" class="dashboard-panel" style="padding: 15px;"></div>
-  </div>
 
-  <!-- Tab: Notifications (Action Center) -->
-  <div id="tab-notifications" class="tab-content" style="padding: 15px;">
-    <div class="panel-box">
-      <div class="flex-between">
-        <h4>Action Center Alerts</h4>
-        <button id="notifications-clear-btn" class="btn-secondary" style="width: auto; padding: 2px 8px; font-size: 0.7em;">Clear All</button>
+    <!-- Lists Submenu Content -->
+    <div id="toggles-lists-container" class="hidden" style="padding: 15px;">
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <select id="list-type-select" style="margin-bottom: 0; flex-grow: 1;">
+          <option value="denylist">Denylist (Blocked)</option>
+          <option value="allowlist">Allowlist (Allowed)</option>
+        </select>
+        <button id="list-bulk-toggle-btn" class="btn-secondary" style="width: auto; padding: 0 15px;">Bulk</button>
       </div>
-      <div id="notifications-container" class="dashboard-panel" style="margin-top: 10px;" aria-live="polite">
-        <div style="text-align: center; color: var(--text-muted); padding: 20px;">No new alerts.</div>
+      <input type="text" id="list-search-input" placeholder="Filter list..." style="margin-bottom: 12px;">
+      
+      <div id="list-bulk-container" class="hidden" style="flex-direction: column; gap: 10px; margin-bottom: 15px; background: var(--bg-panel); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+        <textarea id="list-bulk-domains" rows="6" placeholder="domain.com&#10;another.com" style="margin-bottom: 0; font-family: monospace;"></textarea>
+        <div style="display: flex; gap: 8px;">
+          <button id="list-bulk-submit-btn" class="btn-allow">Bulk Add</button>
+          <button id="list-bulk-cancel-btn" class="btn-secondary">Cancel</button>
+        </div>
       </div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+        <input type="text" id="list-new-domain" placeholder="Add domain.com..." style="margin-bottom: 0;">
+        <button id="list-add-btn" class="btn-allow" style="width: auto; padding: 0 20px;">Add</button>
+      </div>
+      <div id="list-items-container" class="dashboard-panel"></div>
     </div>
   </div>
+
 
   <!-- Tab: Settings (Options) -->
   <div id="tab-settings" class="tab-content">
     <div class="sub-nav" id="settings-sub-nav">
       <button class="sub-tab-btn active" data-sub="setup">🔌 Connection</button>
-      <button class="sub-tab-btn" data-sub="presets">🪄 Presets</button>
+      <button class="sub-tab-btn" data-sub="alerts">🔔 Alerts</button>
       <button class="sub-tab-btn" data-sub="customize">🎨 Appearance</button>
       <button class="sub-tab-btn" data-sub="webgui">🌐 Web Console</button>
       <button class="sub-tab-btn" data-sub="schedules">⏰ Automation</button>
@@ -466,14 +514,51 @@
       <button id="save-settings-btn" class="btn-allow">💾 Save Options</button>
     </div>
 
-    <!-- 2. Presets Sub-Tab (Moved under Options) -->
-    <div id="settings-presets" class="settings-sub-content" style="padding: 15px;">
-      <div class="panel-box">
-        <h4>Configuration Presets</h4>
-        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 15px;">Apply curated security, privacy, and parental control profiles with a single click.</p>
-        <div id="presets-list">
-          <!-- Presets rendered here by presets.js -->
-        </div>
+    <!-- 2. Alerts Sub-Tab -->
+    <div id="settings-alerts" class="settings-sub-content" style="padding: 15px;">
+      <div class="panel-box" style="margin-bottom: 15px;">
+        <h4>Alerts & Notifications Delivery</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Configure system alerts and notifications delivery.</p>
+        
+        <label class="checkbox-label">
+          <input type="checkbox" id="alert-setting-enabled" checked>
+          <span><strong>Enable Alerts System</strong> (Master Toggle)</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="alert-setting-desktop">
+          <span>Desktop OS Notifications</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="alert-setting-action-center" checked>
+          <span>Action Center Feed (📢 Megaphone Menu)</span>
+        </label>
+      </div>
+
+      <div class="panel-box" style="margin-bottom: 15px;">
+        <h4>Items That Trigger Alerts</h4>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Choose which security and network events trigger an alert.</p>
+        
+        <label class="checkbox-label">
+          <input type="checkbox" id="alert-trigger-threats" checked>
+          <span>Security Threats (Malware, Cryptojacking, C2)</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="alert-trigger-denylist" checked>
+          <span>Custom Denylist Domain Blocks</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="alert-trigger-audit" checked>
+          <span>Security Audit & Configuration Warnings</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="alert-trigger-parental">
+          <span>Parental Control & Restricted Content Blocks</span>
+        </label>
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <button id="alert-test-btn" class="btn-allow" style="background-color: var(--accent); flex: 1;">📢 Send Test Alert</button>
+        <button id="alert-save-btn" class="btn-allow" style="flex: 1;">💾 Save Alert Options</button>
       </div>
     </div>
 

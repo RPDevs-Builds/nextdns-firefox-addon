@@ -59,10 +59,13 @@ describe('System Integrity - End-to-End Wiring', () => {
         
         const stateModule = await import('../src/ui/state.js');
         state = stateModule.state;
+        if (!state.activeProfile) {
+            state.activeProfile = 'p1';
+        }
     });
 
     test('All main navigation tabs are clickable and update state', () => {
-        const tabs = ['dashboard', 'logs', 'lists', 'toggles', 'notifications', 'settings'];
+        const tabs = ['dashboard', 'logs', 'toggles', 'settings'];
         tabs.forEach(tabId => {
             const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
             expect(btn).not.toBeNull();
@@ -73,6 +76,45 @@ describe('System Integrity - End-to-End Wiring', () => {
             const content = document.getElementById(`tab-${tabId}`);
             expect(content.classList.contains('active')).toBe(true);
         });
+    });
+
+    test('Lists sub-tab under Protection is clickable and displays domain lists', async () => {
+        const protectionBtn = document.querySelector('.tab-btn[data-tab="toggles"]');
+        expect(protectionBtn).not.toBeNull();
+        protectionBtn.click();
+        expect(state.activeTab).toBe('toggles');
+
+        const listsSubBtn = document.querySelector('#blocks-sub-nav .sub-tab-btn[data-sub="lists"]');
+        expect(listsSubBtn).not.toBeNull();
+
+        listsSubBtn.click();
+        await new Promise(res => setTimeout(res, 50));
+
+        expect(state.activeBlocksSubTab).toBe('lists');
+
+        const listsContainer = document.getElementById('toggles-lists-container');
+        expect(listsContainer).not.toBeNull();
+        expect(listsContainer.classList.contains('hidden')).toBe(false);
+
+        const togglesContainer = document.getElementById('toggles-container');
+        expect(togglesContainer.classList.contains('hidden')).toBe(true);
+
+        const listItems = document.getElementById('list-items-container');
+        expect(listItems).not.toBeNull();
+    });
+
+    test('Header alerts toggle button displays and hides popover', () => {
+        const toggleBtn = document.getElementById('alerts-toggle-btn');
+        const popover = document.getElementById('alerts-popover');
+        expect(toggleBtn).not.toBeNull();
+        expect(popover).not.toBeNull();
+        expect(popover.classList.contains('hidden')).toBe(true);
+
+        toggleBtn.click();
+        expect(popover.classList.contains('hidden')).toBe(false);
+
+        toggleBtn.click();
+        expect(popover.classList.contains('hidden')).toBe(true);
     });
 
     test('Dashboard interactive buttons are wired to sendMessage', async () => {
@@ -125,15 +167,15 @@ describe('System Integrity - End-to-End Wiring', () => {
         expect(document.getElementById('settings-setup').classList.contains('active')).toBe(false);
     });
 
-    test('Presets sub-tab under Options is clickable and activates presets view', () => {
+    test('Alerts sub-tab under Options is clickable and activates alerts view', () => {
         const settingsTab = document.querySelector('.tab-btn[data-tab="settings"]');
         settingsTab.click();
 
-        const presetsBtn = document.querySelector('#settings-sub-nav .sub-tab-btn[data-sub="presets"]');
-        expect(presetsBtn).not.toBeNull();
-        presetsBtn.click();
+        const alertsBtn = document.querySelector('#settings-sub-nav .sub-tab-btn[data-sub="alerts"]');
+        expect(alertsBtn).not.toBeNull();
+        alertsBtn.click();
 
-        expect(document.getElementById('settings-presets').classList.contains('active')).toBe(true);
-        expect(document.getElementById('presets-list')).not.toBeNull();
+        expect(document.getElementById('settings-alerts').classList.contains('active')).toBe(true);
+        expect(document.getElementById('alert-setting-enabled')).not.toBeNull();
     });
 });

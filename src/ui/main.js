@@ -13,7 +13,6 @@ import { handleLiveLog, renderLogs, loadAnalytics, updateDashboardTabInfo, updat
 import { loadToggles, syncLists, renderLists } from './blocks.js';
 import { runSecurityAudit, runIntelligentDebugger, exportDebuggerSnapshot, exportAuditReport } from './tools.js';
 import { loadRules, saveAutomationRule } from './scheduler.js';
-import { loadPresets } from './presets.js';
 import { renderNotifications, initNotifications } from './notifications.js';
 
 /**
@@ -307,16 +306,13 @@ function initGlobalEventListeners() {
             if (tabId === 'settings') {
                 loadProfiles();
                 const activeSub = document.querySelector('#settings-sub-nav .sub-tab-btn.active')?.dataset.sub;
-                if (activeSub === 'presets') loadPresets();
+                if (activeSub === 'alerts') loadAlertSettings();
                 if (activeSub === 'mirror') initMirrorModeUI();
                 if (activeSub === 'schedules') loadRules();
                 if (activeSub === 'webgui') initCustomizeUI();
             }
-            if (tabId === 'presets') loadPresets();
-            if (tabId === 'lists') renderLists();
             if (tabId === 'toggles') loadToggles();
             if (tabId === 'logs') loadNativeLogs();
-            if (tabId === 'notifications') renderNotifications();
         };
     });
 
@@ -342,7 +338,7 @@ function initGlobalEventListeners() {
             } else if (parentTab === 'settings') {
                 document.querySelectorAll('.settings-sub-content').forEach(p => p.classList.remove('active'));
                 document.getElementById(`settings-${subId}`)?.classList.add('active');
-                if (subId === 'presets') loadPresets();
+                if (subId === 'alerts') loadAlertSettings();
                 if (subId === 'analytics') loadAnalytics();
                 if (subId === 'customize') populateThemeDropdown();
                 if (subId === 'webgui') initCustomizeUI();
@@ -397,6 +393,16 @@ function initGlobalEventListeners() {
     document.getElementById('export-debugger-btn')?.addEventListener('click', exportDebuggerSnapshot);
     document.getElementById('add-rule-btn')?.addEventListener('click', saveAutomationRule);
 
+    // Alerts Settings
+    document.getElementById('alert-save-btn')?.addEventListener('click', saveAlertSettings);
+    document.getElementById('alert-test-btn')?.addEventListener('click', sendTestAlert);
+    [
+        'alert-setting-enabled', 'alert-setting-desktop', 'alert-setting-action-center',
+        'alert-trigger-threats', 'alert-trigger-denylist', 'alert-trigger-audit', 'alert-trigger-parental'
+    ].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => saveAlertSettings());
+    });
+
     // Data Management
     document.getElementById('launch-full-manager-btn')?.addEventListener('click', () => {
         browser.tabs.create({ url: browser.runtime.getURL('src/viewer.html') });
@@ -428,40 +434,6 @@ function initGlobalEventListeners() {
     document.getElementById('setting-fetch-profiles')?.addEventListener('click', handleFetchProfilesClick);
 
     // Header controls
-    document.getElementById('refresh-view-btn')?.addEventListener('click', async () => {
-        console.log("[DNS Forge] Manual refresh triggered.");
-        const btn = document.getElementById('refresh-view-btn');
-        if (btn) btn.classList.add('spinning');
-        try {
-            await initializeApp();
-        } catch (e) {
-            console.error("[DNS Forge] Refresh failed:", e);
-        } finally {
-            if (btn) setTimeout(() => btn.classList.remove('spinning'), 500);
-        }
-    });
-
-    document.getElementById('theme-toggle-btn')?.addEventListener('click', async () => {
-        const current = state.activeThemeId || 'default-dark';
-        const isDark = (current === 'default-dark' || current === 'OLED Black' || current === 'Dracula' || current === 'Gruvbox');
-        const newTheme = isDark ? 'default-light' : 'default-dark';
-        state.activeThemeId = newTheme;
-        applyTheme(newTheme);
-        await browser.storage.sync.set({ activeTheme: newTheme });
-        
-        const selector = document.getElementById("theme-selector");
-        if (selector) selector.value = newTheme;
-    });
-
-    document.getElementById('sidebar-ui-btn')?.addEventListener('click', () => {
-        if (browser.sidebarAction?.open) {
-            browser.sidebarAction.open();
-        } else if (browser.tabs?.create) {
-            browser.tabs.create({ url: browser.runtime.getURL('src/popup.html?mode=tab') });
-        }
-        window.close();
-    });
-
     document.getElementById('popout-ui-btn')?.addEventListener('click', () => {
         const url = browser.runtime.getURL('src/popup.html?mode=popout');
         if (browser.windows?.create) {
@@ -908,6 +880,8 @@ async function initSettingsUI() {
             });
         }
 
+        await loadAlertSettings();
+
         return data;
     } catch (e) { 
         console.error("[Init] Settings UI core failed:", e); 
@@ -1036,4 +1010,129 @@ export async function importFullConfiguration(e) {
         e.target.value = ''; // Reset input
     };
     reader.readAsText(file);
+}
+
+/**
+ * Loads Alert Settings from storage and populates the Alerts sub-tab form.
+ * @async
+ */
+export async function loadAlertSettings() {
+    try {
+        const data = await browser.storage.sync.get("alertSettings");
+        const legacyBlock = await browser.storage.sync.get("enableBlockNotifications");
+        const settings = data.alertSettings || {
+            enabled: true,
+            desktop: !!legacyBlock.enableBlockNotifications,
+            actionCenter: true,
+            triggerThreats: true,
+            triggerDenylist: true,
+            triggerAudit: true,
+            triggerParental: false
+        };
+
+        const enabledInput = document.getElementById('alert-setting-enabled');
+        const desktopInput = document.getElementById('alert-setting-desktop');
+        const actionCenterInput = document.getElementById('alert-setting-action-center');
+        const threatsInput = document.getElementById('alert-trigger-threats');
+        const denylistInput = document.getElementById('alert-trigger-denylist');
+        const auditInput = document.getElementById('alert-trigger-audit');
+        const parentalInput = document.getElementById('alert-trigger-parental');
+
+        if (enabledInput) enabledInput.checked = settings.enabled !== false;
+        if (desktopInput) desktopInput.checked = !!settings.desktop;
+        if (actionCenterInput) actionCenterInput.checked = settings.actionCenter !== false;
+        if (threatsInput) threatsInput.checked = settings.triggerThreats !== false;
+        if (denylistInput) denylistInput.checked = settings.triggerDenylist !== false;
+        if (auditInput) auditInput.checked = settings.triggerAudit !== false;
+        if (parentalInput) parentalInput.checked = !!settings.triggerParental;
+    } catch (e) {
+        console.error("[Alerts] Failed to load alert settings:", e);
+    }
+}
+
+/**
+ * Saves current Alert Settings from the UI to storage.
+ * @async
+ */
+export async function saveAlertSettings() {
+    const saveBtn = document.getElementById('alert-save-btn');
+    const settings = {
+        enabled: document.getElementById('alert-setting-enabled')?.checked ?? true,
+        desktop: document.getElementById('alert-setting-desktop')?.checked ?? false,
+        actionCenter: document.getElementById('alert-setting-action-center')?.checked ?? true,
+        triggerThreats: document.getElementById('alert-trigger-threats')?.checked ?? true,
+        triggerDenylist: document.getElementById('alert-trigger-denylist')?.checked ?? true,
+        triggerAudit: document.getElementById('alert-trigger-audit')?.checked ?? true,
+        triggerParental: document.getElementById('alert-trigger-parental')?.checked ?? false
+    };
+
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = "⏳ Saving...";
+    }
+
+    try {
+        await browser.storage.sync.set({ 
+            alertSettings: settings,
+            enableBlockNotifications: settings.desktop,
+            blockNotif: settings.desktop
+        });
+        await browser.storage.local.set({ 
+            alertSettings: settings,
+            enableBlockNotifications: settings.desktop,
+            blockNotif: settings.desktop
+        });
+
+        const blockNotifCheck = document.getElementById('setting-block-notif');
+        if (blockNotifCheck) blockNotifCheck.checked = settings.desktop;
+
+        if (saveBtn) {
+            saveBtn.textContent = "✅ Saved!";
+            setTimeout(() => {
+                saveBtn.textContent = "💾 Save Alert Options";
+                saveBtn.disabled = false;
+            }, 1200);
+        }
+    } catch (e) {
+        console.error("[Alerts] Failed to save alert settings:", e);
+        if (saveBtn) {
+            saveBtn.textContent = "❌ Error";
+            saveBtn.disabled = false;
+        }
+    }
+}
+
+/**
+ * Sends a test alert through the Action Center and desktop notification system.
+ * @async
+ */
+export async function sendTestAlert() {
+    const btn = document.getElementById('alert-test-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Sending...";
+    }
+    try {
+        await browser.runtime.sendMessage({
+            type: "PUSH_NOTIFICATION",
+            payload: {
+                type: "security",
+                severity: "high",
+                message: "Test Alert: NextDNS Forge alerting is active and configured."
+            }
+        });
+        if (btn) {
+            btn.textContent = "✅ Sent!";
+            setTimeout(() => {
+                btn.textContent = "📢 Send Test Alert";
+                btn.disabled = false;
+            }, 1200);
+        }
+    } catch (e) {
+        console.error("[Alerts] Failed to send test alert:", e);
+        if (btn) {
+            btn.textContent = "❌ Failed";
+            btn.disabled = false;
+        }
+    }
 }

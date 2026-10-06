@@ -239,6 +239,26 @@ describe('Popup UI - Blocks Expansion Suite', () => {
         expect(web3Input.dataset.type).toBe('boolean');
         expect(web3Input.checked).toBe(true);
     });
+
+    test('Blocks UI - Lists submenu displays custom allowlist/denylist', async () => {
+        state.activeBlocksSubTab = 'lists';
+        state.listsSynced = true;
+        state.currentDenylist = new Set(['badsite.com', 'tracker.org']);
+        state.currentAllowlist = new Set(['goodsite.com']);
+
+        await blocks.loadToggles();
+
+        const listsContainer = document.getElementById('toggles-lists-container');
+        expect(listsContainer).not.toBeNull();
+        expect(listsContainer.classList.contains('hidden')).toBe(false);
+
+        const togglesContainer = document.getElementById('toggles-container');
+        expect(togglesContainer.classList.contains('hidden')).toBe(true);
+
+        const listItems = document.getElementById('list-items-container');
+        expect(listItems.textContent).toContain('badsite.com');
+        expect(listItems.textContent).toContain('tracker.org');
+    });
 });
 
 

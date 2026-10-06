@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.1.0] - 2026-10-06
+
+### Added
+- **Dedicated Alerts Configuration Tab:** Added a new "Alerts" sub-tab in Options (`#settings-alerts`) allowing users to configure the alerting system with a master toggle, delivery mechanisms (Desktop OS notifications and Action Center megaphone feed), and granular trigger filters (Security Threats, Custom Denylist Blocks, Security Audit & Drift, and Parental Control Blocks).
+- **Header Action Center Alerts Popover:** Relocated the Action Center alert feed from a top-level tab to a global megaphone (`📢`) popover button in the header controls for immediate access across all extension tabs, featuring live unread badge count and a "Clear All" action.
+- **Lists Sub-Navigation in Protection:** Moved Custom Allow/Denylist management into the Protection (`Blocks`) tab as a dedicated `Lists` sub-navigation menu, streamlining domain rule editing alongside security and privacy toggles.
+- **Unit & Integrity Test Coverage:** Added full end-to-end and unit test coverage for the Alerts configuration sub-tab, header alerts popover, and background notification dispatching (`17 test suites, 77 tests passing`).
+
+### Changed
+- **Header Controls Streamlining:** Cleaned up header controls by removing redundant buttons (`#theme-toggle-btn`, `#refresh-view-btn`, `#sidebar-ui-btn`) while preserving theme customizability in the Options panel and retaining native keyboard shortcuts/menu entry points.
+
+### Removed
+- **Presets Feature:** Completely removed the experimental Presets system and associated data/scripts (`src/ui/presets.js`, `data/presets.json`) to keep the codebase focused, lightweight, and performant.
+
 ## [1.0.6] - 2026-10-05
 
 ### Added
