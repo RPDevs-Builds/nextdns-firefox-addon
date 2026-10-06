@@ -426,19 +426,6 @@ function initGlobalEventListeners() {
     document.getElementById('setting-fetch-profiles')?.addEventListener('click', handleFetchProfilesClick);
 
     // Header controls
-    document.getElementById('refresh-view-btn')?.addEventListener('click', async () => {
-        console.log("[DNS Forge] Manual refresh triggered.");
-        const btn = document.getElementById('refresh-view-btn');
-        if (btn) btn.classList.add('spinning');
-        try {
-            await initializeApp();
-        } catch (e) {
-            console.error("[DNS Forge] Refresh failed:", e);
-        } finally {
-            if (btn) setTimeout(() => btn.classList.remove('spinning'), 500);
-        }
-    });
-
     document.getElementById('sidebar-ui-btn')?.addEventListener('click', () => {
         if (browser.sidebarAction?.open) {
             browser.sidebarAction.open();
