@@ -37,7 +37,7 @@ function sanitizeNode(node) {
 
         if (['href', 'src', 'action', 'formaction', 'xlink:href'].includes(name)) {
             const cleanVal = value.replace(/[\x00-\x1F\x7F-\x9F\s]/g, '');
-            if (cleanVal.startsWith('javascript:') || cleanVal.startsWith('vbscript:')) {
+            if (cleanVal.startsWith('javascript:') || cleanVal.startsWith('vbscript:') || cleanVal.startsWith('data:')) {
                 node.removeAttribute(attr.name);
             }
         }

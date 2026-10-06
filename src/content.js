@@ -1357,10 +1357,14 @@ async function injectProfileSwitcher() {
   });
 
   select.onchange = (e) => {
-    const newId = e.target.value;
+    const rawVal = e.target.value;
+    if (typeof rawVal !== 'string') return;
+    const cleanId = rawVal.trim();
+    if (!/^[a-z0-9]{1,32}$/i.test(cleanId)) return;
     const currentPath = window.location.pathname;
-    const newPath = currentPath.replace(/\/([a-z0-9]+)\//, `/${newId}/`);
-    window.location.href = newPath;
+    if (!/^\/[a-z0-9]+\//i.test(currentPath)) return;
+    const newPath = currentPath.replace(/^\/([a-z0-9]+)\//, `/${cleanId}/`);
+    window.location.assign(newPath);
   };
 
   header.appendChild(select);

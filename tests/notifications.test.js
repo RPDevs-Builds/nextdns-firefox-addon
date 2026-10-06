@@ -115,7 +115,7 @@ describe('Action Center (Phase 8.1)', () => {
         expect(global.browser.notifications.create).toHaveBeenCalledWith(expect.objectContaining({
             message: 'threat.example.com was blocked.'
         }));
-        expect(state.notifications.some(n => n.message.includes('threat.example.com'))).toBe(true);
+        expect(state.notifications.some(n => n.message === 'threat.example.com was blocked by Denylist.')).toBe(true);
     });
 
     test('GET_NOTIFICATIONS: Retrieves stored notifications', async () => {
