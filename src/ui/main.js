@@ -426,15 +426,6 @@ function initGlobalEventListeners() {
     document.getElementById('setting-fetch-profiles')?.addEventListener('click', handleFetchProfilesClick);
 
     // Header controls
-    document.getElementById('sidebar-ui-btn')?.addEventListener('click', () => {
-        if (browser.sidebarAction?.open) {
-            browser.sidebarAction.open();
-        } else if (browser.tabs?.create) {
-            browser.tabs.create({ url: browser.runtime.getURL('src/popup.html?mode=tab') });
-        }
-        window.close();
-    });
-
     document.getElementById('popout-ui-btn')?.addEventListener('click', () => {
         const url = browser.runtime.getURL('src/popup.html?mode=popout');
         if (browser.windows?.create) {
