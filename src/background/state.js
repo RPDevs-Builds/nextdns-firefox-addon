@@ -25,7 +25,8 @@ export const state = {
     },
     lastNotificationTimes: {},
     isInitialized: false,
-    notifications: []
+    notifications: [],
+    localLogs: []
 };
 
 /** @constant {string} Base URL for the NextDNS API */

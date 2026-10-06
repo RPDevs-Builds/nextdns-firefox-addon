@@ -33,15 +33,39 @@ export function handleLiveLog(log) {
             const row = document.createElement('div');
             row.className = 'log-row';
             const isBlocked = log.status === 'blocked';
-            row.style.color = isBlocked ? 'var(--danger)' : 'var(--success)';
+            const isAllowlist = log.status === 'allowed' || log.status === 'whitelisted' ||
+                (Array.isArray(log.reasons) && log.reasons.some(r => r.id === 'allowlist' || (r.name && r.name.toLowerCase().includes('allow'))));
+
+            let statusBadge = '';
+            let rowColor = 'var(--text-main)';
+
+            if (isBlocked) {
+                rowColor = 'var(--danger)';
+                statusBadge = '<span style="font-weight:700; color:var(--danger);">BLOCKED</span>';
+            } else if (isAllowlist) {
+                rowColor = 'var(--success)';
+                statusBadge = '<span style="font-weight:700; color:var(--success);">ALLOWLIST</span>';
+            } else if (log.status === 'relayed') {
+                rowColor = 'var(--accent)';
+                statusBadge = '<span style="font-weight:700; color:var(--accent);">RELAYED</span>';
+            } else {
+                rowColor = 'var(--text-main)';
+                statusBadge = '<span style="font-size:0.85em; opacity:0.6; font-weight:600;">STANDARD</span>';
+            }
+            row.style.color = rowColor;
             
             const name = state.hostnameAliases[log.device?.id || log.clientIp] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
             const timeStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "---";
 
+            const reasonText = Array.isArray(log.reasons) 
+                ? log.reasons.map(r => r.name || r.id || r).filter(Boolean).join(', ') 
+                : (typeof log.reason === 'string' && log.reason !== 'Default' ? log.reason : '');
+            const badge = reasonText && !isAllowlist ? ` (${escapeHTML(reasonText)})` : '';
+
             const html = `
                 <div class="flex-between" style="font-size:0.75em; color:var(--text-muted);">
                     <span>🕒 ${timeStr} | 📱 ${escapeHTML(name)}</span>
-                    <span style="font-weight:700;">${isBlocked ? 'BLOCKED' : 'ALLOWED'}</span>
+                    <div>${statusBadge}${badge}</div>
                 </div>
                 <div style="font-weight:700; margin-top:2px; word-break:break-all;">${escapeHTML(log.name || log.domain)}</div>
             `;
@@ -67,8 +91,8 @@ export function handleLiveLog(log) {
 
 /**
  * Checks whether a given DNS log item matches the active status and reason filters.
- * Ensures that uncategorized default allowed items ('default'), explicitly allowed items ('allowed'),
- * and relayed items are properly included in the 'Allowed' filter.
+ * Ensures that uncategorized default plain traffic ('default', neutral traffic like google.com),
+ * explicitly allowed items ('allowed' / 'whitelisted'), and blocked items are accurately handled.
  *
  * @param {Object} log - The DNS log object.
  * @param {string[]} [activeFilters=[]] - Array of active filter values.
@@ -83,30 +107,30 @@ export function matchesLogFilters(log, activeFilters = []) {
     }
 
     const isBlocked = log.status === 'blocked';
-    const isAllowed = !isBlocked; // includes 'default', 'allowed', 'whitelisted', 'relayed'
-
-    const isAllowlist = log.status === 'whitelisted' ||
+    const isAllowlist = log.status === 'allowed' || log.status === 'whitelisted' ||
         (Array.isArray(log.reasons) && log.reasons.some(r => r.id === 'allowlist' || (r.name && r.name.toLowerCase().includes('allow')))) ||
-        (typeof log.reason === 'string' && log.reason.toLowerCase().includes('allow')) ||
-        (log.status === 'allowed' && (!log.reasons || log.reasons.length === 0 || log.reasons.some(r => r.id === 'allowlist' || (r.name && r.name.toLowerCase().includes('allow')))));
+        (typeof log.reason === 'string' && log.reason.toLowerCase().includes('allow'));
+    const isStandard = !isBlocked && !isAllowlist; // Plain traffic that isn't on a list and isn't marked allowed or denied
 
     const isDenylist = isBlocked && (
         (Array.isArray(log.reasons) && log.reasons.some(r => r.id === 'denylist' || (r.name && r.name.toLowerCase().includes('deny')))) ||
         (typeof log.reason === 'string' && log.reason.toLowerCase().includes('deny'))
     );
 
+    const hasStandard = activeFilters.includes('status:default');
     const hasAllowed = activeFilters.includes('status:allowed');
     const hasBlocked = activeFilters.includes('status:blocked');
     const hasAllowlist = activeFilters.includes('reason:allowlist');
     const hasDenylist = activeFilters.includes('reason:denylist');
 
-    // If both status:allowed and status:blocked are active and no specific reason filter is checked, show all traffic
-    if (hasAllowed && hasBlocked && !hasAllowlist && !hasDenylist) {
+    // If all three categories (Standard + Allowed + Blocked) are active and no sub-reason filter, show all
+    if (hasStandard && hasAllowed && hasBlocked && !hasAllowlist && !hasDenylist) {
         return true;
     }
 
     let match = false;
-    if (hasAllowed && isAllowed) match = true;
+    if (hasStandard && isStandard) match = true;
+    if (hasAllowed && (isAllowlist || (!hasStandard && isStandard))) match = true;
     if (hasBlocked && isBlocked) match = true;
     if (hasAllowlist && isAllowlist) match = true;
     if (hasDenylist && isDenylist) match = true;
@@ -160,16 +184,40 @@ export function renderLogs(logsOverride = null) {
         const row = document.createElement('div');
         row.className = 'log-row';
         const isBlocked = log.status === 'blocked';
-        row.style.color = isBlocked ? 'var(--danger)' : 'var(--success)';
+        const isAllowlist = log.status === 'allowed' || log.status === 'whitelisted' ||
+            (Array.isArray(log.reasons) && log.reasons.some(r => r.id === 'allowlist' || (r.name && r.name.toLowerCase().includes('allow'))));
+
+        let statusBadge = '';
+        let rowColor = 'var(--text-main)';
+
+        if (isBlocked) {
+            rowColor = 'var(--danger)';
+            statusBadge = '<span style="font-weight:700; color:var(--danger);">BLOCKED</span>';
+        } else if (isAllowlist) {
+            rowColor = 'var(--success)';
+            statusBadge = '<span style="font-weight:700; color:var(--success);">ALLOWLIST</span>';
+        } else if (log.status === 'relayed') {
+            rowColor = 'var(--accent)';
+            statusBadge = '<span style="font-weight:700; color:var(--accent);">RELAYED</span>';
+        } else {
+            rowColor = 'var(--text-main)';
+            statusBadge = '<span style="font-size:0.85em; opacity:0.6; font-weight:600;">STANDARD</span>';
+        }
+        row.style.color = rowColor;
         
         const deviceId = log.device?.id || log.clientIp;
         const name = state.hostnameAliases?.[deviceId] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
         const timeStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "---";
 
+        const reasonText = Array.isArray(log.reasons) 
+            ? log.reasons.map(r => r.name || r.id || r).filter(Boolean).join(', ') 
+            : (typeof log.reason === 'string' && log.reason !== 'Default' ? log.reason : '');
+        const badge = reasonText && !isAllowlist ? ` (${escapeHTML(reasonText)})` : '';
+
         const html = `
             <div class="flex-between" style="font-size:0.75em; color:var(--text-muted);">
                 <span>🕒 ${timeStr} | 📱 ${escapeHTML(name)}</span>
-                <span style="font-weight:700;">${isBlocked ? 'BLOCKED' : 'ALLOWED'}</span>
+                <div>${statusBadge}${badge}</div>
             </div>
             <div style="font-weight:700; margin-top:2px; word-break:break-all;">${escapeHTML(log.name || log.domain)}</div>
         `;

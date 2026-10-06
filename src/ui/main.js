@@ -384,6 +384,7 @@ function initGlobalEventListeners() {
     document.getElementById("log-type-filter")?.addEventListener('change', () => renderLogs());
 
     const filterAll = document.getElementById("filter-all");
+    const filterStandard = document.getElementById("filter-standard");
     const filterAllowed = document.getElementById("filter-allowed");
     const filterBlocked = document.getElementById("filter-blocked");
     const filterAllowlist = document.getElementById("filter-allowlist");
@@ -394,11 +395,13 @@ function initGlobalEventListeners() {
         cb.addEventListener('change', (e) => {
             if (e.target === filterAll) {
                 if (filterAll.checked) {
+                    if (filterStandard) filterStandard.checked = true;
                     if (filterAllowed) filterAllowed.checked = true;
                     if (filterBlocked) filterBlocked.checked = true;
                     if (filterAllowlist) filterAllowlist.checked = false;
                     if (filterDenylist) filterDenylist.checked = false;
                 } else {
+                    if (filterStandard) filterStandard.checked = false;
                     if (filterAllowed) filterAllowed.checked = true;
                     if (filterBlocked) filterBlocked.checked = false;
                 }
@@ -416,12 +419,13 @@ function initGlobalEventListeners() {
                     filterDenylist.checked = false;
                 }
 
+                const standardChecked = !!filterStandard?.checked;
                 const allowedChecked = !!filterAllowed?.checked;
                 const blockedChecked = !!filterBlocked?.checked;
                 const allowlistChecked = !!filterAllowlist?.checked;
                 const denylistChecked = !!filterDenylist?.checked;
 
-                if (allowedChecked && blockedChecked && !allowlistChecked && !denylistChecked) {
+                if (standardChecked && allowedChecked && blockedChecked && !allowlistChecked && !denylistChecked) {
                     if (filterAll) filterAll.checked = true;
                 } else {
                     if (filterAll) filterAll.checked = false;
@@ -431,6 +435,7 @@ function initGlobalEventListeners() {
             const anyChecked = Array.from(statusFilterInputs).some(input => input.checked);
             if (!anyChecked && filterAll) {
                 filterAll.checked = true;
+                if (filterStandard) filterStandard.checked = true;
                 if (filterAllowed) filterAllowed.checked = true;
                 if (filterBlocked) filterBlocked.checked = true;
             }

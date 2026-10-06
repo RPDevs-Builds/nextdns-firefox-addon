@@ -57,17 +57,28 @@ export const messageHandlers = {
      */
     GET_LOGS: async (msg) => {
         try {
-            const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/logs`, { 
+            const rawParam = msg.raw === false ? '' : '?raw=1';
+            const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/logs${rawParam}`, { 
                 cache: 'no-store', 
                 headers: { "Accept": "application/json", "X-Api-Key": await storage.get("apiKey", "") } 
             });
-            if (!r.success) return { success: false, data: [] };
-            const json = await r.response.json();
-            const data = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+            let data = [];
+            if (r.success) {
+                const json = await r.response.json();
+                data = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+            }
+            
+            // Merge locally captured browser requests if any, avoiding duplicate domain entries
+            if (Array.isArray(state.localLogs) && state.localLogs.length > 0) {
+                const existing = new Set(data.map(l => (l.domain || l.name || '').toLowerCase()));
+                const missingLocal = state.localLogs.filter(l => !existing.has((l.domain || l.name || '').toLowerCase()));
+                data = [...missingLocal, ...data].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            }
+
             return { success: true, data };
         } catch(e) {
             console.warn("[Handler] GET_LOGS failed:", e);
-            return { success: false, data: [] };
+            return { success: false, data: state.localLogs || [] };
         }
     },
     /**
@@ -256,7 +267,7 @@ export const messageHandlers = {
         
         if (blockedDomains.length === 0) return { success: true, correlations: [] };
 
-        const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/logs`, { cache: 'no-store' });
+        const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/logs?raw=1`, { cache: 'no-store' });
         if (!r.success) return { success: false, error: "Failed to fetch logs" };
         const logsData = await r.response.json();
         const logs = logsData.data || [];

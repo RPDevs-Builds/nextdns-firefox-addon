@@ -67,57 +67,58 @@ describe('Popup UI - Advanced Coverage Suite', () => {
         expect(logsContainer.querySelectorAll('.log-row').length).toBe(1);
     });
 
-    test('Allowed filter includes uncategorized default allowed items', () => {
-        const defaultAllowedLog = { domain: 'standard-site.org', status: 'default' };
+    test('Allowed and Standard filters handle plain uncategorized traffic', () => {
+        const defaultPlainLog = { domain: 'www.google.com', status: 'default' };
         const explicitAllowedLog = { domain: 'whitelist-site.com', status: 'allowed' };
         const blockedLog = { domain: 'ad-tracker.net', status: 'blocked' };
 
-        // 1. "Allowed" filter active only
-        expect(dashboard.matchesLogFilters(defaultAllowedLog, ['status:allowed'])).toBe(true);
+        // 1. "Standard" filter active only (isolates plain traffic that isn't on a list)
+        expect(dashboard.matchesLogFilters(defaultPlainLog, ['status:default'])).toBe(true);
+        expect(dashboard.matchesLogFilters(explicitAllowedLog, ['status:default'])).toBe(false);
+        expect(dashboard.matchesLogFilters(blockedLog, ['status:default'])).toBe(false);
+
+        // 2. "Allowed" filter active only
+        expect(dashboard.matchesLogFilters(defaultPlainLog, ['status:allowed'])).toBe(true);
         expect(dashboard.matchesLogFilters(explicitAllowedLog, ['status:allowed'])).toBe(true);
         expect(dashboard.matchesLogFilters(blockedLog, ['status:allowed'])).toBe(false);
 
-        // 2. "Blocked" filter active only
-        expect(dashboard.matchesLogFilters(defaultAllowedLog, ['status:blocked'])).toBe(false);
+        // 3. "Blocked" filter active only
+        expect(dashboard.matchesLogFilters(defaultPlainLog, ['status:blocked'])).toBe(false);
         expect(dashboard.matchesLogFilters(explicitAllowedLog, ['status:blocked'])).toBe(false);
         expect(dashboard.matchesLogFilters(blockedLog, ['status:blocked'])).toBe(true);
 
-        // 3. "All" filter active shows all traffic without filtering
-        expect(dashboard.matchesLogFilters(defaultAllowedLog, ['all'])).toBe(true);
+        // 4. "All" filter active shows all traffic without filtering (including plain traffic like google.com)
+        expect(dashboard.matchesLogFilters(defaultPlainLog, ['all'])).toBe(true);
         expect(dashboard.matchesLogFilters(explicitAllowedLog, ['all'])).toBe(true);
         expect(dashboard.matchesLogFilters(blockedLog, ['all'])).toBe(true);
-
-        // 4. Both Allowed + Blocked checked shows all traffic without filtering
-        expect(dashboard.matchesLogFilters(defaultAllowedLog, ['status:allowed', 'status:blocked'])).toBe(true);
-        expect(dashboard.matchesLogFilters(explicitAllowedLog, ['status:allowed', 'status:blocked'])).toBe(true);
-        expect(dashboard.matchesLogFilters(blockedLog, ['status:allowed', 'status:blocked'])).toBe(true);
     });
 
     test('Allowlist and Denylist reason filters isolate specific entries', () => {
-        const defaultAllowedLog = { domain: 'standard.com', status: 'default' };
+        const defaultPlainLog = { domain: 'www.google.com', status: 'default' };
         const allowlistLog = { domain: 'explicit.com', status: 'allowed', reasons: [{ id: 'allowlist', name: 'Allowlist' }] };
         const denylistLog = { domain: 'manual-block.com', status: 'blocked', reasons: [{ id: 'denylist', name: 'Denylist' }] };
         const blocklistLog = { domain: 'tracker.com', status: 'blocked', reasons: [{ id: 'nextdns-recommended', name: 'Recommended' }] };
 
         // Allowlist only
-        expect(dashboard.matchesLogFilters(defaultAllowedLog, ['reason:allowlist'])).toBe(false);
+        expect(dashboard.matchesLogFilters(defaultPlainLog, ['reason:allowlist'])).toBe(false);
         expect(dashboard.matchesLogFilters(allowlistLog, ['reason:allowlist'])).toBe(true);
         expect(dashboard.matchesLogFilters(denylistLog, ['reason:allowlist'])).toBe(false);
 
         // Denylist only
         expect(dashboard.matchesLogFilters(denylistLog, ['reason:denylist'])).toBe(true);
         expect(dashboard.matchesLogFilters(blocklistLog, ['reason:denylist'])).toBe(false);
-        expect(dashboard.matchesLogFilters(defaultAllowedLog, ['reason:denylist'])).toBe(false);
+        expect(dashboard.matchesLogFilters(defaultPlainLog, ['reason:denylist'])).toBe(false);
     });
 
-    test('renderLogs correctly renders uncategorized default allowed logs in UI', () => {
+    test('renderLogs correctly renders plain uncategorized logs with STANDARD badge', () => {
         const logsContainer = document.getElementById('logs-container');
         const filterAll = document.getElementById('filter-all');
+        const filterStandard = document.getElementById('filter-standard');
         const filterAllowed = document.getElementById('filter-allowed');
         const filterBlocked = document.getElementById('filter-blocked');
 
         const logs = [
-            { domain: 'uncategorized.com', status: 'default' },
+            { domain: 'www.google.com', status: 'default' },
             { domain: 'whitelisted.org', status: 'allowed' },
             { domain: 'malware.bad', status: 'blocked' }
         ];
@@ -126,24 +127,30 @@ describe('Popup UI - Advanced Coverage Suite', () => {
         filterAll.checked = true;
         dashboard.renderLogs(logs);
         expect(logsContainer.querySelectorAll('.log-row').length).toBe(3);
+        // Verify plain traffic has STANDARD badge rather than ALLOWED
+        expect(logsContainer.textContent).toContain('STANDARD');
+        expect(logsContainer.textContent).toContain('ALLOWLIST');
+        expect(logsContainer.textContent).toContain('BLOCKED');
 
-        // Allowed only view: Shows uncategorized + allowed (2 rows), excludes blocked
+        // Standard only view: Shows plain traffic (www.google.com only)
         filterAll.checked = false;
-        filterAllowed.checked = true;
+        filterStandard.checked = true;
+        filterAllowed.checked = false;
         filterBlocked.checked = false;
         dashboard.renderLogs(logs);
-        expect(logsContainer.querySelectorAll('.log-row').length).toBe(2);
-        expect(logsContainer.textContent).toContain('uncategorized.com');
-        expect(logsContainer.textContent).toContain('whitelisted.org');
+        expect(logsContainer.querySelectorAll('.log-row').length).toBe(1);
+        expect(logsContainer.textContent).toContain('www.google.com');
+        expect(logsContainer.textContent).not.toContain('whitelisted.org');
         expect(logsContainer.textContent).not.toContain('malware.bad');
 
-        // Blocked only view: Shows malware.bad (1 row), excludes uncategorized
+        // Blocked only view: Shows malware.bad (1 row), excludes www.google.com
+        filterStandard.checked = false;
         filterAllowed.checked = false;
         filterBlocked.checked = true;
         dashboard.renderLogs(logs);
         expect(logsContainer.querySelectorAll('.log-row').length).toBe(1);
         expect(logsContainer.textContent).toContain('malware.bad');
-        expect(logsContainer.textContent).not.toContain('uncategorized.com');
+        expect(logsContainer.textContent).not.toContain('www.google.com');
     });
 
     test('Defensive Rendering Resilience', async () => {

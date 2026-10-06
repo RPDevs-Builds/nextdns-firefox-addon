@@ -25,7 +25,7 @@ export function requestListener(details) {
                 state.blockedTabRequests[details.tabId] = 0;
             }
             
-            let status = 'allowed';
+            let status = 'default';
             let reason = 'Default';
             
             const allowMatch = getMatch(domain, state.currentProfileData.allowlist);
@@ -44,6 +44,32 @@ export function requestListener(details) {
             if (status === 'blocked') {
                 state.blockedTabRequests[details.tabId]++;
                 handleBlockNotification(domain);
+            }
+
+            // Record into localLogs buffer and broadcast LIVE_LOG for active log views
+            if (!Array.isArray(state.localLogs)) state.localLogs = [];
+            const recentDuplicate = state.localLogs.find(l => (l.domain === domain || l.name === domain) && (Date.now() - l.timestamp < 3000));
+            if (!recentDuplicate) {
+                const logEntry = {
+                    domain,
+                    name: domain,
+                    status,
+                    reason: status === 'default' ? '' : reason,
+                    reasons: allowMatch ? [{ id: 'allowlist', name: 'Allow List' }] : (denyMatch ? [{ id: 'denylist', name: 'Deny List' }] : []),
+                    timestamp: Date.now(),
+                    protocol: details.type === 'xmlhttprequest' ? 'HTTPS' : 'HTTP',
+                    device: { name: 'This Browser' }
+                };
+                state.localLogs.unshift(logEntry);
+                if (state.localLogs.length > 200) state.localLogs.pop();
+                if (typeof browser?.runtime?.sendMessage === 'function') {
+                    try {
+                        browser.runtime.sendMessage({ type: "LIVE_LOG", log: logEntry }).catch(() => {});
+                    } catch (_) {}
+                }
+            }
+
+            if (status === 'blocked') {
                 return { cancel: true };
             }
         } catch (e) {

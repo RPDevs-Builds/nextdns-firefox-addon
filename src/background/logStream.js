@@ -37,7 +37,7 @@ class LogStreamManager {
 
         this.currentProfileId = profileId;
         this.currentApiKey = apiKey;
-        const url = `${API_BASE}/profiles/${profileId}/logs/stream?api_key=${encodeURIComponent(apiKey)}`;
+        const url = `${API_BASE}/profiles/${profileId}/logs/stream?raw=1&api_key=${encodeURIComponent(apiKey)}`;
 
         try {
             console.log(`[SSE] Connecting to live log stream for profile: ${profileId}`);
