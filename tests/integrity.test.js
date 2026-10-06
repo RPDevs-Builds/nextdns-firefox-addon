@@ -62,7 +62,7 @@ describe('System Integrity - End-to-End Wiring', () => {
     });
 
     test('All main navigation tabs are clickable and update state', () => {
-        const tabs = ['dashboard', 'logs', 'lists', 'toggles', 'notifications', 'settings'];
+        const tabs = ['dashboard', 'logs', 'lists', 'toggles', 'settings'];
         tabs.forEach(tabId => {
             const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
             expect(btn).not.toBeNull();
@@ -73,6 +73,20 @@ describe('System Integrity - End-to-End Wiring', () => {
             const content = document.getElementById(`tab-${tabId}`);
             expect(content.classList.contains('active')).toBe(true);
         });
+    });
+
+    test('Header alerts toggle button displays and hides popover', () => {
+        const toggleBtn = document.getElementById('alerts-toggle-btn');
+        const popover = document.getElementById('alerts-popover');
+        expect(toggleBtn).not.toBeNull();
+        expect(popover).not.toBeNull();
+        expect(popover.classList.contains('hidden')).toBe(true);
+
+        toggleBtn.click();
+        expect(popover.classList.contains('hidden')).toBe(false);
+
+        toggleBtn.click();
+        expect(popover.classList.contains('hidden')).toBe(true);
     });
 
     test('Dashboard interactive buttons are wired to sendMessage', async () => {

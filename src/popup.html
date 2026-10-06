@@ -77,6 +77,7 @@
       background: var(--bg-main); 
       z-index: 10; 
       flex-shrink: 0; 
+      position: relative;
     }
     .header-container h3 { margin: 0; font-size: 1.1em; font-weight: 700; color: var(--text-main); }
     .header-controls { display: flex; gap: 6px; }
@@ -91,6 +92,52 @@
       color: var(--text-muted); 
     }
     .header-btn:hover { background: var(--hover-bg); color: var(--text-main); transform: translateY(-1px); }
+
+    /* Alerts Dropdown Popover */
+    .alerts-popover {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 12px;
+      width: 330px;
+      max-width: calc(100vw - 24px);
+      max-height: 400px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .alerts-popover-header {
+      padding: 10px 14px;
+      background: var(--bg-main);
+      border-bottom: 1px solid var(--border-color);
+      font-weight: 700;
+      font-size: 0.85em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .alerts-popover-body {
+      padding: 10px;
+      overflow-y: auto;
+      max-height: 340px;
+      flex-grow: 1;
+    }
+    .alerts-badge {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      width: 8px;
+      height: 8px;
+      background-color: var(--danger);
+      border-radius: 50%;
+      box-shadow: 0 0 4px var(--danger);
+      pointer-events: none;
+    }
 
     /* Main Tab Navigation */
     .tab-bar { 
@@ -248,10 +295,27 @@
   <div class="header-container flex-between">
     <h3>DNS Forge</h3>
     <div class="header-controls">
+      <button id="alerts-toggle-btn" class="header-btn flex-center" title="Action Center Alerts" aria-label="Action Center Alerts" style="position: relative;">
+        📢
+        <span id="alerts-badge" class="alerts-badge hidden"></span>
+      </button>
       <button id="theme-toggle-btn" class="header-btn flex-center" title="Quick Toggle Light/Dark" aria-label="Quick Toggle Light/Dark">🌗</button>
       <button id="refresh-view-btn" class="header-btn flex-center" title="Refresh Active Tab" aria-label="Refresh Active Tab">🔄</button>
       <button id="sidebar-ui-btn" class="header-btn flex-center" title="Dock to Sidebar" aria-label="Dock to Sidebar">🗂️</button>
       <button id="popout-ui-btn" class="header-btn flex-center" title="Open in dedicated window" aria-label="Open in dedicated window">↗️</button>
+    </div>
+
+    <!-- Alerts Dropdown Popover -->
+    <div id="alerts-popover" class="alerts-popover hidden" aria-live="polite">
+      <div class="alerts-popover-header flex-between">
+        <div style="font-weight: 700; font-size: 0.9em; display: flex; align-items: center; gap: 6px;">
+          <span>📢</span> Action Center Alerts
+        </div>
+        <button id="notifications-clear-btn" class="btn-secondary" style="width: auto; padding: 2px 8px; font-size: 0.75em;">Clear All</button>
+      </div>
+      <div id="notifications-container" class="alerts-popover-body">
+        <div style="text-align: center; color: var(--text-muted); padding: 20px;">No new alerts.</div>
+      </div>
     </div>
   </div>
 
@@ -260,7 +324,6 @@
     <button class="tab-btn" data-tab="toggles">🛡️ Protection</button>
     <button class="tab-btn" data-tab="lists">📋 Lists</button>
     <button class="tab-btn" data-tab="logs">📡 Logs</button>
-    <button class="tab-btn" data-tab="notifications">🔔 Alerts</button>
     <button class="tab-btn hidden" id="tab-btn-labs" data-tab="labs">🧪 Labs</button>
     <button class="tab-btn" data-tab="settings">⚙️ Options</button>
   </div>
@@ -399,18 +462,6 @@
     <div id="toggles-container" class="dashboard-panel" style="padding: 15px;"></div>
   </div>
 
-  <!-- Tab: Notifications (Action Center) -->
-  <div id="tab-notifications" class="tab-content" style="padding: 15px;">
-    <div class="panel-box">
-      <div class="flex-between">
-        <h4>Action Center Alerts</h4>
-        <button id="notifications-clear-btn" class="btn-secondary" style="width: auto; padding: 2px 8px; font-size: 0.7em;">Clear All</button>
-      </div>
-      <div id="notifications-container" class="dashboard-panel" style="margin-top: 10px;" aria-live="polite">
-        <div style="text-align: center; color: var(--text-muted); padding: 20px;">No new alerts.</div>
-      </div>
-    </div>
-  </div>
 
   <!-- Tab: Settings (Options) -->
   <div id="tab-settings" class="tab-content">

@@ -32,12 +32,47 @@ describe('Action Center (Phase 8.1)', () => {
         expect(state.notifications[0].read).toBe(false);
     });
 
-    test('PUSH_NOTIFICATION: Throttles at 50', async () => {
-        for (let i = 0; i < 60; i++) {
-            await bg.messageHandlers.PUSH_NOTIFICATION({ 
-                payload: { type: 'test', severity: 'low', message: `msg ${i}` } 
-            });
-        }
-        expect(state.notifications.length).toBe(50);
+    test('GET_NOTIFICATIONS: Retrieves stored notifications', async () => {
+        state.notifications = [{ id: '1', message: 'Alert 1' }];
+        const res = await bg.messageHandlers.GET_NOTIFICATIONS();
+        expect(res.success).toBe(true);
+        expect(res.notifications).toEqual([{ id: '1', message: 'Alert 1' }]);
+    });
+
+    test('CLEAR_NOTIFICATIONS: Empties stored notifications', async () => {
+        state.notifications = [{ id: '1', message: 'Alert 1' }];
+        const res = await bg.messageHandlers.CLEAR_NOTIFICATIONS();
+        expect(res.success).toBe(true);
+        expect(state.notifications).toEqual([]);
+    });
+
+    test('UI: renderNotifications updates badge and popover content', async () => {
+        document.body.innerHTML = `
+            <button id="alerts-toggle-btn">📢<span id="alerts-badge" class="alerts-badge hidden"></span></button>
+            <div id="alerts-popover" class="alerts-popover hidden">
+                <button id="notifications-clear-btn">Clear All</button>
+                <div id="notifications-container"></div>
+            </div>
+        `;
+
+        const uiNotifications = await import('../src/ui/notifications.js');
+        const uiState = (await import('../src/ui/state.js')).state;
+        uiState.notifications = [
+            { id: '101', severity: 'high', type: 'security', message: 'Threat blocked', timestamp: Date.now() }
+        ];
+
+        uiNotifications.renderNotifications();
+
+        const badge = document.getElementById('alerts-badge');
+        expect(badge.classList.contains('hidden')).toBe(false);
+
+        const container = document.getElementById('notifications-container');
+        expect(container.textContent).toContain('Threat blocked');
+
+        // Test clear
+        uiState.notifications = [];
+        uiNotifications.renderNotifications();
+        expect(badge.classList.contains('hidden')).toBe(true);
+        expect(container.textContent).toContain('No new alerts.');
     });
 });

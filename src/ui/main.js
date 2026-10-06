@@ -316,7 +316,6 @@ function initGlobalEventListeners() {
             if (tabId === 'lists') renderLists();
             if (tabId === 'toggles') loadToggles();
             if (tabId === 'logs') loadNativeLogs();
-            if (tabId === 'notifications') renderNotifications();
         };
     });
 

@@ -487,6 +487,20 @@ export const messageHandlers = {
         return { success: true };
     },
     /**
+     * Retrieves the current list of Action Center notifications.
+     */
+    GET_NOTIFICATIONS: async () => {
+        return { success: true, notifications: state.notifications || [] };
+    },
+    /**
+     * Clears all Action Center notifications from state and storage.
+     */
+    CLEAR_NOTIFICATIONS: async () => {
+        state.notifications = [];
+        await storage.set("notifications", []);
+        return { success: true };
+    },
+    /**
      * Saves metadata scraped from the NextDNS dashboard by content scripts.
      * Merges the new data into the 'scrapedMeta' object in storage.
      * @param {Object} msg - The message object containing the payload with metaType and data.
