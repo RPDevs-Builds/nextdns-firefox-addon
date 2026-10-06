@@ -382,8 +382,61 @@ function initGlobalEventListeners() {
     document.getElementById("log-search")?.addEventListener('input', () => renderLogs());
     document.getElementById("log-device-filter")?.addEventListener('change', () => renderLogs());
     document.getElementById("log-type-filter")?.addEventListener('change', () => renderLogs());
-    document.querySelectorAll('#status-filter-content input').forEach(cb => {
-        cb.addEventListener('change', () => renderLogs());
+
+    const filterAll = document.getElementById("filter-all");
+    const filterAllowed = document.getElementById("filter-allowed");
+    const filterBlocked = document.getElementById("filter-blocked");
+    const filterAllowlist = document.getElementById("filter-allowlist");
+    const filterDenylist = document.getElementById("filter-denylist");
+    const statusFilterInputs = document.querySelectorAll('#status-filter-content input');
+
+    statusFilterInputs.forEach(cb => {
+        cb.addEventListener('change', (e) => {
+            if (e.target === filterAll) {
+                if (filterAll.checked) {
+                    if (filterAllowed) filterAllowed.checked = true;
+                    if (filterBlocked) filterBlocked.checked = true;
+                    if (filterAllowlist) filterAllowlist.checked = false;
+                    if (filterDenylist) filterDenylist.checked = false;
+                } else {
+                    if (filterAllowed) filterAllowed.checked = true;
+                    if (filterBlocked) filterBlocked.checked = false;
+                }
+            } else if (e.target === filterAllowlist || e.target === filterDenylist) {
+                if (e.target.checked) {
+                    if (filterAll) filterAll.checked = false;
+                    if (e.target === filterAllowlist && filterAllowed) filterAllowed.checked = false;
+                    if (e.target === filterDenylist && filterBlocked) filterBlocked.checked = false;
+                }
+            } else {
+                if (e.target === filterAllowed && filterAllowed.checked && filterAllowlist) {
+                    filterAllowlist.checked = false;
+                }
+                if (e.target === filterBlocked && filterBlocked.checked && filterDenylist) {
+                    filterDenylist.checked = false;
+                }
+
+                const allowedChecked = !!filterAllowed?.checked;
+                const blockedChecked = !!filterBlocked?.checked;
+                const allowlistChecked = !!filterAllowlist?.checked;
+                const denylistChecked = !!filterDenylist?.checked;
+
+                if (allowedChecked && blockedChecked && !allowlistChecked && !denylistChecked) {
+                    if (filterAll) filterAll.checked = true;
+                } else {
+                    if (filterAll) filterAll.checked = false;
+                }
+            }
+
+            const anyChecked = Array.from(statusFilterInputs).some(input => input.checked);
+            if (!anyChecked && filterAll) {
+                filterAll.checked = true;
+                if (filterAllowed) filterAllowed.checked = true;
+                if (filterBlocked) filterBlocked.checked = true;
+            }
+
+            renderLogs();
+        });
     });
 
     // Tools

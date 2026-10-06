@@ -390,11 +390,12 @@
     </div>
     
     <div id="status-filter-content" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; font-size: 0.85em; background: var(--bg-panel); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
-       <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" value="status:allowed" checked> Allowed</label>
-       <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" value="status:blocked" checked> Blocked</label>
+       <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" id="filter-all" value="all" checked> All</label>
+       <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" id="filter-allowed" value="status:allowed" checked> Allowed</label>
+       <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" id="filter-blocked" value="status:blocked" checked> Blocked</label>
        <div style="width: 1px; background: var(--border-color); margin: 0 4px;"></div>
-       <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" value="reason:allowlist" checked> Allowlist</label>
-       <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" value="reason:denylist" checked> Denylist</label>
+       <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" id="filter-allowlist" value="reason:allowlist"> Allowlist</label>
+       <label class="checkbox-label" style="margin-bottom: 0;"><input type="checkbox" id="filter-denylist" value="reason:denylist"> Denylist</label>
     </div>
 
     <div style="display: flex; gap: 8px; margin-bottom: 12px;">

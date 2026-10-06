@@ -25,7 +25,7 @@ export function handleLiveLog(log) {
         const container = document.getElementById("logs-container");
         if (container) {
             // Remove placeholder if it exists
-            if (container.children.length === 1 && container.children[0].textContent.includes('No logs found')) {
+            if (container.children.length === 1 && container.children[0].textContent.includes('No logs')) {
                 container.textContent = '';
             }
 
@@ -49,18 +49,69 @@ export function handleLiveLog(log) {
             
             const query = (document.getElementById("log-search")?.value || "").toLowerCase();
             const deviceFilter = document.getElementById("log-device-filter")?.value;
+            const protocolFilter = document.getElementById("log-type-filter")?.value;
             const deviceId = log.device?.id || log.clientIp;
+            const protocol = (log.protocol || '').toLowerCase();
             const activeFilters = Array.from(document.querySelectorAll('#status-filter-content input:checked')).map(cb => cb.value);
-            const status = (log.status === 'allowed' || log.status === 'whitelisted') ? 'status:allowed' : 'status:blocked';
 
             if ((!query || (log.name || log.domain || '').toLowerCase().includes(query)) && 
                 (!deviceFilter || deviceId === deviceFilter) && 
-                activeFilters.includes(status)) {
+                (!protocolFilter || protocol === protocolFilter) &&
+                matchesLogFilters(log, activeFilters)) {
                 container.prepend(row);
                 if (container.children.length > 100) container.lastElementChild.remove();
             }
         }
     }
+}
+
+/**
+ * Checks whether a given DNS log item matches the active status and reason filters.
+ * Ensures that uncategorized default allowed items ('default'), explicitly allowed items ('allowed'),
+ * and relayed items are properly included in the 'Allowed' filter.
+ *
+ * @param {Object} log - The DNS log object.
+ * @param {string[]} [activeFilters=[]] - Array of active filter values.
+ * @returns {boolean} True if the log matches the active filter criteria.
+ */
+export function matchesLogFilters(log, activeFilters = []) {
+    if (!log) return false;
+    
+    // If "all" is checked, or no filter is selected:
+    if (activeFilters.includes('all') || activeFilters.length === 0) {
+        return true;
+    }
+
+    const isBlocked = log.status === 'blocked';
+    const isAllowed = !isBlocked; // includes 'default', 'allowed', 'whitelisted', 'relayed'
+
+    const isAllowlist = log.status === 'whitelisted' ||
+        (Array.isArray(log.reasons) && log.reasons.some(r => r.id === 'allowlist' || (r.name && r.name.toLowerCase().includes('allow')))) ||
+        (typeof log.reason === 'string' && log.reason.toLowerCase().includes('allow')) ||
+        (log.status === 'allowed' && (!log.reasons || log.reasons.length === 0 || log.reasons.some(r => r.id === 'allowlist' || (r.name && r.name.toLowerCase().includes('allow')))));
+
+    const isDenylist = isBlocked && (
+        (Array.isArray(log.reasons) && log.reasons.some(r => r.id === 'denylist' || (r.name && r.name.toLowerCase().includes('deny')))) ||
+        (typeof log.reason === 'string' && log.reason.toLowerCase().includes('deny'))
+    );
+
+    const hasAllowed = activeFilters.includes('status:allowed');
+    const hasBlocked = activeFilters.includes('status:blocked');
+    const hasAllowlist = activeFilters.includes('reason:allowlist');
+    const hasDenylist = activeFilters.includes('reason:denylist');
+
+    // If both status:allowed and status:blocked are active and no specific reason filter is checked, show all traffic
+    if (hasAllowed && hasBlocked && !hasAllowlist && !hasDenylist) {
+        return true;
+    }
+
+    let match = false;
+    if (hasAllowed && isAllowed) match = true;
+    if (hasBlocked && isBlocked) match = true;
+    if (hasAllowlist && isAllowlist) match = true;
+    if (hasDenylist && isDenylist) match = true;
+
+    return match;
 }
 
 /**
@@ -90,14 +141,19 @@ export function renderLogs(logsOverride = null) {
         const domain = (log.name || log.domain || '').toLowerCase();
         const id = log.device?.id || log.clientIp;
         const protocol = (log.protocol || '').toLowerCase();
-        const status = (log.status === 'allowed' || log.status === 'whitelisted') ? 'status:allowed' : 'status:blocked';
         
         if (query && !domain.includes(query)) return false;
         if (deviceFilter && id !== deviceFilter) return false;
         if (protocolFilter && protocol !== protocolFilter) return false;
-        if (!activeFilters.includes(status)) return false;
+        if (!matchesLogFilters(log, activeFilters)) return false;
         return true;
     });
+
+    if (filtered.length === 0) {
+        setSafeHTML(container, "<div style='text-align:center; padding:20px; color:var(--text-muted); font-size:0.9em;'>No logs match the current filter.</div>");
+        updateDeviceFilterOptions();
+        return;
+    }
 
     const fragment = document.createDocumentFragment();
     filtered.slice(0, 100).forEach(log => {
@@ -347,7 +403,7 @@ export function updateDynamicLinks() {
         state.hostnameAliases[l.device?.id || l.clientIp] || l.device?.name || l.clientIp || "Unknown",
         l.name || l.domain,
         l.status,
-        (l.reasons || [l.reason || ""]).join('; ')
+        Array.isArray(l.reasons) ? l.reasons.map(r => r.name || r.id || r).filter(Boolean).join('; ') : (l.reason || "")
     ]);
 
     const csvContent = [headers, ...rows].map(r => r.map(c => `"${(c||'').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
