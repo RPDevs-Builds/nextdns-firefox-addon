@@ -439,18 +439,6 @@ function initGlobalEventListeners() {
         }
     });
 
-    document.getElementById('theme-toggle-btn')?.addEventListener('click', async () => {
-        const current = state.activeThemeId || 'default-dark';
-        const isDark = (current === 'default-dark' || current === 'OLED Black' || current === 'Dracula' || current === 'Gruvbox');
-        const newTheme = isDark ? 'default-light' : 'default-dark';
-        state.activeThemeId = newTheme;
-        applyTheme(newTheme);
-        await browser.storage.sync.set({ activeTheme: newTheme });
-        
-        const selector = document.getElementById("theme-selector");
-        if (selector) selector.value = newTheme;
-    });
-
     document.getElementById('sidebar-ui-btn')?.addEventListener('click', () => {
         if (browser.sidebarAction?.open) {
             browser.sidebarAction.open();
