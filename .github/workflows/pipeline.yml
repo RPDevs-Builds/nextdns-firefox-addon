@@ -54,6 +54,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+      AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
     steps:
       - uses: actions/checkout@v7
 
@@ -73,14 +76,15 @@ jobs:
           path: release-artifacts/
 
       - name: Sign Extension with Mozilla (Unlisted)
-        if: env.AMO_JWT_ISSUER != '' && env.AMO_JWT_SECRET != ''
-        env:
-          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
-          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
-          npm run sign || echo "Note: Signing completed or version already submitted."
-          if [ -d "web-ext-artifacts" ]; then
-            cp -u web-ext-artifacts/*.xpi release-artifacts/ 2>/dev/null || true
+          if [ -n "$AMO_JWT_ISSUER" ] && [ -n "$AMO_JWT_SECRET" ]; then
+            echo "Submitting to Mozilla for signing..."
+            npm run sign || echo "Note: Signing completed or version already submitted."
+            if [ -d "web-ext-artifacts" ]; then
+              cp -f web-ext-artifacts/*.xpi release-artifacts/ 2>/dev/null || true
+            fi
+          else
+            echo "AMO credentials not configured. Proceeding with unsigned build."
           fi
 
       - name: Create Release

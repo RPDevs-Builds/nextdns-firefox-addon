@@ -29,7 +29,8 @@ const ignorePatterns = [
     "jest.setup.js", ".gitignore", "README.md", "CHANGELOG.md",
     "LICENSE", "AGENTS.md", "babel.config.json", ".gemini/**",
     "*.skill", "**/*.test.js", "*-results.json", "reports/**",
-    "web-ext-artifacts/**", "updates.json"
+    "web-ext-artifacts/**", "updates.json", "coverage/**", "coverage",
+    ".amo-upload-uuid"
 ].map(p => `"${p}"`).join(' ');
 
 console.log("🚀 Submitting extension to Mozilla for automated signing (unlisted)...");

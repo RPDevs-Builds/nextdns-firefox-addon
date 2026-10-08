@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.1.1] - 2026-10-07
+
+### Added
+- **StorageManager Batch Operations & Quota Safeguards:** Added multi-key retrieval (`get(["k1", "k2"])`), whole-cache dumps (`get(null)`), and object setters to `StorageManager`. Enforced `LOCAL_ONLY_KEYS` routing for high-volume caches (`cachedAllowlist`, `cachedDenylist`, `profileSnapshots`, `notifications`, `scrapedMeta`, `localLogs`) strictly into `browser.storage.local` to prevent 8KB Firefox Sync quota overflows.
+- **Wiki Documentation Tooling:** Added `docs:wiki` script (`.tools/generate-wiki-content.js`) with modern asynchronous JSDoc processing for technical reference extraction.
+- **Accessibility Enhancements:** Added explicit `aria-label` attributes to icon-only control buttons in `src/popup.html`.
+
+### Fixed
+- **Uncategorized Log Traffic Visibility:** Fixed native logs view to display plain, uncategorized default-allowed DNS queries alongside explicitly categorized rules.
+- **Blocklist Update Timestamp Display:** Fixed blocklists rendering "Updated undefined" by normalizing API timestamp fields across snake_case and camelCase.
+- **Linked IP / DDNS Privacy Hardening:** Hardened `checkAndUpdateLinkedIP` to verify profile Linked IP configuration before dispatching network requests, and prioritized NextDNS's native diagnostic endpoint (`https://test.nextdns.io`) to prevent third-party IP data leaks.
+- **API Client Header Preservation:** Safely merged caller-provided request headers with default authorization headers in `apiClient.js`.
+- **DOMParser Allocation Overhead:** Replaced per-call `new DOMParser()` instances in `setSafeHTML` with a module-level cached instance to optimize live log stream rendering.
+- **Release Workflow & Tooling:** Hardened GitHub Actions release workflow signing conditions, job environment scoping, and packaging exclusion patterns (`coverage/**`, `.amo-upload-uuid`).
+
 ## [1.1.0] - 2026-10-06
 
 ### Added

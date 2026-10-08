@@ -24,19 +24,40 @@ files.forEach(file => {
     }
 });
 
+// Update package-lock.json
+const lockPath = path.resolve(__dirname, '../package-lock.json');
+try {
+    if (fs.existsSync(lockPath)) {
+        const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+        const oldLockVer = lock.version;
+        lock.version = version;
+        if (lock.packages && lock.packages['']) {
+            lock.packages[''].version = version;
+        }
+        fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n');
+        console.log(`✅ package-lock.json: ${oldLockVer} -> ${version}`);
+    }
+} catch (e) {
+    console.error("❌ Error updating package-lock.json:", e.message);
+}
+
 // Update CHANGELOG.md
 const changelogPath = path.resolve(__dirname, '../CHANGELOG.md');
 try {
     let changelog = fs.readFileSync(changelogPath, 'utf8');
-    const date = new Date().toISOString().split('T')[0];
-    const newEntry = `## [${version}] - ${date}\n\n### Added\n- New version ${version}\n\n`;
-    
-    // Find the first occurrence of "## [" to insert before it
-    const index = changelog.indexOf('## [');
-    if (index !== -1) {
-        changelog = changelog.slice(0, index) + newEntry + changelog.slice(index);
-        fs.writeFileSync(changelogPath, changelog);
-        console.log(`✅ CHANGELOG.md: Added entry for ${version}`);
+    if (!changelog.includes(`## [${version}]`)) {
+        const date = new Date().toISOString().split('T')[0];
+        const newEntry = `## [${version}] - ${date}\n\n### Added\n- New version ${version}\n\n`;
+        
+        // Find the first occurrence of "## [" to insert before it
+        const index = changelog.indexOf('## [');
+        if (index !== -1) {
+            changelog = changelog.slice(0, index) + newEntry + changelog.slice(index);
+            fs.writeFileSync(changelogPath, changelog);
+            console.log(`✅ CHANGELOG.md: Added entry for ${version}`);
+        }
+    } else {
+        console.log(`ℹ️ CHANGELOG.md: Entry for ${version} already present.`);
     }
 } catch (e) {
     console.warn("⚠️ Could not update CHANGELOG.md automatically.");
@@ -49,12 +70,17 @@ try {
         const updates = JSON.parse(fs.readFileSync(updatesPath, 'utf8'));
         const addonId = '{56fda99b-4dd4-4a4a-a413-00ff1c2cffd8}';
         if (updates.addons && updates.addons[addonId]) {
-            updates.addons[addonId].updates.unshift({
-                version: version,
-                update_link: `https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases/download/v${version}/dns_forge-${version}.xpi`
-            });
-            fs.writeFileSync(updatesPath, JSON.stringify(updates, null, 2) + '\n');
-            console.log(`✅ updates.json: Added update entry for ${version}`);
+            const exists = updates.addons[addonId].updates.some(u => u.version === version);
+            if (!exists) {
+                updates.addons[addonId].updates.unshift({
+                    version: version,
+                    update_link: `https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases/download/v${version}/dns_forge-${version}.xpi`
+                });
+                fs.writeFileSync(updatesPath, JSON.stringify(updates, null, 2) + '\n');
+                console.log(`✅ updates.json: Added update entry for ${version}`);
+            } else {
+                console.log(`ℹ️ updates.json: Entry for ${version} already present.`);
+            }
         }
     }
 } catch (e) {

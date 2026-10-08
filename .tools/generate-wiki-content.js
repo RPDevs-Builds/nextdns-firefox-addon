@@ -56,38 +56,45 @@ const srcFiles = [
     ...getFiles(path.join(ROOT_DIR, 'src'))
 ];
 
-srcFiles.forEach(fullPath => {
-    const relativePath = path.relative(ROOT_DIR, fullPath);
-    const fileName = path.basename(fullPath, '.js');
-    
-    // Skip if it's a directory or not a js file (already filtered but safe)
-    if (!fullPath.endsWith('.js')) return;
+async function generateWiki() {
+    for (const fullPath of srcFiles) {
+        const relativePath = path.relative(ROOT_DIR, fullPath);
+        const fileName = path.basename(fullPath, '.js');
+        
+        // Skip if it's a directory or not a js file (already filtered but safe)
+        if (!fullPath.endsWith('.js')) continue;
 
-    let doc = "";
-    try {
-        doc = jsdoc2md.renderSync({ files: fullPath });
-    } catch (e) {
-        console.error(`❌ Error parsing ${relativePath}:`, e.message);
-    }
+        let doc = "";
+        try {
+            doc = await jsdoc2md.render({ files: fullPath });
+        } catch (e) {
+            console.error(`❌ Error parsing ${relativePath}:`, e.message);
+        }
 
-    const targetSubDir = path.dirname(relativePath.replace('src/', ''));
-    const targetPath = path.join(WIKI_DOCS_DIR, 'reference', targetSubDir, `${fileName}.md`);
-    
-    ensureDir(path.dirname(targetPath));
+        const targetSubDir = path.dirname(relativePath.replace('src/', ''));
+        const targetPath = path.join(WIKI_DOCS_DIR, 'reference', targetSubDir, `${fileName}.md`);
+        
+        ensureDir(path.dirname(targetPath));
 
-    const frontmatter = `---
+        const frontmatter = `---
 title: ${fileName}
 description: Technical reference for ${relativePath}
 ---
 
 `;
 
-    if (!doc.trim()) {
-        const placeholder = `# ${fileName}\n\nDocumentation for \`${relativePath}\` is generated automatically from source code. Currently, no JSDoc comments were found in this file.\n\n### Source Location\n\`${relativePath}\``;
-        fs.writeFileSync(targetPath, frontmatter + placeholder);
-    } else {
-        fs.writeFileSync(targetPath, frontmatter + doc);
+        if (!doc.trim()) {
+            const placeholder = `# ${fileName}\n\nDocumentation for \`${relativePath}\` is generated automatically from source code. Currently, no JSDoc comments were found in this file.\n\n### Source Location\n\`${relativePath}\``;
+            fs.writeFileSync(targetPath, frontmatter + placeholder);
+        } else {
+            fs.writeFileSync(targetPath, frontmatter + doc);
+        }
     }
-});
 
-console.log("✅ Wiki content generation complete.");
+    console.log("✅ Wiki content generation complete.");
+}
+
+generateWiki().catch(err => {
+    console.error("❌ Fatal error in wiki generation:", err);
+    process.exit(1);
+});
