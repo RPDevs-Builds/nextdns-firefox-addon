@@ -243,13 +243,24 @@ function renderBlocklistsGrid(query) {
 
     return filtered.map(b => {
         const active = activeIds.has(b.id);
+        const entriesText = b.entries_text || (b.entries !== undefined && b.entries !== null ? (typeof b.entries === 'number' ? `${b.entries.toLocaleString()} entries` : (String(b.entries).includes('entries') ? b.entries : `${b.entries} entries`)) : '');
+        let updatedText = b.updated_text || '';
+        if (!updatedText && b.updated) {
+            updatedText = String(b.updated).startsWith('Updated') ? b.updated : `Updated ${b.updated}`;
+        } else if (!updatedText && b.updated_ts) {
+            const ts = b.updated_ts > 1e11 ? b.updated_ts : b.updated_ts * 1000;
+            const d = new Date(ts);
+            updatedText = isNaN(d.getTime()) ? '' : `Updated ${d.toLocaleDateString()}`;
+        }
+        const metaText = [entriesText, updatedText].filter(Boolean).join(' • ');
+
         return `
             <div style="padding: 10px; border-bottom: 1px solid var(--border-color); background: var(--bg-panel); margin-bottom: 5px; border-radius: 4px;">
                 <div class="flex-between" style="align-items: flex-start;">
                     <div style="flex-grow: 1; padding-right: 10px;">
                         <div style="font-weight:bold; font-size: 0.9em;">${escapeHTML(b.name)}</div>
                         <div style="font-size: 0.8em; opacity: 0.7; margin: 4px 0;">${escapeHTML(b.description)}</div>
-                        <div style="font-size: 0.75em; opacity: 0.5;">${escapeHTML(b.entries)} entries • Updated ${escapeHTML(b.updated)}</div>
+                        ${metaText ? `<div style="font-size: 0.75em; opacity: 0.5;">${escapeHTML(metaText)}</div>` : ''}
                     </div>
                     <button class="api-toggle-btn ${active?'btn-deny':'btn-allow'}"
                         data-cat="privacy/blocklists" data-id="${b.id}" data-type="list" data-active="${active}"

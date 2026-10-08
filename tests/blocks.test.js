@@ -62,10 +62,47 @@ describe('Popup UI - Blocks Expansion Suite', () => {
 
         const container = document.getElementById('toggles-container');
         expect(container.textContent).toContain('NextDNS Ads & Trackers Blocklist');
+        expect(container.textContent).not.toContain('Updated undefined');
+        expect(container.textContent).not.toContain('undefined entries');
 
         await blocks.loadToggles('zxcvbnm');
         expect(container.textContent).not.toContain('NextDNS Ads & Trackers Blocklist');
         expect(container.textContent).toContain('No blocklists found.');
+    });
+
+    test('Blocks UI - Blocklists Metadata Formatting (entries & updated timestamp)', async () => {
+        state.activeBlocksSubTab = 'blocklists';
+        state.blocksMeta.blocklists = [
+            {
+                id: 'meta-test-1',
+                name: 'List One',
+                description: 'First test list',
+                entries_text: '84,317 entries',
+                updated_text: 'Updated 4 days ago'
+            },
+            {
+                id: 'meta-test-2',
+                name: 'List Two',
+                description: 'Second test list',
+                entries: 12500,
+                updated_ts: 1700000000
+            },
+            {
+                id: 'meta-test-3',
+                name: 'List Three',
+                description: 'Third test list',
+                entries: 100,
+                updated: 'Yesterday'
+            }
+        ];
+
+        await blocks.loadToggles();
+
+        const container = document.getElementById('toggles-container');
+        expect(container.textContent).toContain('84,317 entries • Updated 4 days ago');
+        expect(container.textContent).toContain('12,500 entries • Updated');
+        expect(container.textContent).toContain('100 entries • Updated Yesterday');
+        expect(container.textContent).not.toContain('undefined');
     });
 
     test('Blocks UI - Privacy Toggles Status and Category Binding', async () => {
