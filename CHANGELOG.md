@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.1.3] - 2026-10-07
+
+### Added
+- **Automated CI/CD Mozilla Signing Pipeline:** Fully migrated the unlisted extension signing and package publishing process to GitHub Actions on tag push (`.github/workflows/pipeline.yml`), ensuring reproducible signed builds with zero local key dependencies.
+
+### Fixed
+- **Release Artifact Asset Naming:** Guaranteed that newly signed Mozilla `.xpi` packages replace initial build packages under the standard release asset name (`dns_forge-<version>.xpi`).
+- **Update Manifest Checksum Alignment:** Ensured extension update links and package signatures are fully synchronized with Firefox's update verification system.
+- **Dependency Security Patches:** Overrode transitive `shell-quote` to `^1.11.0` (closing CVE-2026-102422 / Dependabot #27) and `sprintf-js: ^1.1.3`.
+
 ## [1.1.1] - 2026-10-07
 
 ### Added
