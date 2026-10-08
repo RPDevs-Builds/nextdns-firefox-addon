@@ -14,6 +14,7 @@
     "docs:wiki": "node .tools/generate-wiki-content.js"
   },
   "devDependencies": {
+    "@babel/core": "^8.0.7",
     "@babel/preset-env": "^8.0.2",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
@@ -23,6 +24,9 @@
     "jest-webextension-mock": "^4.2.0",
     "jsdoc-to-markdown": "^9.1.3",
     "web-ext": "^10.7.0"
+  },
+  "overrides": {
+    "shell-quote": "^1.11.0"
   },
   "jest": {
     "setupFilesAfterEnv": [
