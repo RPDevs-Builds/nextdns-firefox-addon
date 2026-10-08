@@ -19,8 +19,12 @@ export async function syncLists(force = false) {
         browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: state.activeProfile, listType: "denylist", action: "list" })
     ]).catch(() => [null, null]);
 
-    state.currentAllowlist = new Set((a?.data || []).filter(i => i?.id).map(i => i.id));
-    state.currentDenylist = new Set((d?.data || []).filter(i => i?.id).map(i => i.id));
+    if (Array.isArray(a?.data)) {
+        state.currentAllowlist = new Set(a.data.filter(i => i?.id).map(i => i.id));
+    }
+    if (Array.isArray(d?.data)) {
+        state.currentDenylist = new Set(d.data.filter(i => i?.id).map(i => i.id));
+    }
     state.listsSynced = true;
 
     if (state.activeTab === 'lists' || (state.activeTab === 'toggles' && state.activeBlocksSubTab === 'lists')) {

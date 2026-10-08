@@ -196,6 +196,18 @@ describe('Background Script - Full Coverage Suite', () => {
     expect(stats.blockedCount).toBe(1);
     expect(stats.requests['good.com']).toMatchObject({ status: 'allowed', reason: 'Allow List' });
     expect(stats.requests['bad.com']).toMatchObject({ status: 'blocked', reason: 'Deny List' });
+
+    // Test clearing tab stats
+    const clearRes = await new Promise(resolve => {
+      messageHandlerRef({ type: 'CLEAR_TAB_STATS', tabId: 99 }, {}, resolve);
+    });
+    expect(clearRes).toEqual({ success: true });
+
+    const clearedStats = await new Promise(resolve => {
+      messageHandlerRef({ type: 'GET_TAB_STATS', tabId: 99 }, {}, resolve);
+    });
+    expect(clearedStats.blockedCount).toBe(0);
+    expect(clearedStats.requests).toEqual({});
   });
 
   test('Tab Lifecycle - Memory Cleanup', async () => {

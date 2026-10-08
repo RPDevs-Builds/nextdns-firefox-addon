@@ -27,6 +27,9 @@ describe('Popup UI - Advanced Coverage Suite', () => {
                     set: jest.fn().mockResolvedValue({})
                 }
             },
+            tabs: {
+                query: jest.fn().mockResolvedValue([{ id: 10, url: 'https://example.com' }])
+            },
             runtime: {
                 sendMessage: jest.fn().mockImplementation((msg) => {
                     if (msg.type === 'GET_PROFILE') return Promise.resolve({ id: 'p1', name: 'Test' });
@@ -159,4 +162,122 @@ describe('Popup UI - Advanced Coverage Suite', () => {
         const container = document.getElementById('logs-container');
         expect(container).not.toBeNull();
     });
+
+    test('updateDashboardTabInfo displays Tab Blocked count instead of page grade', async () => {
+        global.browser.runtime.sendMessage.mockImplementation((msg) => {
+            if (msg.type === 'GET_TAB_STATS') {
+                return Promise.resolve({
+                    requests: {
+                        'tracker.com': { status: 'blocked', reason: 'Deny List' },
+                        'allowed.org': { status: 'allowed', reason: 'Allow List' },
+                        'example.com': { status: 'default', reason: 'Default' }
+                    },
+                    blockedCount: 7
+                });
+            }
+            return Promise.resolve({ success: true, data: [] });
+        });
+
+        await dashboard.updateDashboardTabInfo();
+
+        const tabBlockedEl = document.getElementById('tab-blocked-count');
+        expect(tabBlockedEl).not.toBeNull();
+        expect(tabBlockedEl.textContent).toBe('7');
+    });
+
+    test('Tab Requests list allows adding and removing items from allowlist and denylist', async () => {
+        state.activeProfile = 'p1';
+        state.currentAllowlist = new Set(['allowed.org']);
+        state.currentDenylist = new Set(['blocked.com']);
+
+        global.browser.runtime.sendMessage.mockImplementation((msg) => {
+            if (msg.type === 'GET_TAB_STATS') {
+                return Promise.resolve({
+                    requests: {
+                        'allowed.org': { status: 'allowed', reason: 'Allow List' },
+                        'blocked.com': { status: 'blocked', reason: 'Deny List' },
+                        'neutral.io': { status: 'default', reason: 'Default' }
+                    },
+                    blockedCount: 1
+                });
+            }
+            if (msg.type === 'MANAGE_DOMAIN') {
+                if (msg.action === 'list') {
+                    const set = msg.listType === 'allowlist' ? state.currentAllowlist : state.currentDenylist;
+                    return Promise.resolve({ success: true, data: Array.from(set || []).map(id => ({ id })) });
+                }
+                return Promise.resolve({ success: true });
+            }
+            return Promise.resolve({ success: true, data: [] });
+        });
+
+        await dashboard.updateDashboardTabInfo();
+
+        const container = document.getElementById('tab-log');
+        expect(container).not.toBeNull();
+
+        // 1. Check rendered buttons for allowed.org (currently allowed)
+        const allowedRow = container.querySelector('.tab-domain-name[data-domain="allowed.org"]').closest('.tab-request-row');
+        const removeAllowBtn = allowedRow.querySelector('.tab-btn-remove-allow');
+        const addDenyBtn = allowedRow.querySelector('.tab-btn-add-deny');
+        expect(removeAllowBtn).not.toBeNull();
+        expect(removeAllowBtn.textContent).toBe('✕ Allow');
+        expect(addDenyBtn).not.toBeNull();
+        expect(addDenyBtn.textContent).toBe('+ Deny');
+
+        // 2. Check rendered buttons for blocked.com (currently denied)
+        const blockedRow = container.querySelector('.tab-domain-name[data-domain="blocked.com"]').closest('.tab-request-row');
+        const addAllowBtn = blockedRow.querySelector('.tab-btn-add-allow');
+        const removeDenyBtn = blockedRow.querySelector('.tab-btn-remove-deny');
+        expect(addAllowBtn).not.toBeNull();
+        expect(addAllowBtn.textContent).toBe('+ Allow');
+        expect(removeDenyBtn).not.toBeNull();
+        expect(removeDenyBtn.textContent).toBe('✕ Deny');
+
+        // 3. Test removing allowed.org from allowlist
+        removeAllowBtn.click();
+        await new Promise(r => setTimeout(r, 50));
+        expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'MANAGE_DOMAIN',
+            profileId: 'p1',
+            listType: 'allowlist',
+            domain: 'allowed.org',
+            action: 'delete'
+        }));
+        expect(state.currentAllowlist.has('allowed.org')).toBe(false);
+
+        // 4. Test adding neutral.io to allowlist
+        const neutralAddAllowBtn = container.querySelector('.tab-btn-add-allow[data-domain="neutral.io"]');
+        expect(neutralAddAllowBtn).not.toBeNull();
+        neutralAddAllowBtn.click();
+        await new Promise(r => setTimeout(r, 50));
+        expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'MANAGE_DOMAIN',
+            profileId: 'p1',
+            listType: 'allowlist',
+            domain: 'neutral.io',
+            action: 'add'
+        }));
+        expect(state.currentAllowlist.has('neutral.io')).toBe(true);
+
+        // 5. Test removing blocked.com from denylist
+        const currentRemoveDenyBtn = container.querySelector('.tab-btn-remove-deny[data-domain="blocked.com"]');
+        expect(currentRemoveDenyBtn).not.toBeNull();
+        currentRemoveDenyBtn.click();
+        await new Promise(r => setTimeout(r, 50));
+        expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'MANAGE_DOMAIN',
+            profileId: 'p1',
+            listType: 'denylist',
+            domain: 'blocked.com',
+            action: 'delete'
+        }));
+        expect(state.currentDenylist.has('blocked.com')).toBe(false);
+
+        // 6. Test clicking domain name fills domain-input
+        const domainText = container.querySelector('.tab-domain-name[data-domain="neutral.io"]');
+        domainText.click();
+        expect(document.getElementById('domain-input').value).toBe('neutral.io');
+    });
 });
+

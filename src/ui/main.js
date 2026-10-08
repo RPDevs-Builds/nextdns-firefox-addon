@@ -9,7 +9,7 @@
 
 import { state, isPopoutMode, isSidebarMode, isTabMode, PRESET_THEMES, THEME_VARS, DEFAULT_THEME_COLORS, urlParams } from './state.js';
 import { setActiveTab, setSafeHTML, escapeHTML, downloadAsFile } from './utils.js';
-import { handleLiveLog, renderLogs, loadAnalytics, updateDashboardTabInfo, updateDynamicLinks, loadNativeLogs, downloadLogsCSV, wipeLogs } from './dashboard.js';
+import { handleLiveLog, renderLogs, loadAnalytics, updateDashboardTabInfo, updateDynamicLinks, loadNativeLogs, downloadLogsCSV, wipeLogs, initTabLogEvents } from './dashboard.js';
 import { loadToggles, syncLists, renderLists } from './blocks.js';
 import { runSecurityAudit, runIntelligentDebugger, exportDebuggerSnapshot, exportAuditReport } from './tools.js';
 import { loadRules, saveAutomationRule } from './scheduler.js';
@@ -620,6 +620,16 @@ function initGlobalEventListeners() {
         e.target.classList.toggle('btn-secondary', !state.isTabTrackingPaused);
         e.target.classList.toggle('btn-dark', state.isTabTrackingPaused);
     });
+
+    document.getElementById("clear-tab-log-btn")?.addEventListener('click', async () => {
+        const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+        if (tab?.id !== undefined) {
+            await browser.runtime.sendMessage({ type: "CLEAR_TAB_STATS", tabId: tab.id });
+            await updateDashboardTabInfo();
+        }
+    });
+
+    initTabLogEvents();
 
     // Log Filters
     document.getElementById("log-search")?.addEventListener('input', () => renderLogs());

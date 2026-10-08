@@ -52,6 +52,17 @@ export const messageHandlers = {
         blockedCount: state.blockedTabRequests[msg.tabId] || 0 
     }),
     /**
+     * Clears network request statistics for a specific browser tab.
+     * @param {Object} msg - The message object containing tabId.
+     */
+    CLEAR_TAB_STATS: async (msg) => {
+        if (msg.tabId !== undefined && state.tabRequests[msg.tabId]) {
+            state.tabRequests[msg.tabId] = {};
+            state.blockedTabRequests[msg.tabId] = 0;
+        }
+        return { success: true };
+    },
+    /**
      * Fetches historical logs for a profile from the NextDNS API.
      * @param {Object} msg - The message object containing profileId.
      */

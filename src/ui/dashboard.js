@@ -7,6 +7,7 @@
 
 import { state } from './state.js';
 import { escapeHTML, setSafeHTML } from './utils.js';
+import { syncLists } from './blocks.js';
 
 /**
  * Handles incoming live log events from the background SSE stream.
@@ -358,12 +359,93 @@ export async function loadNativeLogs() {
     }
 }
 
+let isTabActionPending = false;
+
+/**
+ * Attaches delegated click listeners to the Tab Requests container
+ * for allowing, unallowing, denying, and undenying domains.
+ */
+export function initTabLogEvents() {
+    const container = document.getElementById("tab-log");
+    if (!container || container._hasTabLogListeners) return;
+    container._hasTabLogListeners = true;
+
+    container.addEventListener('click', async (e) => {
+        // 1. Action button click (+ Allow, ✕ Allow, + Deny, ✕ Deny)
+        const btn = e.target.closest('.tab-action-btn');
+        if (btn) {
+            e.stopPropagation();
+            const domain = btn.getAttribute('data-domain');
+            const listType = btn.getAttribute('data-list');
+            const action = btn.getAttribute('data-action');
+            if (!domain || !listType || !action) return;
+
+            btn.disabled = true;
+            btn.textContent = '...';
+            isTabActionPending = true;
+
+            try {
+                const res = await browser.runtime.sendMessage({
+                    type: "MANAGE_DOMAIN",
+                    profileId: state.activeProfile,
+                    listType,
+                    domain,
+                    action
+                });
+
+                if (res.success) {
+                    if (action === 'add') {
+                        if (listType === 'allowlist') {
+                            if (state.currentAllowlist instanceof Set) state.currentAllowlist.add(domain);
+                            if (state.currentDenylist instanceof Set) state.currentDenylist.delete(domain);
+                        } else {
+                            if (state.currentDenylist instanceof Set) state.currentDenylist.add(domain);
+                            if (state.currentAllowlist instanceof Set) state.currentAllowlist.delete(domain);
+                        }
+                    } else if (action === 'delete') {
+                        if (listType === 'allowlist') {
+                            if (state.currentAllowlist instanceof Set) state.currentAllowlist.delete(domain);
+                        } else {
+                            if (state.currentDenylist instanceof Set) state.currentDenylist.delete(domain);
+                        }
+                    }
+                    syncLists(true).catch(() => {});
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = 'Err';
+                    console.error(`[Dashboard] Failed to ${action} ${domain} in ${listType}:`, res?.error);
+                }
+            } catch (err) {
+                btn.disabled = false;
+                btn.textContent = 'Err';
+                console.error("[Dashboard] Action failed:", err);
+            } finally {
+                isTabActionPending = false;
+                await updateDashboardTabInfo();
+            }
+            return;
+        }
+
+        // 2. Click domain name to populate domain input
+        const domainEl = e.target.closest('.tab-domain-name');
+        if (domainEl) {
+            const domain = domainEl.getAttribute('data-domain');
+            const domainInput = document.getElementById("domain-input");
+            if (domainInput && domain) {
+                domainInput.value = domain;
+                domainInput.focus();
+            }
+        }
+    });
+}
+
 /**
  * Updates the "Tab Requests" panel with network request data specific to the active browser tab.
- * Calculates a privacy grade based on the ratio of blocked to total requests.
+ * Renders interactive allow/deny controls per requested domain and updates total blocked count.
  * @async
  */
 export async function updateDashboardTabInfo() {
+    if (isTabActionPending) return;
     try {
         const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
         if (!tab?.url) return;
@@ -393,32 +475,60 @@ export async function updateDashboardTabInfo() {
 
         const container = document.getElementById("tab-log");
         if (container) {
+            initTabLogEvents();
             if (domains.length === 0) {
                 if (!container.textContent.includes('capturing')) {
-                    setSafeHTML(container, "<div style='opacity:0.5; padding:10px;'>Waiting for network activity...</div>");
+                    setSafeHTML(container, "<div style='opacity:0.5; padding:10px; text-align:center;'>Waiting for network activity...</div>");
                 }
             } else {
                 const html = domains.map(d => {
-                    const r = requests[d];
-                    const color = r.status === 'blocked' ? 'var(--danger)' : (r.reason === 'Allow List' ? 'var(--success)' : 'inherit');
-                    return `<div style="padding:4px; color:${color}; font-size:0.9em; border-bottom:1px solid rgba(255,255,255,0.05);">
-                        ${escapeHTML(d)} 
-                        <span style="font-size:0.8em; opacity:0.6; margin-left:5px;">${escapeHTML(r.reason === 'Default' ? '' : `[${r.reason}]`)}</span>
+                    const r = requests[d] || {};
+                    const isAllowed = state.currentAllowlist instanceof Set && state.currentAllowlist.has(d);
+                    const isDenied = state.currentDenylist instanceof Set && state.currentDenylist.has(d);
+
+                    let statusColor = 'inherit';
+                    let badgeText = '';
+
+                    if (isAllowed) {
+                        statusColor = 'var(--success)';
+                        badgeText = '[Allowed]';
+                    } else if (isDenied) {
+                        statusColor = 'var(--danger)';
+                        badgeText = '[Denied]';
+                    } else if (r.status === 'blocked') {
+                        statusColor = 'var(--danger)';
+                        badgeText = (r.reason && r.reason !== 'Default') ? `[${r.reason}]` : '[Blocked]';
+                    } else if (r.reason && r.reason !== 'Default') {
+                        badgeText = `[${r.reason}]`;
+                    }
+
+                    const allowBtn = isAllowed
+                        ? `<button class="tab-action-btn tab-btn-remove-allow" data-domain="${escapeHTML(d)}" data-list="allowlist" data-action="delete" title="Remove from Allowlist" style="background: rgba(40, 167, 69, 0.15); color: var(--success); border: 1px solid var(--success); padding: 2px 6px; font-size: 0.72em; border-radius: 4px; cursor: pointer; font-weight: 600;">✕ Allow</button>`
+                        : `<button class="tab-action-btn tab-btn-add-allow" data-domain="${escapeHTML(d)}" data-list="allowlist" data-action="add" title="Add to Allowlist" style="background: var(--success); color: white; border: none; padding: 2px 6px; font-size: 0.72em; border-radius: 4px; cursor: pointer; font-weight: 600;">+ Allow</button>`;
+
+                    const denyBtn = isDenied
+                        ? `<button class="tab-action-btn tab-btn-remove-deny" data-domain="${escapeHTML(d)}" data-list="denylist" data-action="delete" title="Remove from Denylist" style="background: rgba(220, 53, 69, 0.15); color: var(--danger); border: 1px solid var(--danger); padding: 2px 6px; font-size: 0.72em; border-radius: 4px; cursor: pointer; font-weight: 600;">✕ Deny</button>`
+                        : `<button class="tab-action-btn tab-btn-add-deny" data-domain="${escapeHTML(d)}" data-list="denylist" data-action="add" title="Add to Denylist" style="background: var(--danger); color: white; border: none; padding: 2px 6px; font-size: 0.72em; border-radius: 4px; cursor: pointer; font-weight: 600;">+ Deny</button>`;
+
+                    return `<div class="tab-request-row" style="display: flex; align-items: center; justify-content: space-between; padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 6px;">
+                        <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;" title="${escapeHTML(d)}">
+                            <span class="tab-domain-name" data-domain="${escapeHTML(d)}" style="color: ${statusColor}; font-size: 0.88em; cursor: pointer;">${escapeHTML(d)}</span>
+                            ${badgeText ? `<span style="font-size: 0.75em; opacity: 0.6; margin-left: 4px;">${escapeHTML(badgeText)}</span>` : ''}
+                        </div>
+                        <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                            ${allowBtn}
+                            ${denyBtn}
+                        </div>
                     </div>`;
                 }).join('');
                 setSafeHTML(container, html);
             }
         }
 
-        const score = document.getElementById("privacy-score");
-        if (score) {
-            const blockedCount = stats.blockedCount || 0;
-            let grade = "-";
-            if (domains.length > 0) {
-                const ratio = blockedCount / domains.length;
-                if (ratio > 0.4) grade = "A+"; else if (ratio > 0.25) grade = "A"; else if (ratio > 0.1) grade = "B"; else if (ratio > 0.05) grade = "C"; else grade = "D";
-            }
-            score.textContent = grade;
+        // Total blocked items count for the current active tab
+        const tabBlockedEl = document.getElementById("tab-blocked-count") || document.getElementById("privacy-score");
+        if (tabBlockedEl) {
+            tabBlockedEl.textContent = stats.blockedCount || 0;
         }
     } catch (e) {
         console.error("[Dashboard] updateDashboardTabInfo failed:", e);
