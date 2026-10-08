@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.1.4] - 2026-10-08
+
+### Added
+- **Quick-Access Filtered Logs Button (`👁️‍🗨️`) in NextDNS Web Console:** Injected a one-click Filtered Logs Manager button directly in the NextDNS web console header bar beside the account dropdown, plus a menu item inside the account dropdown menu, allowing instant access to log filtering rules without opening the extension popup.
+- **Forced Dark / Light Mode Selector:** Added a dedicated "Theme & Appearance" selector under NextDNS Web Console Enhancements in the DNS Forge popup to force `my.nextdns.io` into Dark Mode 🌙 or Light Mode ☀️.
+- **Dynamic Theme Observer & Anti-Revert Protection:** Implemented a reentrancy-guarded MutationObserver to ensure user-selected forced themes persist reliably against React Helmet rewrites.
+- **Custom Color Palette Synchronization & Dedicated Light Theme:** Synchronized popup Custom Color Palette controls with the active theme's colors, added live `(unsaved)` indicators, and introduced dedicated, high-contrast light theme color styling.
+
 ## [1.1.3] - 2026-10-07
 
 ### Added
