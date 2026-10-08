@@ -1,6 +1,6 @@
 const INTERNAL_API = "https://api.nextdns.io/profiles";
 
-let webGuiConfig = { master: true, tlds: true, blocklists: true, logs: true, desc: true, notes: true, filter: true };
+let webGuiConfig = { master: true, tlds: true, blocklists: true, logs: true, desc: true, notes: true, filter: true, forcedTheme: 'default' };
 let domSelectors = null;
 let hostnameAliases = {};
 
@@ -15,8 +15,8 @@ async function initConfig() {
     console.error("[DNS Forge] Failed to load domSelectors.json", e);
   }
 
-  const sync = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter", "hostnameAliases"]);
-  const local = await browser.storage.local.get(["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter", "hostnameAliases"]);
+  const sync = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter", "webGuiForcedTheme", "hostnameAliases"]);
+  const local = await browser.storage.local.get(["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter", "webGuiForcedTheme", "hostnameAliases"]);
   const res = { ...local, ...sync };
 
   if (res.webGuiMaster !== undefined) webGuiConfig.master = res.webGuiMaster;
@@ -26,10 +26,13 @@ async function initConfig() {
   if (res.webGuiDesc !== undefined) webGuiConfig.desc = res.webGuiDesc;
   if (res.webGuiProfileNotes !== undefined) webGuiConfig.notes = res.webGuiProfileNotes;
   if (res.webGuiFilter !== undefined) webGuiConfig.filter = res.webGuiFilter;
+  if (res.webGuiForcedTheme !== undefined) webGuiConfig.forcedTheme = res.webGuiForcedTheme;
   
   hostnameAliases = res.hostnameAliases || {};
   
   setupSectionCollapsing();
+  applyForcedTheme();
+  setupThemeObserver();
 }
 
 function setupSectionCollapsing() {
@@ -69,7 +72,8 @@ function cleanupUI() {
     const idsToRemove = [
         'nxm-tld-controls', 'nxm-modal-enable-all', 'nxm-modal-disable-all', 
         'nxm-privacy-controls', 'nxm-logs-filter-group', 'nxm-profile-note',
-        'nxm-progress-ui', 'nxm-filter-modal-backdrop'
+        'nxm-progress-ui', 'nxm-filter-modal-backdrop',
+        'nxm-header-filtered-logs-btn', 'nxm-dropdown-filtered-logs-item'
     ];
     idsToRemove.forEach(id => {
         const el = document.getElementById(id);
@@ -81,6 +85,12 @@ function cleanupUI() {
 
     document.querySelectorAll('.nxm-log-actions, .nxm-domain-desc').forEach(el => el.remove());
     
+    // Remove forced theme classes
+    document.documentElement.classList.remove('nxm-forced-dark', 'nxm-forced-light');
+    if (document.body) {
+        document.body.classList.remove('nxm-forced-dark', 'nxm-forced-light');
+    }
+
     // Restore all hidden elements
     document.querySelectorAll('[data-nxm-hidden="true"]').forEach(el => {
         el.style.display = "";
@@ -109,6 +119,10 @@ function evaluatePage() {
         cleanupUI();
         return;
     }
+
+    // Global web console enhancements
+    applyForcedTheme();
+    injectHeaderFilteredLogsButton();
 
     // Targeted feature management
     manageFeature('tlds', 'nxm-tld-controls', path.endsWith('/security'), () => {
@@ -165,11 +179,20 @@ function restoreFeatureUI(ownerId) {
 browser.storage.onChanged.addListener((changes, area) => {
     if (area === "sync" || area === "local") {
         let changed = false;
-        const keys = ["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"];
+        const keys = ["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter", "webGuiForcedTheme"];
         keys.forEach(k => {
             if (changes[k] && changes[k].newValue !== undefined) {
                 const configKey = k.replace(/^webGui/, '').toLowerCase();
-                const map = { 'master': 'master', 'tlds': 'tlds', 'blocklists': 'blocklists', 'logactions': 'logs', 'desc': 'desc', 'profilenotes': 'notes', 'filter': 'filter' };
+                const map = {
+                    'master': 'master',
+                    'tlds': 'tlds',
+                    'blocklists': 'blocklists',
+                    'logactions': 'logs',
+                    'desc': 'desc',
+                    'profilenotes': 'notes',
+                    'filter': 'filter',
+                    'forcedtheme': 'forcedTheme'
+                };
                 const targetKey = map[configKey] || configKey;
                 webGuiConfig[targetKey] = changes[k].newValue;
                 changed = true;
@@ -181,6 +204,7 @@ browser.storage.onChanged.addListener((changes, area) => {
             // We don't call cleanupUI() here because manageFeature handles it surgically.
             // But if master is toggled, we should.
             if (changes.webGuiMaster) cleanupUI();
+            if (changes.webGuiForcedTheme) applyForcedTheme();
             evaluatePage();
         }
     }
@@ -1368,6 +1392,156 @@ async function injectProfileSwitcher() {
   };
 
   header.appendChild(select);
+}
+
+let themeObserver = null;
+let isSettingTheme = false;
+
+function applyForcedTheme() {
+  const forced = webGuiConfig.master ? (webGuiConfig.forcedTheme || 'default') : 'default';
+
+  if (forced === 'dark') {
+    document.documentElement.setAttribute('data-bs-theme', 'dark');
+    document.documentElement.classList.add('nxm-forced-dark');
+    document.documentElement.classList.remove('nxm-forced-light');
+    if (document.body) {
+      document.body.classList.add('nxm-forced-dark');
+      document.body.classList.remove('nxm-forced-light');
+    }
+  } else if (forced === 'light') {
+    document.documentElement.setAttribute('data-bs-theme', 'light');
+    document.documentElement.classList.add('nxm-forced-light');
+    document.documentElement.classList.remove('nxm-forced-dark');
+    if (document.body) {
+      document.body.classList.add('nxm-forced-light');
+      document.body.classList.remove('nxm-forced-dark');
+    }
+  } else {
+    document.documentElement.classList.remove('nxm-forced-dark', 'nxm-forced-light');
+    if (document.body) {
+      document.body.classList.remove('nxm-forced-dark', 'nxm-forced-light');
+    }
+  }
+}
+
+function setupThemeObserver() {
+  if (themeObserver) return;
+  if (typeof MutationObserver === 'undefined') return;
+
+  themeObserver = new MutationObserver(() => {
+    if (isSettingTheme) return;
+    if (!webGuiConfig.master || !webGuiConfig.forcedTheme || webGuiConfig.forcedTheme === 'default') {
+      return;
+    }
+    const current = document.documentElement.getAttribute('data-bs-theme');
+    if (current !== webGuiConfig.forcedTheme) {
+      isSettingTheme = true;
+      try {
+        document.documentElement.setAttribute('data-bs-theme', webGuiConfig.forcedTheme);
+      } finally {
+        isSettingTheme = false;
+      }
+    }
+    if (webGuiConfig.forcedTheme === 'dark' && !document.documentElement.classList.contains('nxm-forced-dark')) {
+      document.documentElement.classList.add('nxm-forced-dark');
+    } else if (webGuiConfig.forcedTheme === 'light' && !document.documentElement.classList.contains('nxm-forced-light')) {
+      document.documentElement.classList.add('nxm-forced-light');
+    }
+  });
+
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-bs-theme']
+  });
+}
+
+function findAccountDropdown() {
+  // Strategy 1: Find by account link in menu
+  const accountLink = document.querySelector('a.dropdown-item[href="/account"], a[href="/account"]');
+  if (accountLink) {
+    const dd = accountLink.closest('.dropdown');
+    if (dd) return dd;
+  }
+
+  // Strategy 2: Button with fa-user icon inside a dropdown
+  const userIcon = document.querySelector('.dropdown button.dropdown-toggle svg.fa-user, .dropdown button.dropdown-toggle svg[data-icon="user"], .dropdown svg.fa-user, .dropdown svg[data-icon="user"]');
+  if (userIcon) {
+    const dd = userIcon.closest('.dropdown');
+    if (dd) return dd;
+  }
+
+  // Strategy 3: Any dropdown toggle with notranslate email/user text in header
+  const dropdownToggles = document.querySelectorAll('.dropdown > button.dropdown-toggle, .dropdown > .dropdown-toggle');
+  for (const btn of dropdownToggles) {
+    if (btn.querySelector('.fa-user, [data-icon="user"], span.notranslate')) {
+      const dd = btn.closest('.dropdown');
+      if (dd) return dd;
+    }
+  }
+
+  return null;
+}
+
+function injectHeaderFilteredLogsButton() {
+  if (!webGuiConfig.master || !webGuiConfig.filter) {
+    document.getElementById('nxm-header-filtered-logs-btn')?.remove();
+    document.getElementById('nxm-dropdown-filtered-logs-item')?.remove();
+    return;
+  }
+
+  const accountDropdown = findAccountDropdown();
+  if (!accountDropdown) return;
+
+  // 1. Inject 👁️‍🗨️ button beside the account dropdown in the header
+  if (!document.getElementById('nxm-header-filtered-logs-btn')) {
+    const eyeBtn = document.createElement('button');
+    eyeBtn.id = 'nxm-header-filtered-logs-btn';
+    eyeBtn.type = 'button';
+    eyeBtn.className = 'btn btn-light me-2';
+    eyeBtn.style.cssText = 'padding: 4px 10px; font-size: 1rem; line-height: 1.5; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;';
+    eyeBtn.title = 'Manage Filtered Logs';
+    eyeBtn.setAttribute('aria-label', 'Manage Filtered Logs');
+    eyeBtn.textContent = '👁️‍🗨️';
+    eyeBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openFilteredLogsModal();
+    };
+
+    const parent = accountDropdown.parentElement;
+    if (parent) {
+      if (parent.tagName === 'DIV' && parent.children.length === 1) {
+        parent.style.display = 'inline-flex';
+        parent.style.alignItems = 'center';
+      }
+      parent.insertBefore(eyeBtn, accountDropdown);
+    }
+  }
+
+  // 2. Inject menu item inside the account dropdown menu if present
+  const dropdownMenu = accountDropdown.querySelector('.dropdown-menu');
+  if (dropdownMenu && !document.getElementById('nxm-dropdown-filtered-logs-item')) {
+    const item = document.createElement('a');
+    item.id = 'nxm-dropdown-filtered-logs-item';
+    item.className = 'dropdown-item';
+    item.href = '#';
+    item.setAttribute('data-rr-ui-dropdown-item', '');
+    item.setAttribute('role', 'button');
+    item.style.cssText = 'cursor: pointer; display: flex; align-items: center; gap: 8px;';
+    item.textContent = '👁️‍🗨️ Manage Filtered Logs';
+    item.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openFilteredLogsModal();
+    };
+
+    const accountLink = dropdownMenu.querySelector('a[href="/account"]');
+    if (accountLink && accountLink.nextSibling) {
+      dropdownMenu.insertBefore(item, accountLink.nextSibling);
+    } else {
+      dropdownMenu.prepend(item);
+    }
+  }
 }
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {

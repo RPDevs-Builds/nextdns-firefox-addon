@@ -686,6 +686,21 @@
                <input type="checkbox" id="web-gui-notes-toggle"> Profile Notes in Header
             </label>
           </div>
+          <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 2px 0;">
+          <div style="margin-bottom: 5px;">
+            <strong style="display: block; margin-bottom: 5px; font-size: 0.8em; color: var(--text-muted); text-transform: uppercase;">Theme & Appearance</strong>
+            <div class="flex-between" style="margin-bottom: 8px;">
+              <div>
+                <label for="web-gui-forced-theme" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; display: block; font-weight: 600;">Forced Light / Dark Mode</label>
+                <span style="font-size: 0.75em; color: var(--text-muted);">Force my.nextdns.io theme mode</span>
+              </div>
+              <select id="web-gui-forced-theme" style="width: auto; min-width: 140px; margin-bottom: 0; padding: 4px 8px; font-size: 0.8em; background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 6px;">
+                <option value="default">NextDNS Default</option>
+                <option value="dark">Forced Dark Mode 🌙</option>
+                <option value="light">Forced Light Mode ☀️</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
     </div>

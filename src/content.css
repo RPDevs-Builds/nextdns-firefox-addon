@@ -188,3 +188,140 @@
     font-size: 0.75em;
     font-weight: 600;
 }
+
+/* Header Filtered Logs Button */
+#nxm-header-filtered-logs-btn {
+    line-height: 1;
+    font-size: 1rem;
+    padding: 4px 10px;
+    cursor: pointer;
+    vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: transform 0.1s ease, background-color 0.15s ease;
+}
+
+#nxm-header-filtered-logs-btn:hover {
+    transform: scale(1.05);
+}
+
+#nxm-dropdown-filtered-logs-item {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Forced Dark Mode for my.nextdns.io */
+html[data-bs-theme="dark"],
+html.nxm-forced-dark {
+    color-scheme: dark !important;
+    --bs-body-color: #dee2e6 !important;
+    --bs-body-color-rgb: 222, 226, 230 !important;
+    --bs-body-bg: #111827 !important;
+    --bs-body-bg-rgb: 17, 24, 39 !important;
+    --bs-emphasis-color: #ffffff !important;
+    --bs-emphasis-color-rgb: 255, 255, 255 !important;
+    --bs-secondary-color: rgba(222, 226, 230, 0.75) !important;
+    --bs-secondary-bg: #1f2937 !important;
+    --bs-tertiary-color: rgba(222, 226, 230, 0.5) !important;
+    --bs-tertiary-bg: #1e293b !important;
+    --bs-border-color: #374151 !important;
+    --bs-border-color-translucent: rgba(255, 255, 255, 0.15) !important;
+    --bs-card-bg: #1f2937 !important;
+    --bs-card-border-color: #374151 !important;
+    --bs-card-color: #f3f4f6 !important;
+    --bs-list-group-bg: #1f2937 !important;
+    --bs-list-group-color: #f3f4f6 !important;
+    --bs-list-group-border-color: #374151 !important;
+    --bs-dropdown-bg: #1f2937 !important;
+    --bs-dropdown-color: #f3f4f6 !important;
+    --bs-dropdown-border-color: #374151 !important;
+    --bs-dropdown-link-color: #f3f4f6 !important;
+    --bs-dropdown-link-hover-bg: #374151 !important;
+    --bs-dropdown-link-hover-color: #ffffff !important;
+    --bs-modal-bg: #1f2937 !important;
+    --bs-modal-color: #f3f4f6 !important;
+    --bs-modal-border-color: #374151 !important;
+}
+
+html[data-bs-theme="dark"] body,
+html.nxm-forced-dark body {
+    background-color: #111827 !important;
+    color: #dee2e6 !important;
+}
+
+html[data-bs-theme="dark"] .card,
+html.nxm-forced-dark .card {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #f3f4f6 !important;
+}
+
+html[data-bs-theme="dark"] .card-footer,
+html.nxm-forced-dark .card-footer {
+    background-color: #111827 !important;
+    border-color: #374151 !important;
+}
+
+html[data-bs-theme="dark"] .list-group-item,
+html.nxm-forced-dark .list-group-item {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #f3f4f6 !important;
+}
+
+html[data-bs-theme="dark"] .dropdown-menu,
+html.nxm-forced-dark .dropdown-menu {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #f3f4f6 !important;
+}
+
+html[data-bs-theme="dark"] .dropdown-item,
+html.nxm-forced-dark .dropdown-item {
+    color: #e5e7eb !important;
+}
+
+html[data-bs-theme="dark"] .dropdown-item:hover,
+html[data-bs-theme="dark"] .dropdown-item:focus,
+html.nxm-forced-dark .dropdown-item:hover,
+html.nxm-forced-dark .dropdown-item:focus {
+    background-color: #374151 !important;
+    color: #ffffff !important;
+}
+
+html[data-bs-theme="dark"] .form-control,
+html.nxm-forced-dark .form-control {
+    background-color: #111827 !important;
+    border-color: #374151 !important;
+    color: #f3f4f6 !important;
+}
+
+html[data-bs-theme="dark"] .btn-light,
+html.nxm-forced-dark .btn-light {
+    background-color: #374151 !important;
+    border-color: #4b5563 !important;
+    color: #f3f4f6 !important;
+}
+
+html[data-bs-theme="dark"] .btn-light:hover,
+html.nxm-forced-dark .btn-light:hover {
+    background-color: #4b5563 !important;
+    color: #ffffff !important;
+}
+
+/* Forced Light Mode for my.nextdns.io */
+html[data-bs-theme="light"],
+html.nxm-forced-light {
+    color-scheme: light !important;
+    --bs-body-color: #212529 !important;
+    --bs-body-bg: #ffffff !important;
+    --bs-card-bg: #ffffff !important;
+    --bs-card-color: #212529 !important;
+    --bs-list-group-bg: #ffffff !important;
+    --bs-list-group-color: #212529 !important;
+}
+

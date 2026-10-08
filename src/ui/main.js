@@ -794,6 +794,10 @@ function initGlobalEventListeners() {
         });
     });
 
+    document.getElementById('web-gui-forced-theme')?.addEventListener('change', async (e) => {
+        await storage.set('webGuiForcedTheme', e.target.value);
+    });
+
     // Logs SSE listener
     browser.runtime.onMessage.addListener((msg) => {
         if (msg.type === "LIVE_LOG") handleLiveLog(msg.log);
@@ -972,7 +976,7 @@ async function initializeApp() {
 }
 
 async function initCustomizeUI() {
-    const keys = ["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"];
+    const keys = ["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter", "webGuiForcedTheme"];
     try {
         const data = await storage.get(keys);
         
@@ -990,6 +994,11 @@ async function initCustomizeUI() {
             const el = document.getElementById(`web-gui-${id}-toggle`);
             if (el) el.checked = data[key] !== false; // Default to true
         });
+
+        const forcedThemeSelect = document.getElementById('web-gui-forced-theme');
+        if (forcedThemeSelect) {
+            forcedThemeSelect.value = data.webGuiForcedTheme || 'default';
+        }
 
         const masterEnabled = data.webGuiMaster !== false;
         const features = document.getElementById('web-gui-features');
