@@ -81,7 +81,17 @@ jobs:
             echo "Submitting to Mozilla for signing..."
             npm run sign || echo "Note: Signing completed or version already submitted."
             if [ -d "web-ext-artifacts" ]; then
-              cp -f web-ext-artifacts/*.xpi release-artifacts/ 2>/dev/null || true
+              SIGNED_XPI=$(ls -t web-ext-artifacts/*.xpi 2>/dev/null | head -n 1)
+              if [ -n "$SIGNED_XPI" ]; then
+                echo "Found signed XPI: $SIGNED_XPI"
+                for orig in release-artifacts/dns_forge-*.xpi; do
+                  if [ -f "$orig" ]; then
+                    echo "Replacing $orig with signed package $SIGNED_XPI"
+                    cp -f "$SIGNED_XPI" "$orig"
+                  fi
+                done
+                cp -f "$SIGNED_XPI" release-artifacts/ 2>/dev/null || true
+              fi
             fi
           else
             echo "AMO credentials not configured. Proceeding with unsigned build."

@@ -4,11 +4,13 @@
       "updates": [
         {
           "version": "1.1.1",
-          "update_link": "https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases/download/v1.1.1/dns_forge-1.1.1.xpi"
+          "update_link": "https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases/download/v1.1.1/dns_forge-1.1.1.xpi",
+          "update_hash": "sha256:0783449dfabbc22c70cdc59c3b6b331c4ba884847e205f9d7b09d2c79df7d21f"
         },
         {
           "version": "1.1.0",
-          "update_link": "https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases/download/v1.1.0/dns_forge-1.1.0.xpi"
+          "update_link": "https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases/download/v1.1.0/dns_forge-1.1.0.xpi",
+          "update_hash": "sha256:dc2eb840b0b675a36bf2d6b7ef500cede302ba14d2ed0f8420e8565f6dd70a56"
         },
         {
           "version": "1.0.6",
