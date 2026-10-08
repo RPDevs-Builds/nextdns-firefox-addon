@@ -571,7 +571,14 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing the payload with metaType and data.
      */
     SAVE_SCRAPED_META: async (msg) => {
+        if (!msg?.payload || typeof msg.payload !== 'object') {
+            return { success: false, error: "Invalid payload" };
+        }
         const { metaType, data } = msg.payload;
+        const allowedTypes = ['blocklists', 'parental_services', 'tlds', 'categories'];
+        if (!allowedTypes.includes(metaType) || !Array.isArray(data)) {
+            return { success: false, error: "Invalid metaType or data format" };
+        }
         const scrapedMeta = await storage.get("scrapedMeta", { blocklists: [], parental_services: [], tlds: [], categories: [] });
         
         scrapedMeta[metaType] = data;

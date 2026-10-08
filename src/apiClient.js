@@ -53,9 +53,8 @@ export class APIClient {
         
         for (let i = 0; i < retries; i++) {
             try {
-                if (!options.headers) {
-                    options.headers = await this.getHeaders();
-                }
+                const defaultHeaders = await this.getHeaders();
+                options.headers = { ...defaultHeaders, ...(options.headers || {}) };
 
                 const response = await fetch(url, options);
 

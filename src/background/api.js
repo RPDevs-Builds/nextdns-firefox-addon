@@ -153,13 +153,34 @@ export async function checkAndUpdateLinkedIP() {
     if (!activeProfileId || activeProfileId.startsWith('fp')) return;
 
     try {
-        const res = await fetch("https://api.ipify.org?format=json");
-        const { ip } = await res.json();
-
         const settingsRes = await apiClient.fetchWithRetry(`/profiles/${activeProfileId}`);
         if (!settingsRes.success) return;
-        const pData = await settingsRes.response.json();
+        const pData = await settingsRes.response.json().catch(() => ({}));
         const currentLinkedIP = pData.data?.linkedIp;
+
+        // Only update if the profile already has a linked IP configured
+        if (!currentLinkedIP) return;
+
+        let ip = null;
+        // 1. Prioritize NextDNS native diagnostic endpoint (respects host permissions, avoids 3rd party leak)
+        try {
+            const testRes = await apiClient.fetchWithRetry(TEST_URL, { cache: 'no-store' }, 1, 300);
+            if (testRes.success) {
+                const testData = await testRes.response.json().catch(() => ({}));
+                ip = testData.client || testData.srcIP;
+            }
+        } catch (_) {}
+
+        // 2. Fall back to external IP detection only if NextDNS test diagnostic is unavailable
+        if (!ip) {
+            try {
+                const res = await fetch("https://api.ipify.org?format=json");
+                if (res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    ip = data.ip;
+                }
+            } catch (_) {}
+        }
 
         if (ip && ip !== currentLinkedIP) {
             console.log(`[DDNS] IP Change detected: ${currentLinkedIP} -> ${ip}. Updating...`);

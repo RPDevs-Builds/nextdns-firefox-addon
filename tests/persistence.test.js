@@ -80,4 +80,50 @@ describe('Storage Persistence & Auto-Heal', () => {
 
         expect(mockLocal.apiKey).toBe('sync-key-123');
     });
+
+    test('StorageManager: Supports array get, full cache get, and default values', async () => {
+        const { storage } = await import('../src/storage.js');
+        await storage.init();
+        await storage.set({ alpha: 'one', beta: 'two' });
+
+        const multi = await storage.get(['alpha', 'beta', 'missing']);
+        expect(multi.alpha).toBe('one');
+        expect(multi.beta).toBe('two');
+        expect(multi.missing).toBeUndefined();
+
+        const all = await storage.get(null);
+        expect(all.alpha).toBe('one');
+        expect(all.beta).toBe('two');
+    });
+
+    test('StorageManager: Excludes LOCAL_ONLY_KEYS from sync storage', async () => {
+        const { storage } = await import('../src/storage.js');
+        await storage.init();
+        
+        await storage.set({
+            theme: 'dark',
+            cachedAllowlist: ['domain.com'],
+            profileSnapshots: [{ id: '1' }]
+        });
+
+        // 'theme' should be in sync and local
+        expect(mockLocal.theme).toBe('dark');
+        expect(mockSync.theme).toBe('dark');
+
+        // Large/ephemeral items should only be in local
+        expect(mockLocal.cachedAllowlist).toEqual(['domain.com']);
+        expect(mockSync.cachedAllowlist).toBeUndefined();
+        expect(mockLocal.profileSnapshots).toEqual([{ id: '1' }]);
+        expect(mockSync.profileSnapshots).toBeUndefined();
+    });
+
+    test('StorageManager: Supports removing keys', async () => {
+        const { storage } = await import('../src/storage.js');
+        await storage.init();
+        await storage.set('tempKey', 'tempVal');
+        expect(await storage.get('tempKey')).toBe('tempVal');
+
+        await storage.remove('tempKey');
+        expect(await storage.get('tempKey')).toBeNull();
+    });
 });

@@ -49,6 +49,14 @@ function sanitizeNode(node) {
     }
 }
 
+let _sharedParser = null;
+function getParser() {
+    if (!_sharedParser && typeof DOMParser !== 'undefined') {
+        _sharedParser = new DOMParser();
+    }
+    return _sharedParser;
+}
+
 /**
  * Helper to safely set HTML from a string (AMO compliance).
  * Sanitizes input through DOMParser and active node sanitization.
@@ -57,7 +65,8 @@ function sanitizeNode(node) {
  */
 export function setSafeHTML(el, html) {
     if (!el) return;
-    const parser = new DOMParser();
+    const parser = getParser();
+    if (!parser) return;
     const doc = parser.parseFromString(html, 'text/html');
     
     const rootNodes = Array.from(doc.body.childNodes);

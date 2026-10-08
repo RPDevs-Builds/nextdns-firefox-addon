@@ -26,6 +26,10 @@ class LogStreamManager {
      * @returns {Promise<{success: boolean, error: string}>} Success status or error message (error only present on failure).
      */
     async start(profileId) {
+        if (!profileId || typeof profileId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(profileId)) {
+            return { success: false, error: "Invalid profile ID" };
+        }
+
         const apiKey = await storage.get("apiKey");
         if (!apiKey) return { success: false, error: "API Key required" };
 

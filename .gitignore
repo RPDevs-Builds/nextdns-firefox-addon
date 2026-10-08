@@ -8,3 +8,4 @@ dist/
 .wiki/
 web-ext-artifacts/
 .amo-upload-uuid
+coverage/

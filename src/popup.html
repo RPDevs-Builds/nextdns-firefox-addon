@@ -386,7 +386,7 @@
   <div id="tab-logs" class="tab-content" style="padding: 15px;">
     <div style="display: flex; gap: 8px; margin-bottom: 8px;">
       <input type="text" id="log-search" placeholder="Search logs..." style="margin-bottom: 0; flex-grow: 1;">
-      <button id="auto-refresh-btn" class="btn-secondary" style="width: auto; padding: 0 12px;" title="Toggle Auto-Refresh">⏸️ Auto</button>
+      <button id="auto-refresh-btn" class="btn-secondary" style="width: auto; padding: 0 12px;" title="Toggle Auto-Refresh" aria-label="Toggle Auto-Refresh">⏸️ Auto</button>
     </div>
     
     <div id="status-filter-content" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; font-size: 0.85em; background: var(--bg-panel); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
@@ -490,7 +490,7 @@
           <select id="setting-profile-select" style="margin-bottom: 0; flex-grow: 1;">
             <option value="">⚡ Auto-Detect (Default)</option>
           </select>
-          <button id="setting-fetch-profiles" class="btn-secondary" style="width: 42px; height: 38px; display: flex; align-items: center; justify-content: center;" title="Fetch Profiles from NextDNS">🔄</button>
+          <button id="setting-fetch-profiles" class="btn-secondary" style="width: 42px; height: 38px; display: flex; align-items: center; justify-content: center;" title="Fetch Profiles from NextDNS" aria-label="Fetch Profiles from NextDNS">🔄</button>
         </div>
       </div>
 
@@ -573,7 +573,7 @@
         <label for="theme-selector" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Active Theme</label>
         <div class="flex-between" style="gap: 8px; margin-bottom: 12px;">
           <select id="theme-selector" style="margin-bottom: 0; flex-grow: 1;"></select>
-          <button id="delete-theme-btn" class="btn-deny" style="width: 42px; display: none;" title="Delete Theme">🗑️</button>
+          <button id="delete-theme-btn" class="btn-deny" style="width: 42px; display: none;" title="Delete Theme" aria-label="Delete Theme">🗑️</button>
         </div>
         
         <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Custom Color Palette</label>
@@ -588,7 +588,7 @@
         
         <div style="display: flex; gap: 8px; margin-top: 12px;">
           <input type="text" id="theme-name-input" placeholder="New theme name..." style="margin-bottom: 0; flex-grow: 1;">
-          <button id="save-theme-btn" class="btn-allow flex-center" style="width: 42px; padding: 0;" title="Save Custom Theme">💾</button>
+          <button id="save-theme-btn" class="btn-allow flex-center" style="width: 42px; padding: 0;" title="Save Custom Theme" aria-label="Save Custom Theme">💾</button>
         </div>
       </div>
     </div>

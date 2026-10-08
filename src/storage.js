@@ -5,6 +5,15 @@
  * 
  * @module storage
  */
+const LOCAL_ONLY_KEYS = new Set([
+    'cachedAllowlist',
+    'cachedDenylist',
+    'profileSnapshots',
+    'notifications',
+    'scrapedMeta',
+    'localLogs'
+]);
+
 class StorageManager {
     constructor() {
         /** @type {Object} Internal cache of storage values */
@@ -81,32 +90,77 @@ class StorageManager {
     }
 
     /**
-     * Retrieves a value from the storage cache.
-     * Falls back to a default value if the key is not found.
+     * Retrieves a value or multiple values from the storage cache.
+     * Falls back to defaultValue if a single key is not found.
+     * Supports passing a single string key, an array of keys, or null to retrieve all cached data.
      * @async
-     * @param {string} key - The storage key to retrieve.
+     * @param {string|string[]|null} [key=null] - The storage key(s) to retrieve, or null for all.
      * @param {*} [defaultValue=null] - The value to return if the key is not found.
-     * @returns {Promise<*>} The stored value or defaultValue.
+     * @returns {Promise<*>} The stored value(s) or defaultValue.
      */
-    async get(key, defaultValue = null) {
+    async get(key = null, defaultValue = null) {
         if (!this.initialized) await this.init();
+        if (key === null || key === undefined) {
+            return { ...this.cache };
+        }
+        if (Array.isArray(key)) {
+            const result = {};
+            for (const k of key) {
+                result[k] = this.cache[k] !== undefined ? this.cache[k] : (defaultValue && typeof defaultValue === 'object' ? defaultValue[k] : undefined);
+            }
+            return result;
+        }
         return this.cache[key] !== undefined ? this.cache[key] : defaultValue;
     }
 
     /**
-     * Sets a value in both sync and local storage and updates the internal cache.
+     * Sets a value or multiple key-value pairs in storage and updates the internal cache.
+     * Automatically filters out local-only keys from sync storage to respect browser quotas.
      * @async
-     * @param {string} key - The storage key to set.
-     * @param {*} value - The value to store.
+     * @param {string|Object} key - The storage key to set or an object of key-value pairs.
+     * @param {*} [value] - The value to store (ignored if key is an object).
      */
     async set(key, value) {
         if (!this.initialized) await this.init();
-        this.cache[key] = value;
-        const obj = { [key]: value };
+        const updateObj = (typeof key === 'object' && key !== null) ? { ...key } : { [key]: value };
+        
+        for (const [k, v] of Object.entries(updateObj)) {
+            this.cache[k] = v;
+        }
+
         const promises = [];
         if (typeof browser !== 'undefined' && browser.storage) {
-            if (browser.storage.sync?.set) promises.push(browser.storage.sync.set(obj).catch(() => null));
-            if (browser.storage.local?.set) promises.push(browser.storage.local.set(obj).catch(() => null));
+            const syncObj = {};
+            for (const [k, v] of Object.entries(updateObj)) {
+                if (!LOCAL_ONLY_KEYS.has(k)) {
+                    syncObj[k] = v;
+                }
+            }
+            if (Object.keys(syncObj).length > 0 && browser.storage.sync?.set) {
+                promises.push(browser.storage.sync.set(syncObj).catch(() => null));
+            }
+            if (browser.storage.local?.set) {
+                promises.push(browser.storage.local.set(updateObj).catch(() => null));
+            }
+        }
+        await Promise.all(promises);
+    }
+
+    /**
+     * Removes a key or list of keys from storage and cache.
+     * @async
+     * @param {string|string[]} keys - Key or keys to remove.
+     */
+    async remove(keys) {
+        if (!this.initialized) await this.init();
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        for (const k of keyList) {
+            delete this.cache[k];
+        }
+        const promises = [];
+        if (typeof browser !== 'undefined' && browser.storage) {
+            if (browser.storage.sync?.remove) promises.push(browser.storage.sync.remove(keyList).catch(() => null));
+            if (browser.storage.local?.remove) promises.push(browser.storage.local.remove(keyList).catch(() => null));
         }
         await Promise.all(promises);
     }

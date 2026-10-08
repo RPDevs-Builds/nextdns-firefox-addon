@@ -14,6 +14,7 @@ import { loadToggles, syncLists, renderLists } from './blocks.js';
 import { runSecurityAudit, runIntelligentDebugger, exportDebuggerSnapshot, exportAuditReport } from './tools.js';
 import { loadRules, saveAutomationRule } from './scheduler.js';
 import { renderNotifications, initNotifications } from './notifications.js';
+import { storage } from '../storage.js';
 
 /**
  * Global initialization handler. Runs on DOMContentLoaded.
@@ -193,8 +194,7 @@ function initWindowMode() {
 async function handleIconClickModeRedirect() {
     if (isPopoutMode || isSidebarMode || isTabMode) return false;
     try {
-        if (!window.browser?.storage?.sync) return false;
-        const { iconClickAction } = await browser.storage.sync.get("iconClickAction");
+        const iconClickAction = await storage.get("iconClickAction");
         if (iconClickAction === 'popout') {
             const url = browser.runtime.getURL('src/popup.html?mode=popout');
             if (window.browser?.windows?.create) {
@@ -233,7 +233,7 @@ async function handleIconClickModeRedirect() {
  * @async
  */
 async function initThemeEngine() {
-    const { activeTheme, customThemes = {} } = await browser.storage.sync.get(["activeTheme", "customThemes"]);
+    const { activeTheme, customThemes = {} } = await storage.get(["activeTheme", "customThemes"], { customThemes: {} });
     state.savedThemes = customThemes;
     if (activeTheme) {
         state.activeThemeId = activeTheme;
@@ -473,7 +473,7 @@ function initGlobalEventListeners() {
         const id = e.target.value;
         state.activeThemeId = id;
         applyTheme(id);
-        await browser.storage.sync.set({ activeTheme: id });
+        await storage.set("activeTheme", id);
     });
 
     THEME_VARS.forEach(v => {
@@ -522,8 +522,7 @@ function initGlobalEventListeners() {
         document.getElementById(`web-gui-${id}-toggle`)?.addEventListener('change', async (e) => {
             const key = webGuiMap[id];
             const value = e.target.checked;
-            await browser.storage.sync.set({ [key]: value });
-            await browser.storage.local.set({ [key]: value });
+            await storage.set(key, value);
             if (id === 'master') {
                 const features = document.getElementById('web-gui-features');
                 if (features) {
@@ -714,7 +713,7 @@ async function initializeApp() {
 async function initCustomizeUI() {
     const keys = ["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter"];
     try {
-        const data = await browser.storage.sync.get(keys);
+        const data = await storage.get(keys);
         
         const mapping = {
             'master': 'webGuiMaster',
@@ -752,7 +751,7 @@ async function initMirrorModeUI() {
 
     try {
         const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
-        const { mirrorProfiles = [] } = await browser.storage.sync.get("mirrorProfiles");
+        const mirrorProfiles = await storage.get("mirrorProfiles", []);
 
         if (res?.success && Array.isArray(res.data)) {
             list.textContent = '';
@@ -780,7 +779,7 @@ async function saveMirrorMode() {
     if (!list || !saveBtn) return;
     
     const selected = Array.from(list.querySelectorAll('input:checked')).map(i => i.getAttribute('data-id'));
-    await browser.storage.sync.set({ mirrorProfiles: selected });
+    await storage.set("mirrorProfiles", selected);
     saveBtn.textContent = "✅ Saved!";
     setTimeout(() => { saveBtn.textContent = "💾 Save Mirror Config"; }, 2000);
 }
@@ -805,7 +804,7 @@ export async function loadProfiles(customApiKey = null) {
             apiKey: apiKey || undefined
         });
 
-        const storedSync = await browser.storage.sync.get(["activeProfile", "detectedProfileId", "activeProfileName"]).catch(() => ({}));
+        const storedSync = await storage.get(["activeProfile", "detectedProfileId", "activeProfileName"], {});
         const currentSelected = profileSelect.value !== undefined && profileSelect.value !== '' 
             ? profileSelect.value 
             : (storedSync.activeProfile || '');
@@ -898,7 +897,7 @@ async function initSettingsUI() {
         "enableLabs", "autoRefreshTime"
     ];
     try {
-        const data = await browser.storage.sync.get(keys);
+        const data = await storage.get(keys);
 
         const apiKeyInput = document.getElementById('setting-api-key');
         const profileSelect = document.getElementById('setting-profile-select');
@@ -976,8 +975,7 @@ async function saveSettings() {
     saveBtn.textContent = "⏳ Saving...";
     saveBtn.disabled = true;
 
-    await browser.storage.sync.set(newSettings);
-    await browser.storage.local.set(newSettings);
+    await storage.set(newSettings);
 
     // Refresh profile detection and reload profiles
     await loadProfiles(apiKey);
@@ -1012,7 +1010,7 @@ async function toggleAutoRefresh(enable) {
         btn.classList.remove("btn-dark"); 
         btn.textContent = "⏸️ Auto";
         loadNativeLogs();
-        const { autoRefreshTime } = await browser.storage.sync.get("autoRefreshTime");
+        const autoRefreshTime = await storage.get("autoRefreshTime", 5);
         state.autoRefreshInterval = setInterval(loadNativeLogs, (parseInt(autoRefreshTime) || 5) * 1000);
     } else { 
         btn.classList.add("btn-dark"); 
@@ -1076,11 +1074,11 @@ export async function importFullConfiguration(e) {
  */
 export async function loadAlertSettings() {
     try {
-        const data = await browser.storage.sync.get("alertSettings");
-        const legacyBlock = await browser.storage.sync.get("enableBlockNotifications");
-        const settings = data.alertSettings || {
+        const alertSettings = await storage.get("alertSettings");
+        const legacyBlock = await storage.get("enableBlockNotifications");
+        const settings = alertSettings || {
             enabled: true,
-            desktop: !!legacyBlock.enableBlockNotifications,
+            desktop: !!legacyBlock,
             actionCenter: true,
             triggerThreats: true,
             triggerDenylist: true,
@@ -1130,12 +1128,7 @@ export async function saveAlertSettings() {
     }
 
     try {
-        await browser.storage.sync.set({ 
-            alertSettings: settings,
-            enableBlockNotifications: settings.desktop,
-            blockNotif: settings.desktop
-        });
-        await browser.storage.local.set({ 
+        await storage.set({ 
             alertSettings: settings,
             enableBlockNotifications: settings.desktop,
             blockNotif: settings.desktop

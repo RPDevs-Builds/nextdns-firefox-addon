@@ -270,9 +270,7 @@ async function refreshView() {
         await fetchRewritesData();
     } else {
         const storageKey = getStorageKey();
-        const sync = await browser.storage.sync.get(storageKey);
-        const local = await browser.storage.local.get(storageKey);
-        currentData = sync[storageKey] || local[storageKey] || {};
+        currentData = (await storage.get(storageKey)) || {};
     }
 
     renderList();
@@ -769,17 +767,9 @@ async function handleSave() {
         await browser.runtime.sendMessage({ type: "SAVE_REWRITE", profileId: activeProfile, name: key, content: note });
     } else {
         const storageKey = getStorageKey();
-        const localSync = await browser.storage.sync.get(storageKey);
-        const data = localSync[storageKey] || {};
-        
+        const data = (await storage.get(storageKey)) || {};
         data[key] = note || (activeTab === 'filters' ? "Hidden" : "");
-        
-        const saveObj = {};
-        saveObj[storageKey] = data;
-        await Promise.all([
-            browser.storage.sync.set(saveObj),
-            browser.storage.local.set(saveObj)
-        ]);
+        await storage.set(storageKey, data);
     }
     
     editModal.style.display = 'none';
@@ -798,16 +788,9 @@ async function handleDelete(key) {
         await browser.runtime.sendMessage({ type: "DELETE_REWRITE", profileId: activeProfile, name: key });
     } else {
         const storageKey = getStorageKey();
-        const localSync = await browser.storage.sync.get(storageKey);
-        const data = localSync[storageKey] || {};
+        const data = (await storage.get(storageKey)) || {};
         delete data[key];
-        
-        const saveObj = {};
-        saveObj[storageKey] = data;
-        await Promise.all([
-            browser.storage.sync.set(saveObj),
-            browser.storage.local.set(saveObj)
-        ]);
+        await storage.set(storageKey, data);
     }
     refreshView();
 }

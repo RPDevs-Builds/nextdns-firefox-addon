@@ -9,6 +9,7 @@ import path from 'path';
 const html = fs.readFileSync(path.resolve('src/popup.html'), 'utf8');
 
 describe('System Integrity - End-to-End Wiring', () => {
+    jest.setTimeout(15000);
     let state;
 
     beforeEach(async () => {

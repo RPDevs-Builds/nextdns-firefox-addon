@@ -6,7 +6,9 @@
  * @module metadataManager
  */
 
-const REMOTE_URL = 'https://raw.githubusercontent.com/DNS-Forge/firefox-addon/main/data/blocks_meta.json';
+import { storage } from './storage.js';
+
+const REMOTE_URL = 'https://raw.githubusercontent.com/RPDevs-Builds/nextdns-firefox-addon/main/data/blocks_meta.json';
 const BUNDLE_PATH = 'data/blocks_meta.json';
 
 /**
@@ -18,11 +20,11 @@ const BUNDLE_PATH = 'data/blocks_meta.json';
 export async function loadMetadata() {
     try {
         // 1. Try Local Storage Cache
-        const local = await browser.storage.local.get("scrapedMeta");
-        if (local.scrapedMeta && Object.keys(local.scrapedMeta).length > 0) {
+        const scrapedMeta = await storage.get("scrapedMeta");
+        if (scrapedMeta && Object.keys(scrapedMeta).length > 0) {
             // Check if it's complete enough (has both tlds and blocklists)
-            if (local.scrapedMeta.tlds?.length > 0 && local.scrapedMeta.blocklists?.length > 0) {
-                return local.scrapedMeta;
+            if (scrapedMeta.tlds?.length > 0 && scrapedMeta.blocklists?.length > 0) {
+                return scrapedMeta;
             }
         }
 
@@ -30,7 +32,7 @@ export async function loadMetadata() {
         const res = await fetch(REMOTE_URL).catch(() => null);
         if (res && res.ok) {
             const data = await res.json();
-            await browser.storage.local.set({ scrapedMeta: data });
+            await storage.set("scrapedMeta", data);
             return data;
         }
 
