@@ -25,7 +25,27 @@ export const state = {
     activeTab: 'dashboard',
     activeThemeId: 'default-dark',
     savedThemes: {},
+    isThemeUnsaved: false,
     notifications: []
+};
+
+export const DEFAULT_THEME_COLORS = {
+    'default-dark': {
+        '--bg-main': '#0f172a',
+        '--bg-panel': '#1e293b',
+        '--border-color': '#334155',
+        '--hover-bg': '#2d3e50',
+        '--text-main': '#f8fafc',
+        '--text-muted': '#94a3b8'
+    },
+    'default-light': {
+        '--bg-main': '#f1f5f9',
+        '--bg-panel': '#ffffff',
+        '--border-color': '#cbd5e1',
+        '--hover-bg': '#e2e8f0',
+        '--text-main': '#0f172a',
+        '--text-muted': '#64748b'
+    }
 };
 
 export const PRESET_THEMES = {

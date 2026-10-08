@@ -18,6 +18,45 @@
       --danger: #dc3545;
       --warning: #f39c12;
     }
+
+    body.light-mode {
+      --bg-main: #f1f5f9;
+      --bg-panel: #ffffff;
+      --border-color: #cbd5e1;
+      --hover-bg: #e2e8f0;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --accent: #0284c7;
+    }
+
+    body.light-mode input,
+    body.light-mode select,
+    body.light-mode textarea {
+      background: #ffffff;
+      color: var(--text-main);
+      border-color: var(--border-color);
+    }
+
+    body.light-mode input:focus,
+    body.light-mode select:focus,
+    body.light-mode textarea:focus {
+      background: #ffffff;
+      border-color: var(--accent);
+    }
+
+    body.light-mode .alerts-popover {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+
+    body.light-mode .btn-secondary {
+      background: #ffffff;
+      color: var(--text-main);
+    }
+
+    body.light-mode .btn-dark {
+      background: #f1f5f9;
+      color: var(--text-main);
+    }
     
     /* Reset and base styles */
     * { box-sizing: border-box; }
@@ -570,7 +609,10 @@
         <h4>Theme Engine</h4>
         <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Customize the appearance and color palette of DNS Forge.</p>
         
-        <label for="theme-selector" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Active Theme</label>
+        <label for="theme-selector" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
+          <span>Active Theme</span>
+          <span id="theme-unsaved-badge" style="display: none; color: var(--warning, #f39c12); font-weight: bold; text-transform: none; font-size: 0.9em;">(unsaved)</span>
+        </label>
         <div class="flex-between" style="gap: 8px; margin-bottom: 12px;">
           <select id="theme-selector" style="margin-bottom: 0; flex-grow: 1;"></select>
           <button id="delete-theme-btn" class="btn-deny" style="width: 42px; display: none;" title="Delete Theme" aria-label="Delete Theme">🗑️</button>
