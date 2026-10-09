@@ -73,18 +73,4 @@ describe('Exportable Reports & Snapshots (Phase 7.2)', () => {
         
         expect(exportBtn.classList.contains('hidden')).toBe(false);
     });
-
-    test('runSecurityAudit displays export button when results exist', async () => {
-        const exportBtn = document.getElementById('export-audit-btn');
-        
-        global.browser.runtime.sendMessage.mockResolvedValue({
-            success: true,
-            score: 95,
-            recommendations: []
-        });
-
-        await tools.runSecurityAudit();
-        
-        expect(exportBtn.classList.contains('hidden')).toBe(false);
-    });
 });

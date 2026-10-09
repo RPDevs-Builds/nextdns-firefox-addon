@@ -515,7 +515,6 @@
       <button class="sub-tab-btn" data-sub="mirror">🪞 Mirroring</button>
       <button class="sub-tab-btn" data-sub="manager">💾 Data & Backup</button>
       <button class="sub-tab-btn" data-sub="analytics">📊 Analytics</button>
-      <button class="sub-tab-btn" data-sub="audit">🛡️ Security Audit</button>
     </div>
 
     <!-- 1. Connection Sub-Tab -->
@@ -589,10 +588,6 @@
         <label class="checkbox-label">
           <input type="checkbox" id="alert-trigger-denylist" checked>
           <span>Custom Denylist Domain Blocks</span>
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" id="alert-trigger-audit" checked>
-          <span>Security Audit & Configuration Warnings</span>
         </label>
         <label class="checkbox-label">
           <input type="checkbox" id="alert-trigger-parental">
@@ -792,20 +787,6 @@
           Connecting to analytics server...
         </div>
       </div>
-    </div>
-
-    <!-- 9. Security Audit Sub-Tab -->
-    <div id="settings-audit" class="settings-sub-content" style="padding: 15px;">
-        <div class="panel-box" style="text-align: center;">
-            <h4 style="margin-top: 0; color: var(--accent);">Security Auditor</h4>
-            <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 15px;">Scan your active profile against NextDNS best practices.</p>
-            <div id="audit-score-container" style="margin: 15px 0;">
-                <div id="audit-score-ring" style="font-size: 3em; font-weight: 800; color: var(--accent);">--</div>
-            </div>
-            <button id="run-audit-btn" class="btn-allow">🛡️ Run Security Scan</button>
-        </div>
-        <div id="audit-results" style="margin-top: 15px;"></div>
-        <button id="export-audit-btn" class="btn-secondary hidden" style="margin-top: 10px;">📥 Export Report</button>
     </div>
   </div>
 

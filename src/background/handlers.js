@@ -424,72 +424,6 @@ export const messageHandlers = {
         return { success: r.success };
     },
     /**
-     * Runs a security audit on a profile configuration.
-     * Checks for disabled security features and deprecated blocklists.
-     * @param {Object} msg - The message object containing profileId.
-     */
-    RUN_AUDIT: async (msg) => {
-        const profileId = msg.profileId;
-        const configRes = await messageHandlers.GET_ALL_SETTINGS({ profileId });
-        if (!configRes.success) return { success: false, error: "Failed to fetch config" };
-
-        const config = configRes.data;
-        const recommendations = [];
-        let score = 100;
-
-        const securityChecks = {
-            dga: { name: "DGA Protection", score: 10 },
-            nrd: { name: "Block Newly Registered Domains", score: 10 },
-            parking: { name: "Block Parked Domains", score: 5 },
-            csam: { name: "Block CSAM", score: 15 }
-        };
-
-        for (let [id, check] of Object.entries(securityChecks)) {
-            if (!config.security[id]) {
-                score -= check.score;
-                recommendations.push({
-                    type: "security",
-                    severity: "high",
-                    message: `${check.name} is disabled. Enabling this is highly recommended for safety.`,
-                    fix: { category: "security", id, action: "add", settingType: "boolean" }
-                });
-            }
-        }
-
-        try {
-            const auditDataUrl = browser.runtime.getURL("data/deprecated_lists.json");
-            const auditDataRes = await fetch(auditDataUrl);
-            const auditData = await auditDataRes.json();
-
-            const activeBlocklists = config.privacy?.blocklists || config.blocklists || [];
-            activeBlocklists.forEach(list => {
-                const dep = auditData.deprecated.find(d => d.id === list.id);
-                if (dep) {
-                    score -= 5;
-                    recommendations.push({
-                        type: "blocklist",
-                        severity: "medium",
-                        message: `List [${list.name}] is deprecated: ${dep.reason}`,
-                        fix: { category: "privacy/blocklists", id: list.id, action: "delete" }
-                    });
-                }
-            });
-        } catch (e) { console.warn("Audit metadata load failed", e); }
-
-        const finalScore = Math.max(0, score);
-        if (finalScore < 80) {
-            messageHandlers.PUSH_NOTIFICATION({
-                payload: {
-                    type: "maintenance",
-                    severity: finalScore < 50 ? "high" : "medium",
-                    message: `Security Audit Score: ${finalScore}. Review recommendations.`
-                }
-            });
-        }
-
-        return { success: true, score: finalScore, recommendations };
-    },
-    /**
      * Pushes a new notification to the Action Center and persists to storage.
      * Evaluates alert settings for enabled state, trigger filters, and delivery targets.
      * @param {Object} msg - The notification payload.
@@ -502,7 +436,6 @@ export const messageHandlers = {
             actionCenter: true,
             triggerThreats: true,
             triggerDenylist: true,
-            triggerAudit: true,
             triggerParental: false
         });
 
@@ -517,8 +450,6 @@ export const messageHandlers = {
             isTriggerEnabled = alertSettings.triggerThreats !== false;
         } else if (type === 'denylist' || type === 'block') {
             isTriggerEnabled = alertSettings.triggerDenylist !== false;
-        } else if (type === 'maintenance' || type === 'audit') {
-            isTriggerEnabled = alertSettings.triggerAudit !== false;
         } else if (type === 'parental') {
             isTriggerEnabled = alertSettings.triggerParental !== false;
         }

@@ -11,7 +11,7 @@ import { state, isPopoutMode, isSidebarMode, isTabMode, PRESET_THEMES, THEME_VAR
 import { setActiveTab, setSafeHTML, escapeHTML, downloadAsFile } from './utils.js';
 import { handleLiveLog, renderLogs, loadAnalytics, updateDashboardTabInfo, updateDynamicLinks, loadNativeLogs, downloadLogsCSV, wipeLogs, initTabLogEvents } from './dashboard.js';
 import { loadToggles, syncLists, renderLists } from './blocks.js';
-import { runSecurityAudit, runIntelligentDebugger, exportDebuggerSnapshot, exportAuditReport } from './tools.js';
+import { runIntelligentDebugger, exportDebuggerSnapshot } from './tools.js';
 import { loadRules, saveAutomationRule } from './scheduler.js';
 import { renderNotifications, initNotifications } from './notifications.js';
 import { storage } from '../storage.js';
@@ -698,9 +698,7 @@ function initGlobalEventListeners() {
     });
 
     // Tools
-    document.getElementById('run-audit-btn')?.addEventListener('click', runSecurityAudit);
     document.getElementById('run-debugger-btn')?.addEventListener('click', runIntelligentDebugger);
-    document.getElementById('export-audit-btn')?.addEventListener('click', exportAuditReport);
     document.getElementById('export-debugger-btn')?.addEventListener('click', exportDebuggerSnapshot);
     document.getElementById('add-rule-btn')?.addEventListener('click', saveAutomationRule);
 
@@ -709,7 +707,7 @@ function initGlobalEventListeners() {
     document.getElementById('alert-test-btn')?.addEventListener('click', sendTestAlert);
     [
         'alert-setting-enabled', 'alert-setting-desktop', 'alert-setting-action-center',
-        'alert-trigger-threats', 'alert-trigger-denylist', 'alert-trigger-audit', 'alert-trigger-parental'
+        'alert-trigger-threats', 'alert-trigger-denylist', 'alert-trigger-parental'
     ].forEach(id => {
         document.getElementById(id)?.addEventListener('change', () => saveAlertSettings());
     });
@@ -1362,7 +1360,6 @@ export async function loadAlertSettings() {
             actionCenter: true,
             triggerThreats: true,
             triggerDenylist: true,
-            triggerAudit: true,
             triggerParental: false
         };
 
@@ -1371,7 +1368,6 @@ export async function loadAlertSettings() {
         const actionCenterInput = document.getElementById('alert-setting-action-center');
         const threatsInput = document.getElementById('alert-trigger-threats');
         const denylistInput = document.getElementById('alert-trigger-denylist');
-        const auditInput = document.getElementById('alert-trigger-audit');
         const parentalInput = document.getElementById('alert-trigger-parental');
 
         if (enabledInput) enabledInput.checked = settings.enabled !== false;
@@ -1379,7 +1375,6 @@ export async function loadAlertSettings() {
         if (actionCenterInput) actionCenterInput.checked = settings.actionCenter !== false;
         if (threatsInput) threatsInput.checked = settings.triggerThreats !== false;
         if (denylistInput) denylistInput.checked = settings.triggerDenylist !== false;
-        if (auditInput) auditInput.checked = settings.triggerAudit !== false;
         if (parentalInput) parentalInput.checked = !!settings.triggerParental;
     } catch (e) {
         console.error("[Alerts] Failed to load alert settings:", e);
@@ -1398,7 +1393,6 @@ export async function saveAlertSettings() {
         actionCenter: document.getElementById('alert-setting-action-center')?.checked ?? true,
         triggerThreats: document.getElementById('alert-trigger-threats')?.checked ?? true,
         triggerDenylist: document.getElementById('alert-trigger-denylist')?.checked ?? true,
-        triggerAudit: document.getElementById('alert-trigger-audit')?.checked ?? true,
         triggerParental: document.getElementById('alert-trigger-parental')?.checked ?? false
     };
 

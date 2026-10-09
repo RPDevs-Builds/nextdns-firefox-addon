@@ -14,12 +14,11 @@ DNS Forge is a high-performance Firefox extension designed for advanced [NextDNS
 ### 🧠 Intelligence & Diagnostics
 - **SSE Live Feed:** Zero-latency log streaming via Server-Sent Events. Monitor DNS queries in real-time within the Dashboard and Debugger without polling.
 - **Forge Debugger:** Identifies exactly which blocklist (OISD, NextDNS, etc.) is breaking a website by correlating active tab requests with live logs.
-- **Security Auditor:** Proactively scans your profile for security gaps and deprecated blocklists, providing an actionable "Health Score."
 - **Automation Scheduler:** Create time-based rules to enable/disable services or security settings automatically using background alarms.
 - **Profile Snapshots:** Configuration "Undo" button. Take snapshots, view visual diffs, and roll back changes with one click.
 
 ### 🔍 Unified Dashboard & Action Center
-- **Header Action Center (📢 Megaphone):** Global popover menu in the header for real-time security alerts, denylist blocks, and audit notifications with live badge counts and one-click clear.
+- **Header Action Center (📢 Megaphone):** Global popover menu in the header for real-time security alerts and denylist blocks with live badge counts and one-click clear.
 - **Analytics Trends:** Visual activity trend indicators (e.g., "📈 15% increase") based on time-series analysis of your query volume.
 - **Real-Time Request Tracking:** Visualizes every request made by the active tab with parent-domain matching and privacy grading.
 - **Network Error Suppressor:** Replaces intrusive NextDNS dashboard modals with non-intrusive toast notifications during stream timeouts.
@@ -27,7 +26,7 @@ DNS Forge is a high-performance Firefox extension designed for advanced [NextDNS
 
 ### ⚡ Advanced Management
 - **Integrated Protection & Lists:** Complete NextDNS protection panel with custom Allowlist and Denylist CRUD and bulk import accessible directly as a Protection sub-view.
-- **Granular Alerts Configuration:** Dedicated Options tab to configure alerting master switch, delivery targets (Desktop OS vs. Action Center feed), and trigger items (Threats, Denylist, Audit drift, Parental controls).
+- **Granular Alerts Configuration:** Dedicated Options tab to configure alerting master switch, delivery targets (Desktop OS vs. Action Center feed), and trigger items (Threats, Denylist, Parental controls).
 - **Mirror Mode:** Automatically replicate setting changes across multiple selected profiles in real-time.
 - **Self-Updating Metadata Engine:** Automatically scrapes and saves NextDNS TLDs, Blocklists, and Services as you browse, ensuring the manager is always current.
 - **DNS Rewrites Manager:** Full CRUD support for custom domain-to-IP mappings (e.g., `nas.local` → `192.168.1.50`) directly from the browser.
@@ -63,7 +62,7 @@ DNS Forge features an intuitive two-tier navigation structure designed for swift
 | `🏠 Overview` | `dashboard` | Active domain quick actions (Allow, Deny, Temp Allow 5m), privacy grade score, 24-hour total and blocked query counters, real-time tab requests monitor, and the **Intelligent Tab Debugger**. |
 | `🛡️ Protection` | `toggles` | Categorized NextDNS protection controls across 7 sub-views: **Security**, **Privacy**, **Performance**, **Parental Control**, **Blocklists** (80+ lists with search and popularity sort), **TLDs**, and **Lists** (Allowlist & Denylist management). |
 | `📡 Logs` | `logs` | Real-time SSE query stream and native NextDNS query history with multi-condition filtering (Allowed, Blocked, Allowlist, Denylist), device selector, and protocol filter (DoH, DNS). |
-| `⚙️ Options` | `settings` | Comprehensive extension configuration categorized into 9 dedicated functional sub-menus. |
+| `⚙️ Options` | `settings` | Comprehensive extension configuration categorized into 8 dedicated functional sub-menus. |
 
 > [!NOTE]
 > **Header Controls**: The Action Center alert feed is accessible globally via the **📢 Megaphone icon** in the top header, providing immediate visibility into security events from any tab.
@@ -75,14 +74,13 @@ DNS Forge features an intuitive two-tier navigation structure designed for swift
 | Sub-Tab | Identifier | Description & Functions |
 |---|---|---|
 | `🔌 Connection` | `setup` | **Connection & Credentials**: Configure NextDNS API key, select or auto-detect active profile, and refresh account profiles.<br>**Browser & Extension Preferences**: Configure toolbar icon action (Popup, Sidebar, Popout), log auto-refresh toggling, and polling interval. |
-| `🔔 Alerts` | `alerts` | **Alerts & Notifications Delivery**: Master toggle for alerting, desktop OS notification trigger, and Action Center feed display.<br>**Trigger Filters**: Toggle alerts for Security Threats (malware/cryptojacking/C2), Custom Denylist Blocks, Security Audit & Drift, and Parental Controls.<br>**Testing**: Instant test alert button. |
+| `🔔 Alerts` | `alerts` | **Alerts & Notifications Delivery**: Master toggle for alerting, desktop OS notification trigger, and Action Center feed display.<br>**Trigger Filters**: Toggle alerts for Security Threats (malware/cryptojacking/C2), Custom Denylist Blocks, and Parental Controls.<br>**Testing**: Instant test alert button. |
 | `🎨 Appearance` | `customize` | **Extension Theme Engine**: Switch between built-in themes (Default Dark, Default Light, OLED Black, Dracula, Gruvbox) or design custom palettes with live color pickers (Background, Panel, Border, Hover, Text, Muted Text). |
 | `🌐 Web Console` | `webgui` | **NextDNS Web GUI Enhancements**: Injects enhancements into `my.nextdns.io` (TLD rollups, blocklist rollups, inline log action buttons, extended query filters, contextual domain descriptions, and profile notes in header). |
 | `⏰ Automation` | `schedules` | **Time-Based Automation**: Create scheduled background rules to enable or disable specific parental control services or security shields at designated times of day. |
 | `🪞 Mirroring` | `mirror` | **Multi-Profile Replication**: Select one or more secondary profiles in your account to automatically mirror any configuration changes made in the extension. |
 | `💾 Data & Backup` | `manager` | **Settings Portability**: Export full extension configuration (sync + local storage) as JSON or restore from file.<br>**Query Log Storage**: Export cached query logs to CSV or clear records.<br>**Centralized Data Manager**: Shortcut to open the full-screen standalone management console (`viewer.html`). |
 | `📊 Analytics` | `analytics` | **Traffic Insights**: View 24-hour total queries, blocked percentage, and traffic overview fetched from the NextDNS Analytics API. |
-| `🛡️ Security Audit` | `audit` | **Profile Health Scanner**: Evaluates active profile settings against NextDNS best practices, renders a visual health score ring, and provides one-click remediation buttons for identified vulnerabilities. |
 
 ---
 
@@ -99,8 +97,8 @@ This extension enforces a **Zero-Regression Mandate** via architectural isolatio
 ## 🧪 Development & Testing
 
 A comprehensive Jest suite covers the entire lifecycle of the addon:
-- **ESM-Native Suite:** 77 automated tests across 17 test suites running on native ESM.
-- **Intelligent Logic:** Verification of the Debugger, Scheduler, Auditor, SSE streaming, and alert filtering.
+- **ESM-Native Suite:** Automated test suites running on native ESM.
+- **Intelligent Logic:** Verification of the Debugger, Scheduler, SSE streaming, and alert filtering.
 - **Persistence & Recovery:** Storage auto-heal, API key extraction, and multi-profile synchronization.
 - **UI & Customization:** Sub-menu scoping, alerts modal rendering, dashboard injection, and theme engine.
 

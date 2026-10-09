@@ -34,7 +34,6 @@ The project uses a strict modular architecture with ES Modules.
 
 ### Forge Debugger & Intelligent Tools
 - **Correlation Engine:** Maps active tab `WebRequest` events to NextDNS API logs to identify specific blocklist triggers.
-- **Security Auditor:** Scans profile settings against `data/deprecated_lists.json` to generate a health score and one-click fixes.
 - **Mirror Mode:** Automatically replicates configuration changes across selected profiles in real-time.
 
 ### Automation & Scheduling
