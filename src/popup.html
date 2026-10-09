@@ -546,9 +546,27 @@
           <option value="popout">Open Standalone Popout</option>
         </select>
 
-        <label class="checkbox-label"><input type="checkbox" id="setting-auto-refresh"> Auto-Refresh Logs Automatically</label>
-        <label class="checkbox-label"><input type="checkbox" id="setting-block-notif"> Desktop Notifications on Blocked Requests</label>
-        <label class="checkbox-label"><input type="checkbox" id="setting-enable-labs"> Enable Experimental Labs Features</label>
+        <div class="flex-between" style="margin-bottom: 8px;">
+          <label for="setting-auto-refresh" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Auto-Refresh Logs Automatically</label>
+          <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+            <input type="checkbox" id="setting-auto-refresh">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="flex-between" style="margin-bottom: 8px;">
+          <label for="setting-block-notif" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Desktop Notifications on Blocked Requests</label>
+          <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+            <input type="checkbox" id="setting-block-notif">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="flex-between" style="margin-bottom: 8px;">
+          <label for="setting-enable-labs" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Enable Experimental Labs Features</label>
+          <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+            <input type="checkbox" id="setting-enable-labs">
+            <span class="slider round"></span>
+          </label>
+        </div>
 
         <label for="setting-refresh-time" style="display: block; margin-top: 10px; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Log Refresh Interval (Seconds)</label>
         <input type="number" id="setting-refresh-time" min="1" max="300" style="margin-bottom: 0;">
@@ -563,36 +581,54 @@
         <h4>Alerts & Notifications Delivery</h4>
         <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Configure system alerts and notifications delivery.</p>
         
-        <label class="checkbox-label">
-          <input type="checkbox" id="alert-setting-enabled" checked>
-          <span><strong>Enable Alerts System</strong> (Master Toggle)</span>
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" id="alert-setting-desktop">
-          <span>Desktop OS Notifications</span>
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" id="alert-setting-action-center" checked>
-          <span>Action Center Feed (📢 Megaphone Menu)</span>
-        </label>
+        <div class="flex-between" style="margin-bottom: 8px;">
+          <label for="alert-setting-enabled" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;"><strong>Enable Alerts System</strong> (Master Toggle)</label>
+          <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+            <input type="checkbox" id="alert-setting-enabled" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="flex-between" style="margin-bottom: 8px;">
+          <label for="alert-setting-desktop" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Desktop OS Notifications</label>
+          <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+            <input type="checkbox" id="alert-setting-desktop">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="flex-between" style="margin-bottom: 8px;">
+          <label for="alert-setting-action-center" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Action Center Feed (📢 Megaphone Menu)</label>
+          <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+            <input type="checkbox" id="alert-setting-action-center" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
       </div>
 
       <div class="panel-box" style="margin-bottom: 15px;">
         <h4>Items That Trigger Alerts</h4>
         <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Choose which security and network events trigger an alert.</p>
         
-        <label class="checkbox-label">
-          <input type="checkbox" id="alert-trigger-threats" checked>
-          <span>Security Threats (Malware, Cryptojacking, C2)</span>
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" id="alert-trigger-denylist" checked>
-          <span>Custom Denylist Domain Blocks</span>
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" id="alert-trigger-parental">
-          <span>Parental Control & Restricted Content Blocks</span>
-        </label>
+        <div class="flex-between" style="margin-bottom: 8px;">
+          <label for="alert-trigger-threats" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Security Threats (Malware, Cryptojacking, C2)</label>
+          <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+            <input type="checkbox" id="alert-trigger-threats" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="flex-between" style="margin-bottom: 8px;">
+          <label for="alert-trigger-denylist" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Custom Denylist Domain Blocks</label>
+          <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+            <input type="checkbox" id="alert-trigger-denylist" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="flex-between" style="margin-bottom: 8px;">
+          <label for="alert-trigger-parental" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Parental Control & Restricted Content Blocks</label>
+          <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+            <input type="checkbox" id="alert-trigger-parental">
+            <span class="slider round"></span>
+          </label>
+        </div>
       </div>
 
       <div style="display: flex; gap: 8px;">
@@ -671,18 +707,34 @@
           <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 2px 0;">
           <div style="margin-bottom: 5px;">
             <strong style="display: block; margin-bottom: 5px; font-size: 0.8em; color: var(--text-muted); text-transform: uppercase;">Log & Data Enhancements</strong>
-            <label class="checkbox-label" style="font-size: 0.85em; margin-bottom: 8px;">
-               <input type="checkbox" id="web-gui-logs-toggle"> Inline Quick-Action Buttons in Logs
-            </label>
-            <label class="checkbox-label" style="font-size: 0.85em; margin-bottom: 8px;">
-               <input type="checkbox" id="web-gui-filter-toggle"> Extended Query Log Filters
-            </label>
-            <label class="checkbox-label" style="font-size: 0.85em; margin-bottom: 8px;">
-               <input type="checkbox" id="web-gui-desc-toggle"> Contextual Domain Descriptions
-            </label>
-            <label class="checkbox-label" style="font-size: 0.85em; margin-bottom: 8px;">
-               <input type="checkbox" id="web-gui-notes-toggle"> Profile Notes in Header
-            </label>
+            <div class="flex-between" style="margin-bottom: 8px;">
+              <label for="web-gui-logs-toggle" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Inline Quick-Action Buttons in Logs</label>
+              <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+                <input type="checkbox" id="web-gui-logs-toggle">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="flex-between" style="margin-bottom: 8px;">
+              <label for="web-gui-filter-toggle" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Extended Query Log Filters</label>
+              <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+                <input type="checkbox" id="web-gui-filter-toggle">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="flex-between" style="margin-bottom: 8px;">
+              <label for="web-gui-desc-toggle" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Contextual Domain Descriptions</label>
+              <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+                <input type="checkbox" id="web-gui-desc-toggle">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="flex-between" style="margin-bottom: 8px;">
+              <label for="web-gui-notes-toggle" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Profile Notes in Header</label>
+              <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+                <input type="checkbox" id="web-gui-notes-toggle">
+                <span class="slider round"></span>
+              </label>
+            </div>
           </div>
           <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 2px 0;">
           <div style="margin-bottom: 5px;">
