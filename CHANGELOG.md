@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.1.5] - 2026-10-09
+
+### Added
+- **Live Tab Blocked Counter:** Replaced the legacy Page Grade metric with an accurate, real-time blocked request counter for the active browser tab.
+- **In-List Tab Request Controls:** Added inline `+ Allow` / `✕ Allow` and `+ Deny` / `✕ Deny` buttons for each domain entry in the Tab Requests list, enabling instant allowlist/denylist management directly from the active tab monitor.
+- **Tab Request Log Clearing:** Added a clear action button and background `CLEAR_TAB_STATS` message handler to reset tab activity tracking on demand.
+
+### Removed
+- **Security Auditor Functionality:** Completely removed the Security Auditor tab, health score ring, and configuration scanner under Options > Security Audit.
+- **Deprecated Blocklist Data:** Deleted legacy `data/deprecated_lists.json` dataset and retired audit alert notification triggers.
+
 ## [1.1.4] - 2026-10-08
 
 ### Added
