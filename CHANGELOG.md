@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.1.8] - 2026-10-10
+
+### Added
+- **Intelligent Tab Debugger Cloud Correlation:** Added full correlation with NextDNS cloud query logs via the `DEBUG_TAB` message handler, identifying root blocking causes from external blocklists (AdGuard, EasyList, etc.) for requests that appeared as default locally.
+- **Quick 15-Minute Snooze & Flexible Duration:** Introduced a dedicated "Snooze 15m" action button in the Tab Debugger and supported flexible temporary allow durations (clamped between 1 and 1,440 minutes).
+- **Mirror Mode Synchronization:** Enabled automatic allowlist and denylist synchronization across multiple configured NextDNS profiles when modifying domains.
+- **Expanded Analytics Endpoints:** Added support for querying top blocked domains and root queries directly through the background engine.
+- **Accessible WAI-ARIA Tab Navigation:** Added full keyboard arrow key navigation (`ArrowLeft`, `ArrowRight`, `Home`, `End`) across popup tabs and sub-tabs adhering to WAI-ARIA design patterns.
+
+### Fixed & Hardened
+- **Asynchronous Button Resilience:** Enclosed all critical async operations across Tab Debugger (`.debug-allow-btn`, `.debug-snooze-btn`), Dashboard log wipes (`wipeLogs`), main domain add/bulk actions, Data Manager snapshots (`create-snapshot-btn`, `delete-snapshot-btn`), and profile comparisons in `try ... catch ... finally` blocks to prevent permanent disabled button freeze states.
+- **DNS Rewrite Security & Path Traversal Guards:** Implemented strict input validation, whitespace trimming, and URL path encoding (`encodeURIComponent`) on rewrite deletion endpoints.
+- **DDNS Input Validation:** Added strict IPv4 and IPv6 format regex verification before updating NextDNS linked IPs.
+- **Scheduler Rule Validation:** Added strict time format validation (`HH:mm`), bounds checking (0-23 hours, 0-59 minutes), target ID presence, and action verification before executing automation rules.
+- **Snapshot Quota Management:** Enforced a maximum quota cap of 20 snapshots with automatic FIFO pruning to prevent localStorage bloat.
+- **SSE Stream Resilience:** Added exponential backoff with listener cleanup and nullification on EventSource disconnections.
+- **WebRequest Defensive Guards:** Guarded against requests without hostnames (e.g., `data:` and `about:blank` URLs) and generalized protocol detection for all schemes.
+- **Expanded Test Coverage:** Added 13 new unit tests, bringing total test coverage to 108 passed tests across 17 test suites with 0 AMO linter errors or warnings.
+
 ## [1.1.7] - 2026-10-10
 
 ### Added

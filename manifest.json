@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DNS Forge",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "Comprehensive NextDNS management tool: blocklists, allowlists, live query logs, analytics, scheduling, and web UI enhancements.",
   "icons": {
     "16": "icons/icon-16.png",
