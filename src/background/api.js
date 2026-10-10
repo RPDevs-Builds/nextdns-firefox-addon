@@ -71,6 +71,7 @@ export async function detectActiveProfile() {
         if (matched) {
             profileName = `${matched.name} (${activeId})`;
         }
+        await storage.set("activeProfile", activeId);
         await storage.set("activeProfileName", profileName);
         return { id: activeId, name: profileName, manual: true };
     }

@@ -39,7 +39,22 @@ export function requestListener(details) {
                 reason = 'Deny List';
             }
 
-            state.tabRequests[details.tabId][domain] = { status, reason, timestamp: Date.now() };
+            const tabDomains = state.tabRequests[details.tabId];
+            const domainKeys = Object.keys(tabDomains);
+            if (!tabDomains[domain] && domainKeys.length >= 300) {
+                let oldestKey = domainKeys[0];
+                let oldestTs = tabDomains[oldestKey]?.timestamp || 0;
+                for (let k = 1; k < domainKeys.length; k++) {
+                    const key = domainKeys[k];
+                    const ts = tabDomains[key]?.timestamp || 0;
+                    if (ts < oldestTs) {
+                        oldestTs = ts;
+                        oldestKey = key;
+                    }
+                }
+                delete tabDomains[oldestKey];
+            }
+            tabDomains[domain] = { status, reason, timestamp: Date.now() };
 
             if (status === 'blocked') {
                 state.blockedTabRequests[details.tabId]++;

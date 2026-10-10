@@ -42,7 +42,11 @@ export function formatLogRow(log) {
     
     const deviceId = log.device?.id || log.clientIp;
     const name = state.hostnameAliases?.[deviceId] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
-    const timeStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "---";
+    let timeStr = "---";
+    if (log.timestamp) {
+        const d = new Date(log.timestamp);
+        timeStr = isNaN(d.getTime()) ? "---" : d.toLocaleTimeString();
+    }
 
     const reasonText = Array.isArray(log.reasons) 
         ? log.reasons.map(r => r.name || r.id || r).filter(Boolean).join(', ') 
@@ -81,9 +85,6 @@ export function handleLiveLog(log) {
                 container.textContent = '';
             }
 
-            // Prepend new log row if it matches current search
-            const row = formatLogRow(log);
-            
             const query = (document.getElementById("log-search")?.value || "").toLowerCase();
             const deviceFilter = document.getElementById("log-device-filter")?.value;
             const protocolFilter = document.getElementById("log-type-filter")?.value;
@@ -95,6 +96,7 @@ export function handleLiveLog(log) {
                 (!deviceFilter || deviceId === deviceFilter) && 
                 (!protocolFilter || protocol === protocolFilter) &&
                 matchesLogFilters(log, activeFilters)) {
+                const row = formatLogRow(log);
                 container.prepend(row);
                 if (container.children.length > 100) container.lastElementChild.remove();
             }

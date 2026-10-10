@@ -579,19 +579,27 @@ function initGlobalEventListeners() {
         if (e.target.classList.contains('api-toggle')) {
             const { cat, id, type } = e.target.dataset;
             const action = e.target.checked ? 'add' : 'delete';
-            const res = await browser.runtime.sendMessage({
-                type: "TOGGLE_SETTING",
-                profileId: state.activeProfile,
-                category: cat,
-                id,
-                action,
-                settingType: type
-            });
-            if (!res.success) {
+            e.target.disabled = true;
+            try {
+                const res = await browser.runtime.sendMessage({
+                    type: "TOGGLE_SETTING",
+                    profileId: state.activeProfile,
+                    category: cat,
+                    id,
+                    action,
+                    settingType: type
+                });
+                if (!res || !res.success) {
+                    e.target.checked = !e.target.checked;
+                    showToast("Failed to update setting.", 'error');
+                } else {
+                    updateLocalBlocksCache(cat, id, action);
+                }
+            } catch (err) {
                 e.target.checked = !e.target.checked;
-                showToast("Failed to update setting.", 'error');
-            } else {
-                updateLocalBlocksCache(cat, id, action);
+                showToast("Failed to update setting: " + (err.message || err), 'error');
+            } finally {
+                e.target.disabled = false;
             }
         }
     });
@@ -603,25 +611,30 @@ function initGlobalEventListeners() {
             const action = active === 'true' ? 'delete' : 'add';
             
             btn.disabled = true;
-            const res = await browser.runtime.sendMessage({
-                type: "TOGGLE_SETTING",
-                profileId: state.activeProfile,
-                category: cat,
-                id,
-                action,
-                settingType: type
-            });
+            try {
+                const res = await browser.runtime.sendMessage({
+                    type: "TOGGLE_SETTING",
+                    profileId: state.activeProfile,
+                    category: cat,
+                    id,
+                    action,
+                    settingType: type
+                });
 
-            if (res.success) {
-                btn.dataset.active = (action === 'add').toString();
-                btn.textContent = action === 'add' ? 'Remove' : 'Add';
-                btn.classList.toggle('btn-allow', action === 'delete');
-                btn.classList.toggle('btn-deny', action === 'add');
-                updateLocalBlocksCache(cat, id, action);
-            } else {
-                showToast("Failed to update.", 'error');
+                if (res && res.success) {
+                    btn.dataset.active = (action === 'add').toString();
+                    btn.textContent = action === 'add' ? 'Remove' : 'Add';
+                    btn.classList.toggle('btn-allow', action === 'delete');
+                    btn.classList.toggle('btn-deny', action === 'add');
+                    updateLocalBlocksCache(cat, id, action);
+                } else {
+                    showToast("Failed to update.", 'error');
+                }
+            } catch (err) {
+                showToast("Failed to update: " + (err.message || err), 'error');
+            } finally {
+                btn.disabled = false;
             }
-            btn.disabled = false;
         }
     });
 }

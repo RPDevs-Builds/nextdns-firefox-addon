@@ -247,8 +247,10 @@ function applyDeviceAliases(root) {
     // Target device ID spans in Logs and Analytics
     const elements = root.querySelectorAll('.notranslate');
     elements.forEach(el => {
+        if (el.dataset.nxmAliased) return;
         const id = el.textContent.trim();
         if (hostnameAliases[id]) {
+            el.dataset.nxmAliased = "true";
             el.textContent = "";
             const span = document.createElement('span');
             span.title = `ID: ${id}`;

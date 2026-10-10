@@ -45,15 +45,18 @@ export async function loadRules() {
  * @async
  */
 export async function saveAutomationRule() {
-    const name = document.getElementById('rule-name').value;
-    const trigger = document.getElementById('rule-trigger').value;
-    const action = document.getElementById('rule-action').value;
-    const targetVal = document.getElementById('rule-target').value;
+    const name = document.getElementById('rule-name')?.value?.trim();
+    const trigger = document.getElementById('rule-trigger')?.value?.trim();
+    const action = document.getElementById('rule-action')?.value;
+    const targetVal = document.getElementById('rule-target')?.value;
 
     if (!name || !trigger) return showToast("Please enter name and time.", "warning");
+    if (!targetVal || !targetVal.includes(':')) return showToast("Please select a target setting.", "warning");
 
     const [category, targetId] = targetVal.split(':');
-    const rule = { name, trigger, action, category, targetId };
+    const isService = category.toLowerCase().includes('services');
+    const settingType = isService ? 'list' : 'boolean';
+    const rule = { name, trigger, action, category, targetId, settingType };
 
     await browser.runtime.sendMessage({ type: "SAVE_RULE", rule });
     document.getElementById('rule-name').value = '';

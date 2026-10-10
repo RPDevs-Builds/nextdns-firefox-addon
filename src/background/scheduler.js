@@ -43,12 +43,15 @@ export async function checkAutomationRules() {
             const activeProfile = await storage.get("activeProfile");
             if (!activeProfile) continue;
 
+            const isService = (rule.category || '').toLowerCase().includes('services');
+            const settingType = rule.settingType || (isService ? 'list' : 'boolean');
+
             await messageHandlers.TOGGLE_SETTING({
                 profileId: activeProfile,
                 category: rule.category,
                 id: rule.targetId,
                 action: rule.action === 'enable' ? 'add' : 'delete',
-                settingType: rule.settingType || 'id'
+                settingType
             }).catch(err => console.error(`[Scheduler] Failed to execute rule ${rule.name}:`, err));
         }
     }

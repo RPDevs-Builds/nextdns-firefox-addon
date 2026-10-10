@@ -824,19 +824,28 @@ async function handleSave() {
     const note = inputNote.value.trim();
     if (!key) return showToast('Please enter or select a key.', 'warning');
 
-    if (activeTab === 'rewrites') {
-        if (!activeProfile) return showToast('Profile not detected.', 'error');
-        await browser.runtime.sendMessage({ type: "SAVE_REWRITE", profileId: activeProfile, name: key, content: note });
-    } else {
-        const storageKey = getStorageKey();
-        const data = (await storage.get(storageKey)) || {};
-        data[key] = note || (activeTab === 'filters' ? "Hidden" : "");
-        await storage.set(storageKey, data);
+    if (saveBtn) saveBtn.disabled = true;
+
+    try {
+        if (activeTab === 'rewrites') {
+            if (!activeProfile) throw new Error('Profile not detected.');
+            const res = await browser.runtime.sendMessage({ type: "SAVE_REWRITE", profileId: activeProfile, name: key, content: note });
+            if (!res?.success) throw new Error(res?.error || 'Failed to save rewrite.');
+        } else {
+            const storageKey = getStorageKey();
+            const data = (await storage.get(storageKey)) || {};
+            data[key] = note || (activeTab === 'filters' ? "Hidden" : "");
+            await storage.set(storageKey, data);
+        }
+        
+        editModal.style.display = 'none';
+        showToast('Entry saved successfully.', 'success');
+        refreshView();
+    } catch (err) {
+        showToast(err.message || 'Failed to save entry.', 'error');
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
     }
-    
-    editModal.style.display = 'none';
-    showToast('Entry saved successfully.', 'success');
-    refreshView();
 }
 
 /**
@@ -847,16 +856,21 @@ async function handleSave() {
 async function handleDelete(key) {
     if (!confirm(`Permanently remove entry for "${key}"?`)) return;
 
-    if (activeTab === 'rewrites') {
-        await browser.runtime.sendMessage({ type: "DELETE_REWRITE", profileId: activeProfile, name: key });
-    } else {
-        const storageKey = getStorageKey();
-        const data = (await storage.get(storageKey)) || {};
-        delete data[key];
-        await storage.set(storageKey, data);
+    try {
+        if (activeTab === 'rewrites') {
+            const res = await browser.runtime.sendMessage({ type: "DELETE_REWRITE", profileId: activeProfile, name: key });
+            if (!res?.success) throw new Error(res?.error || 'Failed to delete rewrite.');
+        } else {
+            const storageKey = getStorageKey();
+            const data = (await storage.get(storageKey)) || {};
+            delete data[key];
+            await storage.set(storageKey, data);
+        }
+        showToast(`Removed "${key}"`, 'success');
+        refreshView();
+    } catch (err) {
+        showToast(err.message || `Failed to remove "${key}"`, 'error');
     }
-    showToast(`Removed "${key}"`, 'success');
-    refreshView();
 }
 
 /**
@@ -873,24 +887,30 @@ async function handleApiToggle(btn) {
     const id = btn.getAttribute('data-id');
     const active = btn.getAttribute('data-active') === 'true';
     
-    const res = await browser.runtime.sendMessage({ 
-        type: "TOGGLE_SETTING", 
-        profileId: activeProfile, 
-        category: cat, 
-        id, 
-        action: active ? "delete" : "add", 
-        settingType: 'list' 
-    });
-    
-    if (res?.success) {
-        if (cat.includes('tlds')) {
-            if (active) activeTlds.delete(id); else activeTlds.add(id);
-        } else if (cat.includes('blocklists')) {
-            if (active) activeBlocklists.delete(id); else activeBlocklists.add(id);
+    try {
+        const res = await browser.runtime.sendMessage({ 
+            type: "TOGGLE_SETTING", 
+            profileId: activeProfile, 
+            category: cat, 
+            id, 
+            action: active ? "delete" : "add", 
+            settingType: 'list' 
+        });
+        
+        if (res?.success) {
+            if (cat.includes('tlds')) {
+                if (active) activeTlds.delete(id); else activeTlds.add(id);
+            } else if (cat.includes('blocklists')) {
+                if (active) activeBlocklists.delete(id); else activeBlocklists.add(id);
+            }
+            renderList();
+        } else {
+            showToast(res?.error || 'Failed to update setting.', 'error');
+            btn.disabled = false;
+            btn.style.opacity = '1';
         }
-        renderList();
-    } else {
-        showToast('Failed to update setting.', 'error');
+    } catch (err) {
+        showToast(err.message || 'Failed to update setting.', 'error');
         btn.disabled = false;
         btn.style.opacity = '1';
     }

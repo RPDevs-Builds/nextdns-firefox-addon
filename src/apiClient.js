@@ -27,15 +27,18 @@ export class APIClient {
      * @async
      * @returns {Promise<Object>} An object containing the required headers.
      */
-    async getHeaders() {
+    async getHeaders(url = "") {
         let apiKey = "";
         if (this.storage) {
             apiKey = await this.storage.get("apiKey", "");
         }
-        return { 
-            "Content-Type": "application/json", 
-            "X-Api-Key": apiKey 
+        const headers = { 
+            "Content-Type": "application/json"
         };
+        if (!url.includes('test.nextdns.io')) {
+            headers["X-Api-Key"] = apiKey || "";
+        }
+        return headers;
     }
 
     /**
@@ -53,16 +56,19 @@ export class APIClient {
         
         for (let i = 0; i < retries; i++) {
             try {
-                const defaultHeaders = await this.getHeaders();
-                options.headers = { ...defaultHeaders, ...(options.headers || {}) };
+                const defaultHeaders = await this.getHeaders(url);
+                const requestOptions = {
+                    ...options,
+                    headers: { ...defaultHeaders, ...(options.headers || {}) }
+                };
 
-                const response = await fetch(url, options);
+                const response = await fetch(url, requestOptions);
 
                 // If Rate Limited (429) or Server Error (50x), retry
                 if (response.status === 429 || response.status >= 500) {
-                    if (i === retries - 1) return { success: false, error: `HTTP ${response.status}` };
+                    if (i === retries - 1) return { success: false, response, error: `HTTP ${response.status}` };
                     
-                    const retryAfter = response.headers.get("Retry-After");
+                    const retryAfter = response.headers?.get ? response.headers.get("Retry-After") : null;
                     const delay = retryAfter ? parseInt(retryAfter) * 1000 : backoffMs * Math.pow(2, i);
                     
                     console.warn(`[APIClient] HTTP ${response.status} on ${endpoint}. Retrying in ${delay}ms...`);
@@ -70,7 +76,12 @@ export class APIClient {
                     continue;
                 }
 
-                return { success: response.ok, response };
+                if (!response.ok) {
+                    const statusText = response.statusText ? ` ${response.statusText}` : '';
+                    return { success: false, response, error: `HTTP ${response.status}${statusText}` };
+                }
+
+                return { success: true, response };
             } catch (error) {
                 // Network error (e.g. offline)
                 if (i === retries - 1) return { success: false, error: error.message || "Network Error" };
