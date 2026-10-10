@@ -28,17 +28,32 @@ export const messageHandlers = {
         if (res.success && (msg.action === 'add' || msg.action === 'delete')) {
             await updateProfileCache();
         }
+
+        // Mirror Mode replication
+        if (res.success && (msg.action === 'add' || msg.action === 'delete') && !msg._mirrored) {
+            const mirrorProfiles = await storage.get("mirrorProfiles", []);
+            if (Array.isArray(mirrorProfiles) && mirrorProfiles.length > 0) {
+                const mirrors = mirrorProfiles.filter(mId => mId && mId !== msg.profileId);
+                await Promise.all(mirrors.map(mId => {
+                    console.log(`[Mirror] Replicating domain ${msg.action} to profile: ${mId}`);
+                    return manageDomain(mId, msg.listType, msg.domain, msg.action)
+                        .catch(err => console.error(`[Mirror] Failed domain sync for ${mId}:`, err));
+                }));
+            }
+        }
+
         return res;
     },
     /**
      * Temporarily allows a domain by adding it to the allowlist and scheduling an alarm for removal.
-     * @param {Object} msg - The message object containing profileId and domain.
+     * @param {Object} msg - The message object containing profileId, domain, and optional durationInMinutes.
      */
     TEMP_ALLOW: async (msg) => {
         const res = await manageDomain(msg.profileId, "allowlist", msg.domain, "add");
         if (res.success) {
+            const duration = Number(msg.durationInMinutes || msg.duration) || 5;
             const alarmName = `${ALARM_PREFIX}p=${encodeURIComponent(msg.profileId)}&d=${encodeURIComponent(msg.domain)}`;
-            browser.alarms.create(alarmName, { delayInMinutes: 5 });
+            browser.alarms.create(alarmName, { delayInMinutes: duration });
             await updateProfileCache();
         }
         return res;
@@ -119,12 +134,16 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId and an optional series flag.
      */
     GET_ANALYTICS: async (msg) => {
-        const { profileId, series = false } = msg;
+        const { profileId, series = false, endpoint = 'status' } = msg;
         const seriesSuffix = series ? ';series' : '';
         try {
-            const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/analytics/status${seriesSuffix}`, { cache: 'no-store' });
-            if (!r.success) return { success: false, data: {} };
+            const path = endpoint === 'status' 
+                ? `/profiles/${profileId}/analytics/status${seriesSuffix}`
+                : `/profiles/${profileId}/analytics/${endpoint}`;
+            const r = await apiClient.fetchWithRetry(path, { cache: 'no-store' });
+            if (!r.success) return { success: false, data: endpoint === 'status' ? {} : [] };
             const json = await r.response.json();
+            if (endpoint !== 'status') return { success: true, data: json.data || [] };
             if (series) return { success: true, data: json.data || [] };
             const total = (json.data || []).reduce((acc, curr) => acc + (curr.queries || 0), 0);
             const blocked = (json.data || []).find(d => d.status === 'blocked')?.queries || 0;
@@ -138,7 +157,7 @@ export const messageHandlers = {
             };
         } catch(e) {
             console.warn("[Handler] GET_ANALYTICS failed:", e);
-            return { success: false, data: {} };
+            return { success: false, data: endpoint === 'status' ? {} : [] };
         }
     },
     /**
@@ -274,27 +293,44 @@ export const messageHandlers = {
     DEBUG_TAB: async (msg) => {
         const { tabId, profileId } = msg;
         const tabData = state.tabRequests[tabId] || {};
-        const blockedDomains = Object.keys(tabData).filter(d => tabData[d].status === 'blocked');
+        const requestedDomains = Object.keys(tabData);
         
-        if (blockedDomains.length === 0) return { success: true, correlations: [] };
+        if (requestedDomains.length === 0) return { success: true, correlations: [] };
 
         const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/logs?raw=1`, { cache: 'no-store' });
         if (!r.success) return { success: false, error: "Failed to fetch logs" };
         const logsData = await r.response.json();
         const logs = logsData.data || [];
 
-        const correlations = blockedDomains.map(domain => {
-            const logMatch = logs.find(l => (l.name === domain || l.domain === domain) && l.status === 'blocked');
+        const correlations = [];
+        const seenDomains = new Set();
+
+        for (const domain of requestedDomains) {
+            const isLocalBlocked = tabData[domain]?.status === 'blocked';
+            const logMatch = logs.find(l => (l.name === domain || l.domain === domain) && (l.status === 'blocked' || l.status === 'denied'));
+
             if (logMatch) {
-                return {
-                    domain,
-                    reasons: logMatch.reasons || [logMatch.reason || "Unknown"],
-                    timestamp: logMatch.timestamp,
-                    device: logMatch.device?.name || logMatch.clientIp
-                };
+                if (!seenDomains.has(domain)) {
+                    seenDomains.add(domain);
+                    correlations.push({
+                        domain,
+                        reasons: logMatch.reasons || [logMatch.reason || "Cloud Blocklist"],
+                        timestamp: logMatch.timestamp || tabData[domain]?.timestamp || Date.now(),
+                        device: logMatch.device?.name || logMatch.clientIp || "NextDNS Profile"
+                    });
+                }
+            } else if (isLocalBlocked) {
+                if (!seenDomains.has(domain)) {
+                    seenDomains.add(domain);
+                    correlations.push({
+                        domain,
+                        reasons: [{ id: 'denylist', name: tabData[domain]?.reason || 'Deny List' }],
+                        timestamp: tabData[domain]?.timestamp || Date.now(),
+                        device: 'Local Browser'
+                    });
+                }
             }
-            return null;
-        }).filter(c => c !== null);
+        }
 
         return { success: true, correlations };
     },

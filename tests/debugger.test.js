@@ -76,4 +76,30 @@ describe('Intelligent Debugger (Phase 4.1)', () => {
         expect(result.success).toBe(true);
         expect(result.correlations.length).toBe(0);
     });
+
+    test('DEBUG_TAB: Correlates cloud blocklist blocks even if domain was default client-side', async () => {
+        const tabId = 456;
+        const profileId = 'p456';
+
+        // Request without local manual denylist (status defaults to 'default')
+        bg.requestListener({ url: 'https://ad-tracker.net/pixel.gif', tabId, type: 'xmlhttprequest' });
+
+        global.fetch.mockResolvedValue({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({
+                data: [
+                    { domain: 'ad-tracker.net', status: 'blocked', reasons: [{ name: 'AdGuard Tracking Protection' }], timestamp: Date.now(), device: { name: 'Work Mac' } }
+                ]
+            })
+        });
+
+        const result = await bg.messageHandlers.DEBUG_TAB({ tabId, profileId });
+
+        expect(result.success).toBe(true);
+        expect(result.correlations.length).toBe(1);
+        expect(result.correlations[0].domain).toBe('ad-tracker.net');
+        expect(result.correlations[0].reasons[0].name).toBe('AdGuard Tracking Protection');
+        expect(result.correlations[0].device).toBe('Work Mac');
+    });
 });

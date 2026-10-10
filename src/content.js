@@ -307,6 +307,7 @@ async function extractApiKey() {
         browser.storage.local.set({ apiKey: newKey })
       ]);
       console.log("[DNS Forge] API Key auto-extracted and synced.");
+      showToast("DNS Forge: Linked NextDNS API key successfully!", "success");
     }
   }
 }

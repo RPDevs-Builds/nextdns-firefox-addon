@@ -447,16 +447,16 @@
     </div>
   </div>
 
-  <div class="tab-bar">
-    <button class="tab-btn active" data-tab="dashboard">🏠 Overview</button>
-    <button class="tab-btn" data-tab="toggles">🛡️ Protection</button>
-    <button class="tab-btn" data-tab="logs">📡 Logs</button>
-    <button class="tab-btn hidden" id="tab-btn-labs" data-tab="labs">🧪 Labs</button>
-    <button class="tab-btn" data-tab="settings">⚙️ Options</button>
+  <div class="tab-bar" role="tablist" aria-label="Main Navigation">
+    <button class="tab-btn active" id="tab-btn-dashboard" role="tab" aria-selected="true" aria-controls="tab-dashboard" data-tab="dashboard">🏠 Overview</button>
+    <button class="tab-btn" id="tab-btn-toggles" role="tab" aria-selected="false" aria-controls="tab-toggles" data-tab="toggles">🛡️ Protection</button>
+    <button class="tab-btn" id="tab-btn-logs" role="tab" aria-selected="false" aria-controls="tab-logs" data-tab="logs">📡 Logs</button>
+    <button class="tab-btn hidden" id="tab-btn-labs" role="tab" aria-selected="false" aria-controls="tab-labs" data-tab="labs">🧪 Labs</button>
+    <button class="tab-btn" id="tab-btn-settings" role="tab" aria-selected="false" aria-controls="tab-settings" data-tab="settings">⚙️ Options</button>
   </div>
 
   <!-- Tab: Dashboard / Overview -->
-  <div id="tab-dashboard" class="tab-content active">
+  <div id="tab-dashboard" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-dashboard">
     <div class="sub-nav" id="dashboard-sub-nav" style="background: var(--bg-main);">
       <button class="sub-tab-btn active" data-sub="overview">📊 Overview</button>
       <button class="sub-tab-btn" data-sub="debugger">🔍 Debugger</button>
@@ -522,7 +522,7 @@
   </div>
 
   <!-- Tab: Logs -->
-  <div id="tab-logs" class="tab-content" style="padding: 15px;">
+  <div id="tab-logs" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-logs" style="padding: 15px;">
     <div style="display: flex; gap: 8px; margin-bottom: 8px;">
       <input type="text" id="log-search" placeholder="Search logs..." style="margin-bottom: 0; flex-grow: 1;">
       <button id="auto-refresh-btn" class="btn-secondary" style="width: auto; padding: 0 12px;" title="Toggle Auto-Refresh" aria-label="Toggle Auto-Refresh">⏸️ Auto</button>
@@ -552,7 +552,7 @@
   </div>
 
   <!-- Tab: Toggles (Protection) -->
-  <div id="tab-toggles" class="tab-content">
+  <div id="tab-toggles" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-toggles">
     <div class="sub-nav" id="blocks-sub-nav">
       <button class="sub-tab-btn active" data-sub="security">🔒 Security</button>
       <button class="sub-tab-btn" data-sub="privacy">👁️ Privacy</button>
@@ -602,7 +602,7 @@
 
 
   <!-- Tab: Settings (Options) -->
-  <div id="tab-settings" class="tab-content">
+  <div id="tab-settings" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-settings">
     <div class="sub-nav" id="settings-sub-nav">
       <button class="sub-tab-btn active" data-sub="setup">🔌 Connection</button>
       <button class="sub-tab-btn" data-sub="alerts">🔔 Alerts</button>

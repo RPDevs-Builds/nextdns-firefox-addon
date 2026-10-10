@@ -96,6 +96,8 @@ export function setActiveTab(tabId) {
     tabButtons.forEach(btn => {
         const isActive = btn.dataset.tab === tabId;
         btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        btn.tabIndex = isActive ? 0 : -1;
     });
 
     tabContents.forEach(content => {
@@ -103,8 +105,10 @@ export function setActiveTab(tabId) {
         content.classList.toggle('active', isActive);
         if (isActive) {
             content.style.display = 'flex'; // Ensure it's visible if using flex layout
+            content.removeAttribute('hidden');
         } else {
             content.style.display = 'none';
+            content.setAttribute('hidden', '');
         }
     });
 }

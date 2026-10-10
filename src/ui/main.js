@@ -295,6 +295,25 @@ function initGlobalEventListeners() {
         };
     });
 
+    // Tab keyboard navigation (WAI-ARIA pattern)
+    const tabBar = document.querySelector('.tab-bar');
+    if (tabBar) {
+        tabBar.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                const tabs = Array.from(tabBar.querySelectorAll('.tab-btn:not(.hidden)'));
+                const currentIndex = tabs.findIndex(t => t.dataset.tab === state.activeTab);
+                if (currentIndex === -1) return;
+                
+                let nextIndex = e.key === 'ArrowRight' ? currentIndex + 1 : currentIndex - 1;
+                if (nextIndex >= tabs.length) nextIndex = 0;
+                if (nextIndex < 0) nextIndex = tabs.length - 1;
+                
+                tabs[nextIndex].focus();
+                tabs[nextIndex].click();
+            }
+        });
+    }
+
     // Sub-tab switching
     document.querySelectorAll('.sub-tab-btn').forEach(btn => {
         btn.onclick = () => {

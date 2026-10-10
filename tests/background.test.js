@@ -254,4 +254,49 @@ describe('Background Script - Full Coverage Suite', () => {
     expect(srvAddRes.success).toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/parentalcontrol/services'), expect.objectContaining({ method: 'POST' }));
   });
+
+  test('Message Handler - TEMP_ALLOW with custom duration', async () => {
+    await bg.initializeBackground();
+
+    const tempRes = await new Promise(resolve => {
+      messageHandlerRef({ type: 'TEMP_ALLOW', profileId: 'profile123', domain: 'temp-work.org', durationInMinutes: 15 }, {}, resolve);
+    });
+
+    expect(tempRes.success).toBe(true);
+    expect(global.browser.alarms.create).toHaveBeenCalledWith(
+      expect.stringContaining('tempAllow?'),
+      { delayInMinutes: 15 }
+    );
+  });
+
+  test('Message Handler - MANAGE_DOMAIN with Mirror Mode replication', async () => {
+    await global.storage.set('mirrorProfiles', ['profile123', 'profileMirror456']);
+    await bg.initializeBackground();
+
+    const addRes = await new Promise(resolve => {
+      messageHandlerRef({ type: 'MANAGE_DOMAIN', profileId: 'profile123', listType: 'allowlist', domain: 'mirrored.com', action: 'add' }, {}, resolve);
+    });
+
+    expect(addRes.success).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/profiles/profile123/allowlist'), expect.anything());
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/profiles/profileMirror456/allowlist'), expect.anything());
+  });
+
+  test('Message Handler - GET_ANALYTICS with custom endpoint', async () => {
+    await bg.initializeBackground();
+
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/analytics/domains?status=blocked')) {
+        return { ok: true, json: async () => ({ data: [{ root: 'ads.com', queries: 42 }] }) };
+      }
+      return { ok: false, statusText: 'Not Found', json: async () => ({}) };
+    });
+
+    const analyticsRes = await new Promise(resolve => {
+      messageHandlerRef({ type: 'GET_ANALYTICS', profileId: 'profile123', endpoint: 'domains?status=blocked' }, {}, resolve);
+    });
+
+    expect(analyticsRes.success).toBe(true);
+    expect(analyticsRes.data).toEqual([{ root: 'ads.com', queries: 42 }]);
+  });
 });

@@ -70,8 +70,11 @@ export async function runIntelligentDebugger() {
         
         const html = `
             <div class="flex-between">
-                <strong style="font-family: monospace; font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px;">${escapeHTML(c.domain)}</strong>
-                <button class="btn-allow debug-allow-btn" data-domain="${escapeHTML(c.domain)}" style="width: auto; padding: 2px 8px; font-size: 0.7em;">Allow</button>
+                <strong style="font-family: monospace; font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;">${escapeHTML(c.domain)}</strong>
+                <div style="display: flex; gap: 4px;">
+                    <button class="btn-allow debug-allow-btn" data-domain="${escapeHTML(c.domain)}" style="width: auto; padding: 2px 8px; font-size: 0.7em;">Allow</button>
+                    <button class="btn-secondary debug-snooze-btn" data-domain="${escapeHTML(c.domain)}" title="Temporarily allow for 15 minutes" style="width: auto; padding: 2px 8px; font-size: 0.7em;">Snooze 15m</button>
+                </div>
             </div>
             <div style="margin-top: 5px; display: flex; flex-wrap: wrap; gap: 4px;">${reasons}</div>
             <div style="font-size: 0.7em; color: var(--text-muted); margin-top: 5px;">${new Date(c.timestamp).toLocaleTimeString()} • ${escapeHTML(c.device)}</div>
@@ -100,6 +103,31 @@ export async function runIntelligentDebugger() {
                 showToast(`Failed to add domain: ${allowRes?.error || 'Unknown error'}`, 'error');
             }
         };
+
+        const snoozeBtn = row.querySelector('.debug-snooze-btn');
+        if (snoozeBtn) {
+            snoozeBtn.onclick = async (e) => {
+                const btn = e.target;
+                const domain = btn.getAttribute('data-domain');
+                btn.disabled = true;
+                btn.textContent = "...";
+                const res = await browser.runtime.sendMessage({
+                    type: "TEMP_ALLOW",
+                    profileId: state.activeProfile,
+                    domain,
+                    durationInMinutes: 15
+                });
+                if (res.success) {
+                    btn.textContent = "Snoozed 15m";
+                    btn.classList.add('badge-allow');
+                    showToast(`Snoozed ${domain} for 15 minutes`, 'success');
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = "Error";
+                    showToast(`Failed to snooze domain: ${res?.error || 'Unknown error'}`, 'error');
+                }
+            };
+        }
         resultsContainer.appendChild(row);
     });
 }
