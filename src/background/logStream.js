@@ -14,8 +14,10 @@ class LogStreamManager {
     constructor() {
         this.eventSource = null;
         this.currentProfileId = null;
+        this.currentApiKey = null;
         this.reconnectTimeout = null;
         this.isExplicitlyStopped = false;
+        this.reconnectAttempts = 0;
     }
 
     /**
@@ -48,6 +50,7 @@ class LogStreamManager {
             this.eventSource = new EventSource(url);
             
             this.eventSource.onmessage = (e) => {
+                this.reconnectAttempts = 0;
                 try {
                     const log = JSON.parse(e.data);
                     browser.runtime.sendMessage({ type: "LIVE_LOG", log }).catch(() => {});
@@ -68,15 +71,19 @@ class LogStreamManager {
             };
 
             this.eventSource.onerror = (e) => {
-                console.warn(`[SSE] Stream disconnected for profile ${profileId}, attempting reconnect in 5s...`);
+                const backoffDelay = Math.min(30000, Math.round(5000 * Math.pow(1.5, this.reconnectAttempts)));
+                this.reconnectAttempts++;
+                console.warn(`[SSE] Stream disconnected for profile ${profileId}, attempting reconnect in ${backoffDelay}ms... (attempt ${this.reconnectAttempts})`);
                 if (this.eventSource) {
+                    this.eventSource.onmessage = null;
+                    this.eventSource.onerror = null;
                     this.eventSource.close();
                     this.eventSource = null;
                 }
                 
                 if (!this.isExplicitlyStopped) {
                     clearTimeout(this.reconnectTimeout);
-                    this.reconnectTimeout = setTimeout(() => this.start(profileId), 5000);
+                    this.reconnectTimeout = setTimeout(() => this.start(profileId), backoffDelay);
                 }
             };
 
@@ -92,11 +99,17 @@ class LogStreamManager {
      */
     stop() {
         this.isExplicitlyStopped = true;
+        this.reconnectAttempts = 0;
         clearTimeout(this.reconnectTimeout);
+        this.reconnectTimeout = null;
         if (this.eventSource) {
+            this.eventSource.onmessage = null;
+            this.eventSource.onerror = null;
             this.eventSource.close();
             this.eventSource = null;
         }
+        this.currentProfileId = null;
+        this.currentApiKey = null;
     }
 }
 

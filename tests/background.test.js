@@ -224,6 +224,21 @@ describe('Background Script - Full Coverage Suite', () => {
     expect(stats.requests).toEqual({});
   });
 
+  test('Tab Lifecycle - LRU 300 domain limit per tab', async () => {
+    await bg.initializeBackground();
+    blockingListenerRef({ url: 'https://domain0.com/page', tabId: 102, type: 'main_frame' });
+    
+    for (let i = 1; i < 305; i++) {
+      blockingListenerRef({ url: `https://domain${i}.com/page`, tabId: 102, type: 'sub_frame' });
+    }
+    
+    const stats = await new Promise(resolve => messageHandlerRef({ type: 'GET_TAB_STATS', tabId: 102 }, {}, resolve));
+    const trackedDomains = Object.keys(stats.requests);
+    expect(trackedDomains.length).toBe(300);
+    expect(stats.requests['domain0.com']).toBeUndefined();
+    expect(stats.requests['domain304.com']).toBeDefined();
+  });
+
   test('Context Menus - Allow/Deny Actions', async () => {
     await bg.initializeBackground();
     expect(menuClickListenerRef).toBeDefined();

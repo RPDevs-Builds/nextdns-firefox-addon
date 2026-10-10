@@ -74,4 +74,29 @@ describe('Profile Snapshots (Phase 4.2)', () => {
         expect(mockStorage.profileSnapshots['p1'].length).toBe(1);
         expect(mockStorage.profileSnapshots['p1'][0].id).toBe('s2');
     });
+
+    test('CREATE_SNAPSHOT: Returns error if profileId is missing', async () => {
+        const result = await bg.messageHandlers.CREATE_SNAPSHOT({});
+        expect(result.success).toBe(false);
+        expect(result.error).toContain('Profile ID required');
+    });
+
+    test('CREATE_SNAPSHOT: Prunes oldest snapshots when payload exceeds quota limit', async () => {
+        const profileId = 'p1';
+        const largeString = 'x'.repeat(1200000);
+        global.fetch.mockResolvedValue({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ data: { largeData: largeString } })
+        });
+
+        const res1 = await bg.messageHandlers.CREATE_SNAPSHOT({ profileId, name: 'Snap1' });
+        expect(res1.success).toBe(true);
+        expect(mockStorage.profileSnapshots[profileId].length).toBe(1);
+
+        const res2 = await bg.messageHandlers.CREATE_SNAPSHOT({ profileId, name: 'Snap2' });
+        expect(res2.success).toBe(true);
+        expect(mockStorage.profileSnapshots[profileId].length).toBe(1);
+        expect(mockStorage.profileSnapshots[profileId][0].name).toBe('Snap2');
+    });
 });

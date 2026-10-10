@@ -336,27 +336,43 @@ export const messageHandlers = {
     },
     /**
      * Creates a configuration snapshot of the current profile settings.
+     * Implements storage quota protections by pruning older snapshots if payload approaches quota.
      * @param {Object} msg - The message object containing profileId and snapshot name.
      */
     CREATE_SNAPSHOT: async (msg) => {
-        const { profileId, name } = msg;
-        const configRes = await messageHandlers.GET_ALL_SETTINGS({ profileId });
-        if (!configRes.success) return { success: false, error: "Failed to fetch current config" };
-        
-        const snapshot = {
-            id: Date.now().toString(),
-            name,
-            timestamp: Date.now(),
-            data: configRes.data
-        };
+        try {
+            const { profileId, name } = msg;
+            if (!profileId) return { success: false, error: "Profile ID required" };
 
-        const profileSnapshots = await storage.get("profileSnapshots", {});
-        if (!profileSnapshots[profileId]) profileSnapshots[profileId] = [];
-        profileSnapshots[profileId].unshift(snapshot);
-        if (profileSnapshots[profileId].length > 10) profileSnapshots[profileId].pop();
-        
-        await storage.set("profileSnapshots", profileSnapshots);
-        return { success: true, snapshot };
+            const configRes = await messageHandlers.GET_ALL_SETTINGS({ profileId });
+            if (!configRes.success) return { success: false, error: configRes.error || "Failed to fetch current config" };
+            
+            const snapshot = {
+                id: Date.now().toString(),
+                name: (name && name.trim()) ? name.trim() : `Snapshot ${new Date().toLocaleDateString()}`,
+                timestamp: Date.now(),
+                data: configRes.data
+            };
+
+            const profileSnapshots = await storage.get("profileSnapshots", {});
+            if (!profileSnapshots[profileId]) profileSnapshots[profileId] = [];
+            profileSnapshots[profileId].unshift(snapshot);
+            if (profileSnapshots[profileId].length > 10) profileSnapshots[profileId].pop();
+
+            // Safe quota protection: If serialized snapshots exceed 2MB, prune oldest across the profile
+            const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
+            let serialized = JSON.stringify(profileSnapshots);
+            while (serialized.length > MAX_SNAPSHOT_BYTES && profileSnapshots[profileId].length > 1) {
+                profileSnapshots[profileId].pop();
+                serialized = JSON.stringify(profileSnapshots);
+            }
+            
+            await storage.set("profileSnapshots", profileSnapshots);
+            return { success: true, snapshot };
+        } catch (e) {
+            console.warn("[Snapshot] Failed to create snapshot:", e);
+            return { success: false, error: e.message || "Failed to save snapshot" };
+        }
     },
     /**
      * Lists all snapshots for a specific profile.

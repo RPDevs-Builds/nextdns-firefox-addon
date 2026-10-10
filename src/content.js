@@ -1329,7 +1329,14 @@ async function processTLDs(profileId, tldArray, method, actionText, alertOnFinis
     const url = method === 'POST' ? `${INTERNAL_API}/${profileId}/security/tlds` : `${INTERNAL_API}/${profileId}/security/tlds/${tld}`;
     const opts = { method, credentials: 'include', headers: { 'Content-Type': 'application/json' } };
     if (method === 'POST') opts.body = JSON.stringify({ id: tld });
-    try { await fetch(url, opts); } catch (e) {} finally { completed++; }
+    try { 
+      const res = await fetch(url, opts);
+      if (!res.ok) console.warn(`[Content] TLD ${tld} update returned HTTP ${res.status}`);
+    } catch (e) { 
+      console.warn(`[Content] TLD ${tld} update failed:`, e); 
+    } finally { 
+      completed++; 
+    }
   };
   const workers = Array(Math.min(10, queue.length)).fill(null).map(async () => {
     while (queue.length > 0) await runTask(queue.shift());
