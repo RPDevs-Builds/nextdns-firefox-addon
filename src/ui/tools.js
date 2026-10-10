@@ -77,7 +77,7 @@ export async function runIntelligentDebugger() {
                 </div>
             </div>
             <div style="margin-top: 5px; display: flex; flex-wrap: wrap; gap: 4px;">${reasons}</div>
-            <div style="font-size: 0.7em; color: var(--text-muted); margin-top: 5px;">${new Date(c.timestamp).toLocaleTimeString()} • ${escapeHTML(c.device)}</div>
+            <div style="font-size: 0.7em; color: var(--text-muted); margin-top: 5px;">${!isNaN(new Date(c.timestamp).getTime()) ? new Date(c.timestamp).toLocaleTimeString() : 'Unknown'} • ${escapeHTML(c.device)}</div>
         `;
         setSafeHTML(row, html);
         
@@ -86,21 +86,27 @@ export async function runIntelligentDebugger() {
             const domain = btn.getAttribute('data-domain');
             btn.disabled = true;
             btn.textContent = "...";
-            const allowRes = await browser.runtime.sendMessage({
-                type: "MANAGE_DOMAIN",
-                profileId: state.activeProfile,
-                listType: "allowlist",
-                domain,
-                action: "add"
-            });
-            if (allowRes.success) {
-                btn.textContent = "Added";
-                btn.classList.replace('btn-allow', 'btn-secondary');
-                showToast(`Added ${domain} to Allowlist`, 'success');
-            } else {
+            try {
+                const allowRes = await browser.runtime.sendMessage({
+                    type: "MANAGE_DOMAIN",
+                    profileId: state.activeProfile,
+                    listType: "allowlist",
+                    domain,
+                    action: "add"
+                });
+                if (allowRes?.success) {
+                    btn.textContent = "Added";
+                    btn.classList.replace('btn-allow', 'btn-secondary');
+                    showToast(`Added ${domain} to Allowlist`, 'success');
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = "Error";
+                    showToast(`Failed to add domain: ${allowRes?.error || 'Unknown error'}`, 'error');
+                }
+            } catch (err) {
                 btn.disabled = false;
                 btn.textContent = "Error";
-                showToast(`Failed to add domain: ${allowRes?.error || 'Unknown error'}`, 'error');
+                showToast(`Failed to add domain: ${err?.message || 'Unknown error'}`, 'error');
             }
         };
 
@@ -111,20 +117,26 @@ export async function runIntelligentDebugger() {
                 const domain = btn.getAttribute('data-domain');
                 btn.disabled = true;
                 btn.textContent = "...";
-                const res = await browser.runtime.sendMessage({
-                    type: "TEMP_ALLOW",
-                    profileId: state.activeProfile,
-                    domain,
-                    durationInMinutes: 15
-                });
-                if (res.success) {
-                    btn.textContent = "Snoozed 15m";
-                    btn.classList.add('badge-allow');
-                    showToast(`Snoozed ${domain} for 15 minutes`, 'success');
-                } else {
+                try {
+                    const res = await browser.runtime.sendMessage({
+                        type: "TEMP_ALLOW",
+                        profileId: state.activeProfile,
+                        domain,
+                        durationInMinutes: 15
+                    });
+                    if (res?.success) {
+                        btn.textContent = "Snoozed 15m";
+                        btn.classList.add('badge-allow');
+                        showToast(`Snoozed ${domain} for 15 minutes`, 'success');
+                    } else {
+                        btn.disabled = false;
+                        btn.textContent = "Error";
+                        showToast(`Failed to snooze domain: ${res?.error || 'Unknown error'}`, 'error');
+                    }
+                } catch (err) {
                     btn.disabled = false;
                     btn.textContent = "Error";
-                    showToast(`Failed to snooze domain: ${res?.error || 'Unknown error'}`, 'error');
+                    showToast(`Failed to snooze domain: ${err?.message || 'Unknown error'}`, 'error');
                 }
             };
         }

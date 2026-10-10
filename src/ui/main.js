@@ -123,6 +123,7 @@ async function handleDashboardDomain(listType, action, isTemp = false) {
         if (res.success) {
             showToast(`Successfully ${isTemp ? 'temporarily allowed' : (action === 'add' ? 'added' : 'removed')} ${domain}`, 'success');
             await syncLists(true);
+            updateDashboardTabInfo();
         } else {
             showToast(`Failed to update ${domain}: ${res.error || 'Unknown error'}`, 'error');
         }
@@ -144,24 +145,29 @@ async function handleAddDomain() {
 
     const listType = document.getElementById('list-type-select').value;
     const btn = document.getElementById('list-add-btn');
-    btn.disabled = true;
+    if (btn) btn.disabled = true;
 
-    const res = await browser.runtime.sendMessage({
-        type: "MANAGE_DOMAIN",
-        profileId: state.activeProfile,
-        listType,
-        domain,
-        action: "add"
-    });
+    try {
+        const res = await browser.runtime.sendMessage({
+            type: "MANAGE_DOMAIN",
+            profileId: state.activeProfile,
+            listType,
+            domain,
+            action: "add"
+        });
 
-    if (res.success) {
-        input.value = '';
-        showToast(`Added ${domain} to ${listType}`, 'success');
-        await syncLists(true);
-    } else {
-        showToast("Failed to add domain.", 'error');
+        if (res?.success) {
+            input.value = '';
+            showToast(`Added ${domain} to ${listType}`, 'success');
+            await syncLists(true);
+        } else {
+            showToast(`Failed to add domain: ${res?.error || "Unknown error"}`, 'error');
+        }
+    } catch (e) {
+        showToast(`Failed to add domain: ${e?.message || "Communication error"}`, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
     }
-    btn.disabled = false;
 }
 
 /**
@@ -175,27 +181,36 @@ async function handleBulkAdd() {
 
     const listType = document.getElementById('list-type-select').value;
     const btn = document.getElementById('list-bulk-submit-btn');
-    btn.disabled = true;
-    btn.textContent = "Adding...";
-
-    let successCount = 0;
-    for (const domain of domains) {
-        const res = await browser.runtime.sendMessage({
-            type: "MANAGE_DOMAIN",
-            profileId: state.activeProfile,
-            listType,
-            domain,
-            action: "add"
-        });
-        if (res.success) successCount++;
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Adding...";
     }
 
-    showToast(`Successfully added ${successCount} of ${domains.length} domains.`, 'success');
-    textarea.value = '';
-    document.getElementById('list-bulk-container').classList.add('hidden');
-    await syncLists(true);
-    btn.disabled = false;
-    btn.textContent = "Bulk Add";
+    try {
+        let successCount = 0;
+        for (const domain of domains) {
+            const res = await browser.runtime.sendMessage({
+                type: "MANAGE_DOMAIN",
+                profileId: state.activeProfile,
+                listType,
+                domain,
+                action: "add"
+            });
+            if (res?.success) successCount++;
+        }
+
+        showToast(`Successfully added ${successCount} of ${domains.length} domains.`, 'success');
+        textarea.value = '';
+        document.getElementById('list-bulk-container')?.classList.add('hidden');
+        await syncLists(true);
+    } catch (e) {
+        showToast(`Bulk add error: ${e?.message || "Communication error"}`, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = "Bulk Add";
+        }
+    }
 }
 
 /**

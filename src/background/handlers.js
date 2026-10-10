@@ -49,9 +49,11 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId, domain, and optional durationInMinutes.
      */
     TEMP_ALLOW: async (msg) => {
+        if (!msg.profileId || !msg.domain) return { success: false, error: "Missing parameters" };
         const res = await manageDomain(msg.profileId, "allowlist", msg.domain, "add");
         if (res.success) {
-            const duration = Number(msg.durationInMinutes || msg.duration) || 5;
+            const rawDuration = Number(msg.durationInMinutes || msg.duration) || 5;
+            const duration = Math.max(1, Math.min(1440, rawDuration));
             const alarmName = `${ALARM_PREFIX}p=${encodeURIComponent(msg.profileId)}&d=${encodeURIComponent(msg.domain)}`;
             browser.alarms.create(alarmName, { delayInMinutes: duration });
             await updateProfileCache();
@@ -413,25 +415,30 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId.
      */
     CLEAR_LOGS: async (msg) => {
+        if (!msg.profileId || !/^[a-zA-Z0-9_-]+$/.test(msg.profileId)) return { success: false, error: "Invalid profile ID" };
         const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/logs`, { method: 'DELETE' });
-        return { success: r.success };
+        const out = { success: r.success };
+        if (r.error) out.error = r.error;
+        return out;
     },
     /**
      * Lists all configured automation rules.
      */
     LIST_RULES: async () => {
         const forgeRules = await storage.get("forgeRules", []);
-        return { success: true, rules: forgeRules };
+        return { success: true, rules: Array.isArray(forgeRules) ? forgeRules : [] };
     },
     /**
      * Saves a new automation rule.
      * @param {Object} msg - The message object containing the rule definition.
      */
     SAVE_RULE: async (msg) => {
+        if (!msg.rule || typeof msg.rule !== 'object') return { success: false, error: "Invalid rule definition" };
         const forgeRules = await storage.get("forgeRules", []);
+        const rulesList = Array.isArray(forgeRules) ? forgeRules : [];
         const newRule = { id: Date.now().toString(), ...msg.rule, active: true };
-        forgeRules.push(newRule);
-        await storage.set("forgeRules", forgeRules);
+        rulesList.push(newRule);
+        await storage.set("forgeRules", rulesList);
         return { success: true, rule: newRule };
     },
     /**
@@ -439,8 +446,10 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing ruleId.
      */
     DELETE_RULE: async (msg) => {
+        if (!msg.ruleId) return { success: false, error: "Missing ruleId" };
         const forgeRules = await storage.get("forgeRules", []);
-        const updated = forgeRules.filter(r => r.id !== msg.ruleId);
+        const rulesList = Array.isArray(forgeRules) ? forgeRules : [];
+        const updated = rulesList.filter(r => r.id !== msg.ruleId);
         await storage.set("forgeRules", updated);
         return { success: true };
     },
@@ -449,9 +458,10 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId.
      */
     LIST_REWRITES: async (msg) => {
+        if (!msg.profileId || !/^[a-zA-Z0-9_-]+$/.test(msg.profileId)) return { success: false, error: "Invalid profile ID" };
         const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/rewrites`, { cache: 'no-store' });
-        if (!r.success) return { success: false, error: "Failed to fetch rewrites" };
-        const data = await r.response.json();
+        if (!r.success) return { success: false, error: r.error || "Failed to fetch rewrites" };
+        const data = await r.response.json().catch(() => ({}));
         return { success: true, data: data.data || [] };
     },
     /**
@@ -460,11 +470,16 @@ export const messageHandlers = {
      */
     SAVE_REWRITE: async (msg) => {
         const { profileId, name, content } = msg;
+        if (!profileId || !/^[a-zA-Z0-9_-]+$/.test(profileId)) return { success: false, error: "Invalid profile ID" };
+        if (!name || typeof name !== 'string' || !name.trim()) return { success: false, error: "Invalid domain name" };
+        if (!content || typeof content !== 'string' || !content.trim()) return { success: false, error: "Invalid rewrite target" };
         const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/rewrites`, {
             method: 'POST',
-            body: JSON.stringify({ name, content })
+            body: JSON.stringify({ name: name.trim(), content: content.trim() })
         });
-        return { success: r.success };
+        const out = { success: r.success };
+        if (r.error) out.error = r.error;
+        return out;
     },
     /**
      * Deletes a DNS Rewrite mapping.
@@ -472,8 +487,13 @@ export const messageHandlers = {
      */
     DELETE_REWRITE: async (msg) => {
         const { profileId, name } = msg;
-        const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/rewrites/${name}`, { method: 'DELETE' });
-        return { success: r.success };
+        if (!profileId || !/^[a-zA-Z0-9_-]+$/.test(profileId)) return { success: false, error: "Invalid profile ID" };
+        if (!name || typeof name !== 'string' || !name.trim()) return { success: false, error: "Invalid domain name" };
+        const safeName = encodeURIComponent(name.trim());
+        const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/rewrites/${safeName}`, { method: 'DELETE' });
+        const out = { success: r.success };
+        if (r.error) out.error = r.error;
+        return out;
     },
     /**
      * Pushes a new notification to the Action Center and persists to storage.

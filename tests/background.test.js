@@ -314,4 +314,131 @@ describe('Background Script - Full Coverage Suite', () => {
     expect(analyticsRes.success).toBe(true);
     expect(analyticsRes.data).toEqual([{ root: 'ads.com', queries: 42 }]);
   });
+
+  test('Message Handler - SAVE_REWRITE and DELETE_REWRITE with validation and encoding', async () => {
+    await bg.initializeBackground();
+
+    // Invalid parameters for SAVE_REWRITE
+    const invalidSave1 = await new Promise(resolve => {
+      messageHandlerRef({ type: 'SAVE_REWRITE', profileId: '', name: 'example.com', content: '1.2.3.4' }, {}, resolve);
+    });
+    expect(invalidSave1).toEqual({ success: false, error: 'Invalid profile ID' });
+
+    const invalidSave2 = await new Promise(resolve => {
+      messageHandlerRef({ type: 'SAVE_REWRITE', profileId: 'profile123', name: '', content: '1.2.3.4' }, {}, resolve);
+    });
+    expect(invalidSave2).toEqual({ success: false, error: 'Invalid domain name' });
+
+    const invalidSave3 = await new Promise(resolve => {
+      messageHandlerRef({ type: 'SAVE_REWRITE', profileId: 'profile123', name: 'example.com', content: '' }, {}, resolve);
+    });
+    expect(invalidSave3).toEqual({ success: false, error: 'Invalid rewrite target' });
+
+    // Valid SAVE_REWRITE
+    const validSave = await new Promise(resolve => {
+      messageHandlerRef({ type: 'SAVE_REWRITE', profileId: 'profile123', name: '  service.local  ', content: '  10.0.0.1  ' }, {}, resolve);
+    });
+    expect(validSave.success).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/profiles/profile123/rewrites'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ name: 'service.local', content: '10.0.0.1' })
+      })
+    );
+
+    // Invalid parameters for DELETE_REWRITE
+    const invalidDel1 = await new Promise(resolve => {
+      messageHandlerRef({ type: 'DELETE_REWRITE', profileId: 'bad/profile', name: 'service.local' }, {}, resolve);
+    });
+    expect(invalidDel1).toEqual({ success: false, error: 'Invalid profile ID' });
+
+    const invalidDel2 = await new Promise(resolve => {
+      messageHandlerRef({ type: 'DELETE_REWRITE', profileId: 'profile123', name: '' }, {}, resolve);
+    });
+    expect(invalidDel2).toEqual({ success: false, error: 'Invalid domain name' });
+
+    // Valid DELETE_REWRITE with path encoding
+    const validDel = await new Promise(resolve => {
+      messageHandlerRef({ type: 'DELETE_REWRITE', profileId: 'profile123', name: 'foo.com/bar' }, {}, resolve);
+    });
+    expect(validDel.success).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/profiles/profile123/rewrites/foo.com%2Fbar'),
+      expect.objectContaining({ method: 'DELETE' })
+    );
+  });
+
+  test('Message Handler - TEMP_ALLOW parameter validation and duration clamping', async () => {
+    await bg.initializeBackground();
+
+    // Missing profileId or domain
+    const missingRes = await new Promise(resolve => {
+      messageHandlerRef({ type: 'TEMP_ALLOW', profileId: '', domain: 'temp.com' }, {}, resolve);
+    });
+    expect(missingRes).toEqual({ success: false, error: 'Missing parameters' });
+
+    // Clamping low/negative duration to 1
+    const lowRes = await new Promise(resolve => {
+      messageHandlerRef({ type: 'TEMP_ALLOW', profileId: 'profile123', domain: 'temp-min.com', durationInMinutes: -5 }, {}, resolve);
+    });
+    expect(lowRes.success).toBe(true);
+    expect(global.browser.alarms.create).toHaveBeenCalledWith(
+      expect.stringContaining('tempAllow?'),
+      { delayInMinutes: 1 }
+    );
+
+    // Clamping excessive duration to 1440
+    const highRes = await new Promise(resolve => {
+      messageHandlerRef({ type: 'TEMP_ALLOW', profileId: 'profile123', domain: 'temp-max.com', durationInMinutes: 5000 }, {}, resolve);
+    });
+    expect(highRes.success).toBe(true);
+    expect(global.browser.alarms.create).toHaveBeenCalledWith(
+      expect.stringContaining('tempAllow?'),
+      { delayInMinutes: 1440 }
+    );
+  });
+
+  test('Message Handler - MANAGE_DOMAIN parameter validation and error propagation', async () => {
+    await bg.initializeBackground();
+
+    // Invalid profileId
+    const badProfile = await new Promise(resolve => {
+      messageHandlerRef({ type: 'MANAGE_DOMAIN', profileId: '../escape', listType: 'allowlist', domain: 'test.com', action: 'add' }, {}, resolve);
+    });
+    expect(badProfile.success).toBe(false);
+    expect(badProfile.error).toBe('Invalid profile ID');
+
+    // Invalid listType
+    const badList = await new Promise(resolve => {
+      messageHandlerRef({ type: 'MANAGE_DOMAIN', profileId: 'profile123', listType: 'customlist', domain: 'test.com', action: 'add' }, {}, resolve);
+    });
+    expect(badList.success).toBe(false);
+    expect(badList.error).toBe('Invalid list type');
+
+    // Invalid domain
+    const badDomain = await new Promise(resolve => {
+      messageHandlerRef({ type: 'MANAGE_DOMAIN', profileId: 'profile123', listType: 'allowlist', domain: '', action: 'add' }, {}, resolve);
+    });
+    expect(badDomain.success).toBe(false);
+    expect(badDomain.error).toBe('Invalid domain');
+  });
+
+  test('Message Handler - CLEAR_LOGS profile ID validation', async () => {
+    await bg.initializeBackground();
+
+    const badClear = await new Promise(resolve => {
+      messageHandlerRef({ type: 'CLEAR_LOGS', profileId: 'invalid/id' }, {}, resolve);
+    });
+    expect(badClear).toEqual({ success: false, error: 'Invalid profile ID' });
+
+    const goodClear = await new Promise(resolve => {
+      messageHandlerRef({ type: 'CLEAR_LOGS', profileId: 'profile123' }, {}, resolve);
+    });
+    expect(goodClear.success).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/profiles/profile123/logs'),
+      expect.objectContaining({ method: 'DELETE' })
+    );
+  });
 });

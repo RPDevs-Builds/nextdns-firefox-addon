@@ -21,20 +21,30 @@ import { API_BASE, TEST_URL, state } from './state.js';
  * @returns {Promise<Object>} A result object with success status or data.
  */
 export async function manageDomain(profileId, listType, domain, action) {
+    if (!profileId || typeof profileId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(profileId)) {
+        return { success: false, error: "Invalid profile ID" };
+    }
+    if (!['allowlist', 'denylist'].includes(listType)) {
+        return { success: false, error: "Invalid list type" };
+    }
     const endpoint = `/profiles/${profileId}/${listType}`;
     try {
         let res;
         if (action === 'add') {
-            res = await apiClient.fetchWithRetry(endpoint, { method: 'POST', body: JSON.stringify({ id: domain }) });
+            if (!domain || typeof domain !== 'string' || !domain.trim()) return { success: false, error: "Invalid domain" };
+            res = await apiClient.fetchWithRetry(endpoint, { method: 'POST', body: JSON.stringify({ id: domain.trim() }) });
         } else if (action === 'delete') {
-            res = await apiClient.fetchWithRetry(`${endpoint}/${domain}`, { method: 'DELETE' });
+            if (!domain || typeof domain !== 'string' || !domain.trim()) return { success: false, error: "Invalid domain" };
+            res = await apiClient.fetchWithRetry(`${endpoint}/${encodeURIComponent(domain.trim())}`, { method: 'DELETE' });
         } else if (action === 'list') {
             res = await apiClient.fetchWithRetry(endpoint, { method: 'GET' });
             if (res.success) return await res.response.json();
             return { error: res.error || "Fetch Error" };
         }
-        return { success: res.success };
-    } catch (error) { return { success: false, error: "Network Error" }; }
+        const out = { success: res.success };
+        if (res.error) out.error = res.error;
+        return out;
+    } catch (error) { return { success: false, error: error.message || "Network Error" }; }
 }
 
 /**
@@ -184,8 +194,14 @@ export async function checkAndUpdateLinkedIP() {
         }
 
         if (ip && ip !== currentLinkedIP) {
+            const isIPv4 = /^(\d{1,3}\.){3}\d{1,3}$/.test(ip);
+            const isIPv6 = /^([a-fA-F0-9:]+)$/.test(ip);
+            if (!isIPv4 && !isIPv6) {
+                console.warn("[DDNS] Detected invalid IP format:", ip);
+                return;
+            }
             console.log(`[DDNS] IP Change detected: ${currentLinkedIP} -> ${ip}. Updating...`);
-            const updateRes = await apiClient.fetchWithRetry(`/profiles/${activeProfileId}/linked-ip/${ip}`, { method: 'POST' });
+            const updateRes = await apiClient.fetchWithRetry(`/profiles/${activeProfileId}/linked-ip/${encodeURIComponent(ip)}`, { method: 'POST' });
             if (updateRes.success) {
                 console.log("[DDNS] Successfully updated linked IP.");
             }

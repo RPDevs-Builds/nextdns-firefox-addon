@@ -534,7 +534,7 @@ export function downloadLogsCSV() {
 
     const headers = ["Timestamp", "Device", "Domain", "Status", "Reason"];
     const rows = state.cachedLogs.map(l => [
-        new Date(l.timestamp).toISOString(),
+        !isNaN(new Date(l.timestamp).getTime()) ? new Date(l.timestamp).toISOString() : (l.timestamp || "Invalid Date"),
         state.hostnameAliases[l.device?.id || l.clientIp] || l.device?.name || l.clientIp || "Unknown",
         l.name || l.domain,
         l.status,
@@ -556,14 +556,19 @@ export async function wipeLogs() {
     const btn = document.getElementById('wipe-logs-btn');
     if (btn) { btn.disabled = true; btn.textContent = "Clearing..."; }
 
-    const res = await browser.runtime.sendMessage({ type: "CLEAR_LOGS", profileId: state.activeProfile });
-    if (res.success) {
-        state.cachedLogs = [];
-        renderLogs();
-        showToast("Logs cleared successfully.", "success");
-    } else {
-        showToast("Failed to clear logs.", "error");
+    try {
+        const res = await browser.runtime.sendMessage({ type: "CLEAR_LOGS", profileId: state.activeProfile });
+        if (res?.success) {
+            state.cachedLogs = [];
+            renderLogs();
+            showToast("Logs cleared successfully.", "success");
+        } else {
+            showToast(`Failed to clear logs: ${res?.error || "Unknown error"}`, "error");
+        }
+    } catch (err) {
+        showToast(`Failed to clear logs: ${err?.message || "Unknown error"}`, "error");
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "🗑️ Clear Logs"; }
     }
-    if (btn) { btn.disabled = false; btn.textContent = "🗑️ Clear Logs"; }
 }
 
