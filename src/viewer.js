@@ -11,7 +11,8 @@
 
 import { storage } from './storage.js';
 import { loadMetadata } from './metadataManager.js';
-import { escapeHTML, setSafeHTML } from './ui/utils.js';
+import { escapeHTML, setSafeHTML, showToast, renderEmptyStateHTML } from './ui/utils.js';
+import { initViewerTheme } from './ui/theme.js';
 
 // --- Global State ---
 /** @type {string} Currently active sub-tab ('domains', 'profiles', 'filters', 'hostnames', 'tlds', 'blocklists', 'backup', 'snapshots', 'comparison', 'rewrites') */
@@ -46,19 +47,9 @@ const cancelBtn = document.getElementById('cancel-btn');
  * Binds the comparison trigger button.
  */
 function initComparisonTab() {
-    const selects = ['compare-base-profile', 'compare-target-profile'];
-    selects.forEach(id => {
-        const el = document.getElementById(id);
-        if (el && el.options.length === 0) {
-            profilesList.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.id;
-                opt.textContent = `${p.name} (${p.id})`;
-                el.appendChild(opt);
-            });
-        }
-    });
-    document.getElementById('run-comparison-btn').onclick = runComparison;
+    populateProfileDropdowns();
+    const runBtn = document.getElementById('run-comparison-btn');
+    if (runBtn) runBtn.onclick = runComparison;
 }
 
 /**
@@ -71,7 +62,7 @@ async function runComparison() {
     const targetId = document.getElementById('compare-target-profile').value;
     const results = document.getElementById('comparison-results');
     
-    if (baseId === targetId) return alert("Please select two different profiles.");
+    if (baseId === targetId) return showToast("Please select two different profiles.", "warning");
     
     setSafeHTML(results, '<div style="text-align:center; padding:20px;">Fetching configurations...</div>');
 
@@ -80,7 +71,10 @@ async function runComparison() {
         browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: targetId })
     ]);
 
-    if (!baseRes.success || !targetRes.success) return alert("Failed to fetch configurations.");
+    if (!baseRes.success || !targetRes.success) {
+        setSafeHTML(results, renderEmptyStateHTML('Failed to fetch configurations.', '⚠️'));
+        return showToast("Failed to fetch configurations.", "error");
+    }
 
     const base = baseRes.data;
     const target = targetRes.data;
@@ -109,7 +103,7 @@ async function runComparison() {
     });
 
     if (diffs.length === 0) {
-        setSafeHTML(results, '<div class="alert alert-success">Configurations are identical!</div>');
+        setSafeHTML(results, renderEmptyStateHTML('Configurations are identical! No differences found.', '✅'));
         return;
     }
 
@@ -137,6 +131,9 @@ async function runComparison() {
  * @async
  */
 async function init() {
+    // 0. Initialize and synchronize theme
+    await initViewerTheme();
+
     // 1. Detect Active Profile
     const p = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
     if (p) activeProfile = p.id;
@@ -179,6 +176,24 @@ function initEventListeners() {
     // Modal Controls
     cancelBtn.onclick = () => { editModal.style.display = 'none'; };
     saveBtn.onclick = handleSave;
+
+    // Close modal on backdrop click
+    editModal.onclick = (e) => {
+        if (e.target === editModal) editModal.style.display = 'none';
+    };
+
+    // Close modal & diff viewer on Escape key
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            if (editModal.style.display !== 'none') {
+                editModal.style.display = 'none';
+            }
+            const diffViewer = document.getElementById('snapshot-diff-container');
+            if (diffViewer && !diffViewer.classList.contains('hidden')) {
+                diffViewer.classList.add('hidden');
+            }
+        }
+    });
 
     // Global Click Delegation for List Items (Edit/Delete/Toggle)
     listContainer.onclick = async (e) => {
@@ -288,7 +303,7 @@ async function loadSnapshots() {
     const list = document.getElementById('snapshots-list');
     
     if (!res.snapshots || res.snapshots.length === 0) {
-        setSafeHTML(list, '<div style="text-align: center; color: var(--text-muted); padding: 20px;">No snapshots yet. Take one before making changes!</div>');
+        setSafeHTML(list, renderEmptyStateHTML('No snapshots yet. Take one before making changes!', '📸'));
     } else {
         const html = res.snapshots.map((s, i) => `
             <div class="list-item" style="border-left: 4px solid var(--accent); padding-left: 15px;">
@@ -316,6 +331,7 @@ async function loadSnapshots() {
             btn.onclick = async () => {
                 if (confirm("Delete this snapshot permanently?")) {
                     await browser.runtime.sendMessage({ type: "DELETE_SNAPSHOT", profileId: activeProfile, snapshotId: btn.getAttribute('data-id') });
+                    showToast("Snapshot deleted.", "info");
                     loadSnapshots();
                 }
             };
@@ -329,6 +345,7 @@ async function loadSnapshots() {
         btn.disabled = true; btn.textContent = "Taking...";
         await browser.runtime.sendMessage({ type: "CREATE_SNAPSHOT", profileId: activeProfile, name });
         btn.disabled = false; btn.textContent = "📸 Take Snapshot";
+        showToast("Snapshot created successfully.", "success");
         loadSnapshots();
     };
 }
@@ -349,8 +366,8 @@ function compareSnapshots(id, snapshots) {
     diffContainer.classList.remove('hidden');
     document.getElementById('close-diff-btn').onclick = () => diffContainer.classList.add('hidden');
 
-    const config1 = s1.config;
-    const config2 = s2.config;
+    const config1 = s1.data || s1.config || {};
+    const config2 = s2.data || s2.config || {};
     
     let diffStr = `Comparing [${s1.name}] (Old) vs [${s2.name}] (Current)\n\n`;
     
@@ -373,6 +390,59 @@ function compareSnapshots(id, snapshots) {
 }
 
 /**
+ * Applies a configuration settings object to a specified NextDNS profile.
+ * Sequentially updates Security, Privacy, Blocklists, TLDs, and Parental Controls.
+ * @async
+ * @param {Object} config - Configuration object.
+ * @param {string} targetProfile - ID of the target profile.
+ * @param {Function} [logger=()=>{}] - Callback for outputting progress messages.
+ */
+async function applyConfigToProfile(config, targetProfile, logger = () => {}) {
+    // 1. Security Settings
+    logger("[1/4] Applying Security settings...");
+    for (let [key, val] of Object.entries(config.security || {})) {
+        if (typeof val === 'boolean') {
+            await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "security", id: key, action: val ? "add" : "delete", settingType: "boolean" });
+        }
+    }
+
+    // 2. Privacy settings
+    logger("[2/4] Applying Privacy settings...");
+    for (let [key, val] of Object.entries(config.privacy || {})) {
+        if (typeof val === 'boolean') {
+            await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy", id: key, action: val ? "add" : "delete", settingType: "boolean" });
+        }
+    }
+
+    // 3. Blocklists & TLDs
+    logger("[3/4] Enabling Blocklists & TLDs...");
+    for (let b of (config.blocklists || [])) {
+        const id = b.id || b;
+        await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy/blocklists", id, action: "add", settingType: "list" });
+    }
+    for (let t of (config.tlds || [])) {
+        const id = t.id || t;
+        await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "security/tlds", id, action: "add", settingType: "list" });
+    }
+
+    // 4. Parental Control
+    logger("[4/4] Applying Parental Controls...");
+    const parental = config.parentalcontrol || config.parentalControl || {};
+    const services = config.services || parental.services || [];
+    for (let s of services) {
+        const id = s.id || s;
+        await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "parentalcontrol/services", id, action: "add", settingType: "list" });
+    }
+    const categories = config.categories || parental.categories || [];
+    for (let c of categories) {
+        const id = c.id || c;
+        await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "parentalcontrol/categories", id, action: "add", settingType: "list" });
+    }
+
+    logger("[Success] Configuration applied successfully!");
+}
+
+/**
  * Triggers a restoration of a profile from a snapshot.
  * Displays a progress log and notifies the user of completion.
  * @async
@@ -388,7 +458,7 @@ async function restoreSnapshot(id, snapshots) {
     logEl.classList.remove('hidden');
     logEl.textContent = "";
     const startMsg = document.createElement('div');
-    startMsg.textContent = "[System] Restoring Snapshot...";
+    startMsg.textContent = `[System] Restoring Snapshot [${s.name}]...`;
     logEl.appendChild(startMsg);
     
     // Switch to Backup tab to see the log
@@ -402,11 +472,13 @@ async function restoreSnapshot(id, snapshots) {
     };
 
     try {
-        const config = s.config;
+        const config = s.data || s.config || {};
         logger("Restoration logic initiated...");
-        alert("Snapshot rollback initiated! (Feature implementation in progress)");
+        await applyConfigToProfile(config, activeProfile, logger);
+        showToast(`Restored snapshot [${s.name}] successfully!`, "success");
     } catch (e) {
         logger("[Error] " + e.message);
+        showToast("Snapshot rollback failed: " + e.message, "error");
     }
 }
 
@@ -416,15 +488,14 @@ async function restoreSnapshot(id, snapshots) {
  * @async
  */
 async function setupBackupTab() {
-    const cloneTarget = document.getElementById('clone-target-profile');
-    const html = profilesList.map(p => 
-        `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`
-    ).join('');
-    setSafeHTML(cloneTarget, html);
+    populateProfileDropdowns();
 
-    document.getElementById('export-profile-btn').onclick = handleExportProfile;
-    document.getElementById('import-profile-btn').onclick = () => document.getElementById('import-profile-file').click();
-    document.getElementById('import-profile-file').onchange = handleImportProfile;
+    const exportBtn = document.getElementById('export-profile-btn');
+    if (exportBtn) exportBtn.onclick = handleExportProfile;
+    const importBtn = document.getElementById('import-profile-btn');
+    if (importBtn) importBtn.onclick = () => document.getElementById('import-profile-file')?.click();
+    const importFile = document.getElementById('import-profile-file');
+    if (importFile) importFile.onchange = handleImportProfile;
 }
 
 /**
@@ -432,7 +503,7 @@ async function setupBackupTab() {
  * @async
  */
 async function handleExportProfile() {
-    if (!activeProfile) return alert("No active profile detected.");
+    if (!activeProfile) return showToast("No active profile detected.", "warning");
     
     const btn = document.getElementById('export-profile-btn');
     btn.disabled = true;
@@ -448,8 +519,9 @@ async function handleExportProfile() {
         a.href = url;
         a.download = `dns-forge-backup-${activeProfile}-${new Date().toISOString().slice(0,10)}.json`;
         a.click();
+        showToast("Profile configuration exported.", "success");
     } catch (e) {
-        alert("Export failed: " + e.message);
+        showToast("Export failed: " + e.message, "error");
     } finally {
         btn.disabled = false;
         btn.textContent = "📤 Export to JSON";
@@ -466,8 +538,17 @@ async function handleImportProfile(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    const targetProfile = document.getElementById('clone-target-profile').value;
-    if (!confirm(`Are you sure you want to CLONE settings to profile ${targetProfile}? This will overwrite existing settings.`)) return;
+    const targetSelect = document.getElementById('clone-target-profile');
+    const targetProfile = targetSelect ? targetSelect.value : '';
+    if (!targetProfile) {
+        e.target.value = '';
+        return showToast("Please select a target profile to clone to.", "warning");
+    }
+
+    if (!confirm(`Are you sure you want to CLONE settings to profile ${targetProfile}? This will overwrite existing settings.`)) {
+        e.target.value = '';
+        return;
+    }
 
     const logEl = document.getElementById('cloning-log');
     logEl.classList.remove('hidden');
@@ -486,46 +567,22 @@ async function handleImportProfile(e) {
     try {
         const reader = new FileReader();
         reader.onload = async (event) => {
-            const config = JSON.parse(event.target.result);
-            
-            // 1. Security Settings
-            logger("[1/4] Applying Security settings...");
-            for (let [key, val] of Object.entries(config.security || {})) {
-                if (typeof val === 'boolean') {
-                    await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "security", id: key, action: val ? "add" : "delete", settingType: "boolean" });
-                }
+            try {
+                const config = JSON.parse(event.target.result);
+                await applyConfigToProfile(config, targetProfile, logger);
+                showToast("Cloning complete!", "success");
+            } catch (err) {
+                logger("[Error] " + err.message);
+                showToast("Import failed: " + err.message, "error");
+            } finally {
+                e.target.value = '';
             }
-
-            // 2. Privacy settings
-            logger("[2/4] Applying Privacy settings...");
-            for (let [key, val] of Object.entries(config.privacy || {})) {
-                if (typeof val === 'boolean') {
-                    await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy", id: key, action: val ? "add" : "delete", settingType: "boolean" });
-                }
-            }
-
-            // 3. Blocklists & TLDs
-            logger("[3/4] Enabling Blocklists & TLDs...");
-            for (let b of (config.blocklists || [])) {
-                await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy/blocklists", id: b.id, action: "add" });
-            }
-            for (let t of (config.tlds || [])) {
-                await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "security/tlds", id: t.id, action: "add" });
-            }
-
-            // 4. Parental Control
-            logger("[4/4] Applying Parental Controls...");
-            for (let s of (config.services || [])) {
-                await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "parentalControl/services", id: s.id, action: "add" });
-            }
-
-            logger("[Success] Profile cloned successfully!");
-            alert("Cloning complete!");
         };
         reader.readAsText(file);
     } catch (e) {
         logger("[Error] " + e.message);
-        alert("Import failed: " + e.message);
+        showToast("Import failed: " + e.message, "error");
+        e.target.value = '';
     }
 }
 
@@ -608,7 +665,7 @@ function renderList() {
                 <button class="btn btn-delete" data-key="${escapeHTML(key)}">Delete</button>
             </div>
         </div>
-    `).join('') || `<div style="text-align:center; padding:60px; opacity:0.5;">No items found in ${activeTab}.</div>`;
+    `).join('') || renderEmptyStateHTML(`No items found in ${activeTab}.`, '🔍');
     
     setSafeHTML(listContainer, html);
 }
@@ -649,7 +706,7 @@ function renderTlds(query) {
                 }).join('')}
             </div>
         </div>
-    `).join('') || `<div style="text-align:center; padding:60px; opacity:0.5;">TLD list is empty. Try syncing metadata in Options.</div>`;
+    `).join('') || renderEmptyStateHTML('TLD list is empty. Try syncing metadata in Options.', '🌐');
     
     setSafeHTML(listContainer, html);
 }
@@ -662,6 +719,11 @@ function renderBlocklists(query) {
     let filtered = blocksMeta.blocklists.filter(b => 
         b.name.toLowerCase().includes(query) || b.description.toLowerCase().includes(query)
     );
+
+    if (filtered.length === 0) {
+        setSafeHTML(listContainer, renderEmptyStateHTML('No blocklists match your search.', '🛡️'));
+        return;
+    }
 
     let html = `
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; padding: 20px;">
@@ -760,10 +822,10 @@ async function handleSave() {
         : inputKey.value.trim();
         
     const note = inputNote.value.trim();
-    if (!key) return alert('Please enter or select a key.');
+    if (!key) return showToast('Please enter or select a key.', 'warning');
 
     if (activeTab === 'rewrites') {
-        if (!activeProfile) return alert("Profile not detected.");
+        if (!activeProfile) return showToast('Profile not detected.', 'error');
         await browser.runtime.sendMessage({ type: "SAVE_REWRITE", profileId: activeProfile, name: key, content: note });
     } else {
         const storageKey = getStorageKey();
@@ -773,6 +835,7 @@ async function handleSave() {
     }
     
     editModal.style.display = 'none';
+    showToast('Entry saved successfully.', 'success');
     refreshView();
 }
 
@@ -792,6 +855,7 @@ async function handleDelete(key) {
         delete data[key];
         await storage.set(storageKey, data);
     }
+    showToast(`Removed "${key}"`, 'success');
     refreshView();
 }
 
@@ -826,7 +890,7 @@ async function handleApiToggle(btn) {
         }
         renderList();
     } else {
-        alert("Failed to update setting.");
+        showToast('Failed to update setting.', 'error');
         btn.disabled = false;
         btn.style.opacity = '1';
     }
@@ -847,6 +911,21 @@ function getStorageKey() {
 }
 
 /**
+ * Populates all profile dropdowns across the Data Manager (Modal, Backup, Comparison).
+ */
+function populateProfileDropdowns() {
+    if (!profilesList || profilesList.length === 0) return;
+    const html = profilesList.map(p => `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`).join('');
+    if (selectProfile) setSafeHTML(selectProfile, html);
+    const cloneTarget = document.getElementById('clone-target-profile');
+    if (cloneTarget) setSafeHTML(cloneTarget, html);
+    ['compare-base-profile', 'compare-target-profile'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) setSafeHTML(el, html);
+    });
+}
+
+/**
  * Fetches the list of all available NextDNS profiles for use in selection dropdowns.
  * @async
  */
@@ -855,15 +934,12 @@ async function fetchProfiles() {
         const res = await browser.runtime.sendMessage({ type: "GET_PROFILES_LIST" });
         if (res && res.data) {
             profilesList = res.data;
-            const html = profilesList.map(p => `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`).join('');
-            setSafeHTML(selectProfile, html);
         } else if (Array.isArray(res)) {
             // Handle different API response shapes
             profilesList = res;
-            const html = profilesList.map(p => `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`).join('');
-            setSafeHTML(selectProfile, html);
         }
-    } catch (e) { console.warn("Failed to fetch profiles for modal", e); }
+        populateProfileDropdowns();
+    } catch (e) { console.warn("[Viewer] Failed to fetch profiles for modal:", e); }
 }
 
 // Start application

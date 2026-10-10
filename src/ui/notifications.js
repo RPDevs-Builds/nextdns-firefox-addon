@@ -4,7 +4,7 @@
  */
 
 import { state } from './state.js';
-import { escapeHTML, setSafeHTML } from './utils.js';
+import { escapeHTML, setSafeHTML, renderEmptyStateHTML } from './utils.js';
 
 /**
  * Updates the visibility of the red indicator badge on the header alerts button.
@@ -28,7 +28,7 @@ export function renderNotifications() {
     if (!container) return;
 
     if (!state.notifications || state.notifications.length === 0) {
-        setSafeHTML(container, '<div style="text-align: center; color: var(--text-muted); padding: 20px;">No new alerts.</div>');
+        setSafeHTML(container, renderEmptyStateHTML('No new alerts.', '🔔'));
         return;
     }
 
@@ -86,6 +86,7 @@ export function initNotifications() {
             e.stopPropagation();
             state.notifications = [];
             renderNotifications();
+            showToast("Alerts cleared.", "info");
             try {
                 await browser.runtime.sendMessage({ type: "CLEAR_NOTIFICATIONS" });
             } catch (err) {

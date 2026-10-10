@@ -10,12 +10,54 @@
       --bg-main: #0f172a;
       --bg-panel: #1e293b;
       --border-color: #334155;
+      --hover-bg: #2d3e50;
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
       --accent: #4facf7;
       --deny: #ef4444;
       --allow: #22c55e;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --warning: #f39c12;
     }
+
+    body.light-mode {
+      --bg-main: #f1f5f9;
+      --bg-panel: #ffffff;
+      --border-color: #cbd5e1;
+      --hover-bg: #e2e8f0;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --accent: #0284c7;
+      --deny: #dc3545;
+      --allow: #28a745;
+      --success: #28a745;
+      --danger: #dc3545;
+      --warning: #d97706;
+    }
+
+    body.light-mode input,
+    body.light-mode select,
+    body.light-mode textarea {
+      background: #ffffff;
+      color: var(--text-main);
+      border-color: var(--border-color);
+    }
+
+    body.light-mode input:focus,
+    body.light-mode select:focus,
+    body.light-mode textarea:focus {
+      background: #ffffff;
+      border-color: var(--accent);
+    }
+
+    body.light-mode .list-container,
+    body.light-mode .modal-content,
+    body.light-mode .panel-box {
+      background: var(--bg-panel);
+      border-color: var(--border-color);
+    }
+
 
     /* Base Styles */
     body {
@@ -128,6 +170,31 @@
       color: var(--text-muted);
     }
 
+    /* Status & Category Badges (Sync with popup.html) */
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.75em;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: var(--accent);
+      color: #ffffff;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7em;
+      font-weight: 800;
+      margin-left: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-allow { background: rgba(34, 197, 94, 0.15); color: var(--allow); border: 1px solid rgba(34, 197, 94, 0.3); }
+    .badge-deny { background: rgba(239, 68, 68, 0.15); color: var(--deny); border: 1px solid rgba(239, 68, 68, 0.3); }
+
     /* Button Components */
     .btn {
       padding: 8px 16px;
@@ -145,6 +212,78 @@
     .btn-edit { background: var(--accent); color: white; }
     .btn-delete { background: var(--deny); color: white; }
     .btn-add { background: var(--allow); color: white; margin-bottom: 0; }
+    .btn-allow { background-color: var(--allow); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-allow:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn-deny { background-color: var(--deny); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-deny:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn-secondary { background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-secondary:hover { background: var(--hover-bg); border-color: var(--text-muted); }
+    .btn-dark { background: var(--bg-main); color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; opacity: 0.85; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-dark:hover { background: var(--hover-bg); color: var(--text-main); opacity: 1; }
+    .btn-primary { background-color: var(--accent); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(79, 172, 247, 0.3); }
+
+    /* Empty State Component */
+    .empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--text-muted);
+      font-size: 0.9em;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .empty-state-icon {
+      font-size: 2.2em;
+      margin-bottom: 10px;
+      opacity: 0.7;
+      line-height: 1;
+    }
+    .empty-state-text {
+      line-height: 1.4;
+      color: var(--text-muted);
+    }
+
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+      max-width: 90%;
+      width: max-content;
+    }
+    .toast {
+      background: var(--bg-panel);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-size: 0.9em;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      pointer-events: auto;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      animation: toastSlideUp 0.2s ease-out;
+    }
+    @keyframes toastSlideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .toast-success { border-left: 4px solid var(--success); }
+    .toast-danger { border-left: 4px solid var(--danger); }
+    .toast-warning { border-left: 4px solid var(--warning); }
+    .toast-info { border-left: 4px solid var(--accent); }
+    .toast-icon { font-size: 1.15em; line-height: 1; }
+
     
     /* Modal Styling */
     .modal {
@@ -196,16 +335,16 @@
     </div>
 
     <div class="tabs">
-      <button id="tab-domains" class="tab-btn">Domain Descriptions</button>
-      <button id="tab-profiles" class="tab-btn">Profile Notes</button>
-      <button id="tab-blocklists" class="tab-btn">Blocklist Manager</button>
-      <button id="tab-filters" class="tab-btn">Filtered Domains</button>
-      <button id="tab-hostnames" class="tab-btn">Device Aliases</button>
-      <button id="tab-tlds" class="tab-btn">TLD Manager</button>
-      <button id="tab-backup" class="tab-btn">Backup & Cloning</button>
-      <button id="tab-snapshots" class="tab-btn">Snapshots</button>
-      <button id="tab-comparison" class="tab-btn">Profile Comparison</button>
-      <button id="tab-rewrites" class="tab-btn">DNS Rewrites</button>
+      <button id="tab-domains" class="tab-btn">📝 Domain Descriptions</button>
+      <button id="tab-profiles" class="tab-btn">🗒️ Profile Notes</button>
+      <button id="tab-blocklists" class="tab-btn">🛡️ Blocklist Manager</button>
+      <button id="tab-filters" class="tab-btn">🔍 Filtered Domains</button>
+      <button id="tab-hostnames" class="tab-btn">💻 Device Aliases</button>
+      <button id="tab-tlds" class="tab-btn">🌐 TLD Manager</button>
+      <button id="tab-backup" class="tab-btn">💾 Backup & Cloning</button>
+      <button id="tab-snapshots" class="tab-btn">📸 Snapshots</button>
+      <button id="tab-comparison" class="tab-btn">⚖️ Profile Comparison</button>
+      <button id="tab-rewrites" class="tab-btn">🔀 DNS Rewrites</button>
     </div>
 
     <div class="controls-row" id="main-controls">
@@ -252,13 +391,13 @@
                 <div style="border-right: 1px solid var(--border-color); padding-right: 20px;">
                     <label>Export Current Profile</label>
                     <p style="font-size: 0.8em; opacity: 0.7;">Create a JSON snapshot of your current settings.</p>
-                    <button id="export-profile-btn" class="btn btn-add" style="width: 100%; justify-content: center; background: #5d6d7e;">📤 Export to JSON</button>
+                    <button id="export-profile-btn" class="btn btn-secondary" style="width: 100%; justify-content: center;">📤 Export to JSON</button>
                 </div>
                 <div>
                     <label>Clone / Restore to Profile</label>
                     <p style="font-size: 0.8em; opacity: 0.7;">Apply a backup file to the selected profile.</p>
                     <select id="clone-target-profile" style="margin-bottom: 12px;"></select>
-                    <button id="import-profile-btn" class="btn btn-edit" style="width: 100%; justify-content: center;">📥 Import & Clone</button>
+                    <button id="import-profile-btn" class="btn btn-primary" style="width: 100%; justify-content: center;">📥 Import & Clone</button>
                     <input type="file" id="import-profile-file" class="hidden" accept=".json">
                 </div>
             </div>
@@ -268,28 +407,28 @@
             <!-- Real-time cloning progress logs -->
         </div>
     </div>
-  </div>
 
-  <!-- Phase 6.3: Profile Comparison UI -->
-  <div id="comparison-container" class="hidden">
-      <div class="panel-box" style="margin-bottom: 20px; background: var(--bg-panel); padding: 25px; border-radius: 8px; border: 1px solid var(--border-color);">
-          <div class="flex-between" style="margin-bottom: 20px;">
-              <div style="flex: 1;">
-                  <label>Base Profile</label>
-                  <select id="compare-base-profile"></select>
-              </div>
-              <div style="padding: 0 20px; font-size: 1.5em; opacity: 0.5;">🆚</div>
-              <div style="flex: 1;">
-                  <label>Target Profile</label>
-                  <select id="compare-target-profile"></select>
-              </div>
-          </div>
-          <button id="run-comparison-btn" class="btn btn-edit" style="width: 100%; justify-content: center;">🔍 Compare Profiles</button>
-      </div>
+    <!-- Phase 6.3: Profile Comparison UI -->
+    <div id="comparison-container" class="hidden">
+        <div class="panel-box" style="margin-bottom: 20px; background: var(--bg-panel); padding: 25px; border-radius: 8px; border: 1px solid var(--border-color);">
+            <div class="flex-between" style="margin-bottom: 20px;">
+                <div style="flex: 1;">
+                    <label>Base Profile</label>
+                    <select id="compare-base-profile"></select>
+                </div>
+                <div style="padding: 0 20px; font-size: 1.5em; opacity: 0.5;">🆚</div>
+                <div style="flex: 1;">
+                    <label>Target Profile</label>
+                    <select id="compare-target-profile"></select>
+                </div>
+            </div>
+            <button id="run-comparison-btn" class="btn btn-edit" style="width: 100%; justify-content: center;">🔍 Compare Profiles</button>
+        </div>
 
-      <div id="comparison-results" class="list-container">
-          <!-- Diff results rendered here -->
-      </div>
+        <div id="comparison-results" class="list-container">
+            <!-- Diff results rendered here -->
+        </div>
+    </div>
   </div>
 
   <!-- Entry Edit/Add Modal -->
@@ -309,8 +448,8 @@
       <textarea id="input-note" rows="4" placeholder="Enter description or value..."></textarea>
       
       <div class="flex-between" style="justify-content: flex-end; gap: 12px;">
-        <button id="cancel-btn" class="btn btn-delete" style="background:#64748b;">Cancel</button>
-        <button id="save-btn" class="btn btn-edit">Save Changes</button>
+        <button id="cancel-btn" class="btn btn-secondary">Cancel</button>
+        <button id="save-btn" class="btn btn-add">Save Changes</button>
       </div>
     </div>
   </div>

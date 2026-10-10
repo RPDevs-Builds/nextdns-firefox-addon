@@ -6,8 +6,59 @@
  */
 
 import { state } from './state.js';
-import { escapeHTML, setSafeHTML } from './utils.js';
+import { escapeHTML, setSafeHTML, downloadAsFile, showToast, renderEmptyStateHTML } from './utils.js';
 import { syncLists } from './blocks.js';
+
+/**
+ * Formats a single log entry into a styled DOM row element.
+ * Unifies live log stream and historical log rendering.
+ * @param {Object} log - DNS log item.
+ * @returns {HTMLDivElement} Configured log row element.
+ */
+export function formatLogRow(log) {
+    const row = document.createElement('div');
+    row.className = 'log-row';
+    const isBlocked = log.status === 'blocked';
+    const isAllowlist = log.status === 'allowed' || log.status === 'whitelisted' ||
+        (Array.isArray(log.reasons) && log.reasons.some(r => r.id === 'allowlist' || (r.name && r.name.toLowerCase().includes('allow'))));
+
+    let statusBadge = '';
+    let rowColor = 'var(--text-main)';
+
+    if (isBlocked) {
+        rowColor = 'var(--danger)';
+        statusBadge = '<span style="font-weight:700; color:var(--danger);">BLOCKED</span>';
+    } else if (isAllowlist) {
+        rowColor = 'var(--success)';
+        statusBadge = '<span style="font-weight:700; color:var(--success);">ALLOWLIST</span>';
+    } else if (log.status === 'relayed') {
+        rowColor = 'var(--accent)';
+        statusBadge = '<span style="font-weight:700; color:var(--accent);">RELAYED</span>';
+    } else {
+        rowColor = 'var(--text-main)';
+        statusBadge = '<span style="font-size:0.85em; opacity:0.6; font-weight:600;">STANDARD</span>';
+    }
+    row.style.color = rowColor;
+    
+    const deviceId = log.device?.id || log.clientIp;
+    const name = state.hostnameAliases?.[deviceId] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
+    const timeStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "---";
+
+    const reasonText = Array.isArray(log.reasons) 
+        ? log.reasons.map(r => r.name || r.id || r).filter(Boolean).join(', ') 
+        : (typeof log.reason === 'string' && log.reason !== 'Default' ? log.reason : '');
+    const badge = reasonText && !isAllowlist ? ` (${escapeHTML(reasonText)})` : '';
+
+    const html = `
+        <div class="flex-between" style="font-size:0.75em; color:var(--text-muted);">
+            <span>🕒 ${timeStr} | 📱 ${escapeHTML(name)}</span>
+            <div>${statusBadge}${badge}</div>
+        </div>
+        <div style="font-weight:700; margin-top:2px; word-break:break-all;">${escapeHTML(log.name || log.domain)}</div>
+    `;
+    setSafeHTML(row, html);
+    return row;
+}
 
 /**
  * Handles incoming live log events from the background SSE stream.
@@ -31,46 +82,7 @@ export function handleLiveLog(log) {
             }
 
             // Prepend new log row if it matches current search
-            const row = document.createElement('div');
-            row.className = 'log-row';
-            const isBlocked = log.status === 'blocked';
-            const isAllowlist = log.status === 'allowed' || log.status === 'whitelisted' ||
-                (Array.isArray(log.reasons) && log.reasons.some(r => r.id === 'allowlist' || (r.name && r.name.toLowerCase().includes('allow'))));
-
-            let statusBadge = '';
-            let rowColor = 'var(--text-main)';
-
-            if (isBlocked) {
-                rowColor = 'var(--danger)';
-                statusBadge = '<span style="font-weight:700; color:var(--danger);">BLOCKED</span>';
-            } else if (isAllowlist) {
-                rowColor = 'var(--success)';
-                statusBadge = '<span style="font-weight:700; color:var(--success);">ALLOWLIST</span>';
-            } else if (log.status === 'relayed') {
-                rowColor = 'var(--accent)';
-                statusBadge = '<span style="font-weight:700; color:var(--accent);">RELAYED</span>';
-            } else {
-                rowColor = 'var(--text-main)';
-                statusBadge = '<span style="font-size:0.85em; opacity:0.6; font-weight:600;">STANDARD</span>';
-            }
-            row.style.color = rowColor;
-            
-            const name = state.hostnameAliases[log.device?.id || log.clientIp] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
-            const timeStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "---";
-
-            const reasonText = Array.isArray(log.reasons) 
-                ? log.reasons.map(r => r.name || r.id || r).filter(Boolean).join(', ') 
-                : (typeof log.reason === 'string' && log.reason !== 'Default' ? log.reason : '');
-            const badge = reasonText && !isAllowlist ? ` (${escapeHTML(reasonText)})` : '';
-
-            const html = `
-                <div class="flex-between" style="font-size:0.75em; color:var(--text-muted);">
-                    <span>🕒 ${timeStr} | 📱 ${escapeHTML(name)}</span>
-                    <div>${statusBadge}${badge}</div>
-                </div>
-                <div style="font-weight:700; margin-top:2px; word-break:break-all;">${escapeHTML(log.name || log.domain)}</div>
-            `;
-            setSafeHTML(row, html);
+            const row = formatLogRow(log);
             
             const query = (document.getElementById("log-search")?.value || "").toLowerCase();
             const deviceFilter = document.getElementById("log-device-filter")?.value;
@@ -152,7 +164,7 @@ export function renderLogs(logsOverride = null) {
     if (!Array.isArray(logs)) logs = [];
 
     if (logs.length === 0) {
-        setSafeHTML(container, "<div style='text-align:center; padding:20px; color:var(--text-muted); font-size:0.9em;'>No logs found.</div>");
+        setSafeHTML(container, renderEmptyStateHTML("No logs found.", "📡"));
         return;
     }
 
@@ -175,55 +187,14 @@ export function renderLogs(logsOverride = null) {
     });
 
     if (filtered.length === 0) {
-        setSafeHTML(container, "<div style='text-align:center; padding:20px; color:var(--text-muted); font-size:0.9em;'>No logs match the current filter.</div>");
+        setSafeHTML(container, renderEmptyStateHTML("No logs match the current filter.", "🔍"));
         updateDeviceFilterOptions();
         return;
     }
 
     const fragment = document.createDocumentFragment();
     filtered.slice(0, 100).forEach(log => {
-        const row = document.createElement('div');
-        row.className = 'log-row';
-        const isBlocked = log.status === 'blocked';
-        const isAllowlist = log.status === 'allowed' || log.status === 'whitelisted' ||
-            (Array.isArray(log.reasons) && log.reasons.some(r => r.id === 'allowlist' || (r.name && r.name.toLowerCase().includes('allow'))));
-
-        let statusBadge = '';
-        let rowColor = 'var(--text-main)';
-
-        if (isBlocked) {
-            rowColor = 'var(--danger)';
-            statusBadge = '<span style="font-weight:700; color:var(--danger);">BLOCKED</span>';
-        } else if (isAllowlist) {
-            rowColor = 'var(--success)';
-            statusBadge = '<span style="font-weight:700; color:var(--success);">ALLOWLIST</span>';
-        } else if (log.status === 'relayed') {
-            rowColor = 'var(--accent)';
-            statusBadge = '<span style="font-weight:700; color:var(--accent);">RELAYED</span>';
-        } else {
-            rowColor = 'var(--text-main)';
-            statusBadge = '<span style="font-size:0.85em; opacity:0.6; font-weight:600;">STANDARD</span>';
-        }
-        row.style.color = rowColor;
-        
-        const deviceId = log.device?.id || log.clientIp;
-        const name = state.hostnameAliases?.[deviceId] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
-        const timeStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "---";
-
-        const reasonText = Array.isArray(log.reasons) 
-            ? log.reasons.map(r => r.name || r.id || r).filter(Boolean).join(', ') 
-            : (typeof log.reason === 'string' && log.reason !== 'Default' ? log.reason : '');
-        const badge = reasonText && !isAllowlist ? ` (${escapeHTML(reasonText)})` : '';
-
-        const html = `
-            <div class="flex-between" style="font-size:0.75em; color:var(--text-muted);">
-                <span>🕒 ${timeStr} | 📱 ${escapeHTML(name)}</span>
-                <div>${statusBadge}${badge}</div>
-            </div>
-            <div style="font-weight:700; margin-top:2px; word-break:break-all;">${escapeHTML(log.name || log.domain)}</div>
-        `;
-        setSafeHTML(row, html);
-        fragment.appendChild(row);
+        fragment.appendChild(formatLogRow(log));
     });
     
     container.textContent = "";
@@ -314,7 +285,7 @@ export async function loadAnalytics() {
             `;
             setSafeHTML(container, html);
         } else if (container) {
-            setSafeHTML(container, "<div style='text-align:center; padding:10px; color:var(--danger);'>No analytics data available.</div>");
+            setSafeHTML(container, renderEmptyStateHTML("No analytics data available.", "📊"));
         }
     } catch (e) {
         console.error("[Dashboard] loadAnalytics failed:", e);
@@ -478,7 +449,7 @@ export async function updateDashboardTabInfo() {
             initTabLogEvents();
             if (domains.length === 0) {
                 if (!container.textContent.includes('capturing')) {
-                    setSafeHTML(container, "<div style='opacity:0.5; padding:10px; text-align:center;'>Waiting for network activity...</div>");
+                    setSafeHTML(container, renderEmptyStateHTML('Waiting for network activity...', '📡'));
                 }
             } else {
                 const html = domains.map(d => {
@@ -540,20 +511,24 @@ export async function updateDashboardTabInfo() {
  * Ensures that links point to the correct active profile.
  */
 export function updateDynamicLinks() {
+    const profileLink = document.getElementById("web-gui-profile-link");
     const logsLink = document.getElementById("web-gui-logs-link");
     const securityLink = document.getElementById("web-gui-security-link");
     const privacyLink = document.getElementById("web-gui-privacy-link");
 
-    if (logsLink && state.activeProfile) logsLink.href = `https://my.nextdns.io/${state.activeProfile}/logs`;
-    if (securityLink && state.activeProfile) securityLink.href = `https://my.nextdns.io/${state.activeProfile}/privacy`;
-    if (privacyLink && state.activeProfile) privacyLink.href = `https://my.nextdns.io/${state.activeProfile}/privacy`;
+    if (profileLink) {
+        profileLink.href = state.activeProfile ? `https://my.nextdns.io/${state.activeProfile}` : 'https://my.nextdns.io';
     }
+    if (logsLink && state.activeProfile) logsLink.href = `https://my.nextdns.io/${state.activeProfile}/logs`;
+    if (securityLink && state.activeProfile) securityLink.href = `https://my.nextdns.io/${state.activeProfile}/security`;
+    if (privacyLink && state.activeProfile) privacyLink.href = `https://my.nextdns.io/${state.activeProfile}/privacy`;
+}
 
-    /**
-    * Exports the current log cache as a CSV file.
-    */
-    export function downloadLogsCSV() {
-    if (state.cachedLogs.length === 0) return alert("No logs to export.");
+/**
+ * Exports the current log cache as a CSV file.
+ */
+export function downloadLogsCSV() {
+    if (state.cachedLogs.length === 0) return showToast("No logs to export.", "warning");
 
     const headers = ["Timestamp", "Device", "Domain", "Status", "Reason"];
     const rows = state.cachedLogs.map(l => [
@@ -566,13 +541,13 @@ export function updateDynamicLinks() {
 
     const csvContent = [headers, ...rows].map(r => r.map(c => `"${(c||'').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
     downloadAsFile(`dns_forge_logs_${Date.now()}.csv`, csvContent, 'text/csv');
-    }
+}
 
-    /**
-    * Triggers a remote log wipe via the background script and clears the local cache.
-    * @async
-    */
-    export async function wipeLogs() {
+/**
+ * Triggers a remote log wipe via the background script and clears the local cache.
+ * @async
+ */
+export async function wipeLogs() {
     if (!state.activeProfile) return;
     if (!confirm("Are you sure you want to clear all logs from NextDNS? This cannot be undone.")) return;
 
@@ -583,10 +558,10 @@ export function updateDynamicLinks() {
     if (res.success) {
         state.cachedLogs = [];
         renderLogs();
-        alert("Logs cleared successfully.");
+        showToast("Logs cleared successfully.", "success");
     } else {
-        alert("Failed to clear logs.");
+        showToast("Failed to clear logs.", "error");
     }
     if (btn) { btn.disabled = false; btn.textContent = "🗑️ Clear Logs"; }
-    }
+}
 

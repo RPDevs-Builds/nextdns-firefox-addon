@@ -4,7 +4,7 @@
  */
 
 import { state } from './state.js';
-import { escapeHTML, setSafeHTML } from './utils.js';
+import { escapeHTML, setSafeHTML, renderEmptyStateHTML, showToast } from './utils.js';
 import { loadMetadata } from '../metadataManager.js';
 
 /**
@@ -46,14 +46,14 @@ export function renderLists(queryOverride = null) {
     const items = listType === 'allowlist' ? state.currentAllowlist : state.currentDenylist;
     
     if (items.size === 0) {
-        setSafeHTML(container, `<div style="text-align:center; padding:20px; color:var(--text-muted);">No domains in this list.</div>`);
+        setSafeHTML(container, renderEmptyStateHTML('No domains in this list.', '📋'));
         return;
     }
 
     const filtered = Array.from(items).filter(d => d.toLowerCase().includes(query)).sort();
 
     if (filtered.length === 0) {
-        setSafeHTML(container, `<div style="text-align:center; padding:20px; color:var(--text-muted);">No domains match your search.</div>`);
+        setSafeHTML(container, renderEmptyStateHTML('No domains match your search.', '🔍'));
         return;
     }
 
@@ -81,9 +81,11 @@ export function renderLists(queryOverride = null) {
             if (res.success) {
                 if (listType === 'allowlist') state.currentAllowlist.delete(domain);
                 else state.currentDenylist.delete(domain);
+                showToast(`Removed ${domain}`, 'success');
                 renderLists();
             } else {
                 btn.disabled = false; btn.textContent = "Error";
+                showToast(`Failed to remove ${domain}`, 'error');
             }
         };
     });
@@ -271,7 +273,7 @@ function renderBlocklistsGrid(query) {
                         style="width:auto; padding:4px 12px; font-size: 0.8em;">${active?'Remove':'Add'}</button>
                 </div>
             </div>`;
-    }).join('') || '<div style="text-align:center; opacity:0.5; padding:20px;">No blocklists found.</div>';
+    }).join('') || renderEmptyStateHTML('No blocklists found.', '🛡️');
 }
 
 /**
@@ -297,7 +299,7 @@ function renderParentalToggles(query) {
     const activeServices = new Set((state.lastBlocksData.parentalcontrol?.services || []).map(s => s.id));
     const filteredServices = (state.blocksMeta.parental_services || []).filter(s => s.name.toLowerCase().includes(query));
     if (filteredServices.length === 0) {
-        html += '<div style="text-align:center; opacity:0.5; padding:10px; font-size:0.85em;">No services found.</div>';
+        html += renderEmptyStateHTML('No services found.', '👪');
     } else {
         html += filteredServices.map(s => {
             const active = activeServices.has(s.id);
@@ -353,7 +355,7 @@ function renderTldsGrid(query) {
                 }).join('')}
             </div>
         </div>
-    `).join('') || '<div style="text-align:center; opacity:0.5; padding:20px;">No TLDs match search.</div>';
+    `).join('') || renderEmptyStateHTML('No TLDs match search.', '🌐');
 
     return html;
 }

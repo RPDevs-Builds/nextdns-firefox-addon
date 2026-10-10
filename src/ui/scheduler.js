@@ -3,7 +3,7 @@
  * @module ui/scheduler
  */
 
-import { escapeHTML, setSafeHTML } from './utils.js';
+import { escapeHTML, setSafeHTML, showToast, renderEmptyStateHTML } from './utils.js';
 
 /**
  * Loads the currently scheduled automation rules from the background and renders them in the UI.
@@ -15,8 +15,8 @@ export async function loadRules() {
     const list = document.getElementById('rules-list');
     if (!list) return;
 
-    if (!res.rules || res.rules.length === 0) {
-        setSafeHTML(list, '<div style="text-align: center; color: var(--text-muted); font-size: 0.8em; padding: 10px;">No rules scheduled.</div>');
+    if (!res?.rules || res.rules.length === 0) {
+        setSafeHTML(list, renderEmptyStateHTML('No automation rules scheduled.', '⏰'));
     } else {
         const html = res.rules.map(r => `
             <div class="flex-between" style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 4px; margin-bottom: 5px; border-left: 3px solid ${r.action === 'enable' ? 'var(--success)' : 'var(--danger)'};">
@@ -32,6 +32,7 @@ export async function loadRules() {
         list.querySelectorAll('.delete-rule-btn').forEach(btn => {
             btn.onclick = async () => {
                 await browser.runtime.sendMessage({ type: "DELETE_RULE", ruleId: btn.getAttribute('data-id') });
+                showToast("Rule deleted.", "success");
                 loadRules();
             };
         });
@@ -49,12 +50,15 @@ export async function saveAutomationRule() {
     const action = document.getElementById('rule-action').value;
     const targetVal = document.getElementById('rule-target').value;
 
-    if (!name || !trigger) return alert("Please enter name and time.");
+    if (!name || !trigger) return showToast("Please enter name and time.", "warning");
 
     const [category, targetId] = targetVal.split(':');
     const rule = { name, trigger, action, category, targetId };
 
     await browser.runtime.sendMessage({ type: "SAVE_RULE", rule });
     document.getElementById('rule-name').value = '';
+    const triggerEl = document.getElementById('rule-trigger');
+    if (triggerEl) triggerEl.value = '';
+    showToast("Automation rule saved.", "success");
     loadRules();
 }

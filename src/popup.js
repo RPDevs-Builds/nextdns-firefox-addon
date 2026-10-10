@@ -10,4 +10,6 @@ export * from './ui/dashboard.js';
 export * from './ui/blocks.js';
 export * from './ui/tools.js';
 export * from './ui/scheduler.js';
+export * from './ui/notifications.js';
+export * from './ui/theme.js';
 export * from './ui/main.js';

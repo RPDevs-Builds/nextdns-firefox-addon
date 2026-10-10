@@ -126,3 +126,60 @@ export function downloadAsFile(filename, content, type = 'application/json') {
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 100);
 }
+
+/**
+ * Displays a non-blocking toast notification across extension popups and full-screen views.
+ * @param {string} message - Message text to display.
+ * @param {'info'|'success'|'error'|'warning'|'danger'} [type='info'] - Category of notification.
+ * @param {number} [duration=3000] - Duration in milliseconds before fading out.
+ */
+export function showToast(message, type = 'info', duration = 3000) {
+    if (typeof document === 'undefined') return;
+
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    const safeType = type === 'error' ? 'danger' : type;
+    toast.className = `toast toast-${safeType}`;
+
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'toast-icon';
+    if (safeType === 'success') iconSpan.textContent = '✅';
+    else if (safeType === 'danger') iconSpan.textContent = '⚠️';
+    else if (safeType === 'warning') iconSpan.textContent = '⚡';
+    else iconSpan.textContent = 'ℹ️';
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'toast-text';
+    textSpan.textContent = message;
+
+    toast.appendChild(iconSpan);
+    toast.appendChild(textSpan);
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        setTimeout(() => toast.remove(), 250);
+    }, duration);
+}
+
+/**
+ * Standardized empty state HTML generator.
+ * @param {string} message - Empty state explanation.
+ * @param {string} [icon='📭'] - Icon or emoji to display.
+ * @returns {string} HTML string.
+ */
+export function renderEmptyStateHTML(message, icon = '📭') {
+    return `<div class="empty-state">
+        <div class="empty-state-icon">${escapeHTML(icon)}</div>
+        <div class="empty-state-text">${escapeHTML(message)}</div>
+    </div>`;
+}
+

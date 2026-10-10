@@ -5,6 +5,7 @@
  */
 
 export * from './background/state.js';
+export * from './background/utils.js';
 export * from './background/api.js';
 export * from './background/handlers.js';
 export * from './background/logStream.js';

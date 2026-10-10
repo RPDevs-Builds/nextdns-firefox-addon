@@ -27,6 +27,46 @@
     opacity: 0.6;
 }
 
+:root {
+    --nxm-bg: #0f172a;
+    --nxm-card-bg: #1e293b;
+    --nxm-border: #334155;
+    --nxm-border-focus: #4facf7;
+    --nxm-hover-bg: #253348;
+    --nxm-text: #f8fafc;
+    --nxm-text-muted: #94a3b8;
+    --nxm-accent: #4facf7;
+    --nxm-accent-alt: #38bdf8;
+    --nxm-danger: #ef4444;
+    --nxm-success: #22c55e;
+    --nxm-warning: #f39c12;
+}
+
+/* Toast Notifications */
+.nxm-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--nxm-bg, #0f172a);
+    color: var(--nxm-text, #f8fafc);
+    border: 1px solid var(--nxm-border, #334155);
+    border-left: 4px solid var(--nxm-accent, #4facf7);
+    padding: 10px 18px;
+    border-radius: 6px;
+    z-index: 999999;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    font-size: 14px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: auto;
+}
+.nxm-toast-success { border-left-color: var(--nxm-success, #22c55e); }
+.nxm-toast-danger { border-left-color: var(--nxm-danger, #ef4444); }
+.nxm-toast-warning { border-left-color: var(--nxm-warning, #f39c12); }
+.nxm-toast-info { border-left-color: var(--nxm-accent, #4facf7); }
+
 /* Filtered Logs Manager Modal */
 .nxm-modal-backdrop {
     position: fixed;
@@ -50,9 +90,9 @@
 }
 
 .nxm-modal-dialog {
-    background: #0f172a;
-    color: #f8fafc;
-    border: 1px solid #334155;
+    background: var(--nxm-bg, #0f172a);
+    color: var(--nxm-text, #f8fafc);
+    border: 1px solid var(--nxm-border, #334155);
     border-radius: 12px;
     width: 100%;
     max-width: 650px;
@@ -65,18 +105,18 @@
 
 .nxm-modal-header {
     padding: 16px 20px;
-    border-bottom: 1px solid #334155;
+    border-bottom: 1px solid var(--nxm-border, #334155);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #1e293b;
+    background: var(--nxm-card-bg, #1e293b);
 }
 
 .nxm-modal-title {
     font-size: 1.15rem;
     font-weight: 700;
     margin: 0;
-    color: #4facf7;
+    color: var(--nxm-accent, #4facf7);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -85,7 +125,7 @@
 .nxm-modal-close {
     background: transparent;
     border: none;
-    color: #94a3b8;
+    color: var(--nxm-text-muted, #94a3b8);
     font-size: 1.5rem;
     line-height: 1;
     cursor: pointer;
@@ -106,8 +146,8 @@
 }
 
 .nxm-filter-add-box {
-    background: #1e293b;
-    border: 1px solid #334155;
+    background: var(--nxm-card-bg, #1e293b);
+    border: 1px solid var(--nxm-border, #334155);
     border-radius: 8px;
     padding: 14px;
     margin-bottom: 18px;
@@ -123,8 +163,8 @@
 }
 
 .nxm-filter-item {
-    background: #1e293b;
-    border: 1px solid #334155;
+    background: var(--nxm-card-bg, #1e293b);
+    border: 1px solid var(--nxm-border, #334155);
     border-radius: 6px;
     padding: 10px 14px;
     display: flex;
@@ -134,15 +174,15 @@
 }
 
 .nxm-filter-item:hover {
-    border-color: #4facf7;
-    background: #253348;
+    border-color: var(--nxm-accent, #4facf7);
+    background: var(--nxm-hover-bg, #253348);
 }
 
 .nxm-filter-pattern {
     font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 0.9em;
     font-weight: 600;
-    color: #38bdf8;
+    color: var(--nxm-accent-alt, #38bdf8);
     background: rgba(56, 189, 248, 0.1);
     padding: 2px 6px;
     border-radius: 4px;
@@ -150,14 +190,14 @@
 
 .nxm-filter-note {
     font-size: 0.8em;
-    color: #94a3b8;
+    color: var(--nxm-text-muted, #94a3b8);
     margin-left: 8px;
 }
 
 .nxm-filter-delete-btn {
     background: transparent;
-    border: 1px solid #ef4444;
-    color: #ef4444;
+    border: 1px solid var(--nxm-danger, #ef4444);
+    color: var(--nxm-danger, #ef4444);
     padding: 4px 10px;
     border-radius: 5px;
     font-size: 0.8em;
@@ -166,22 +206,22 @@
 }
 
 .nxm-filter-delete-btn:hover {
-    background: #ef4444;
+    background: var(--nxm-danger, #ef4444);
     color: #ffffff;
 }
 
 .nxm-modal-footer {
     padding: 12px 20px;
-    border-top: 1px solid #334155;
-    background: #1e293b;
+    border-top: 1px solid var(--nxm-border, #334155);
+    background: var(--nxm-card-bg, #1e293b);
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
 
 .nxm-filter-badge {
-    background: #334155;
-    color: #f8fafc;
+    background: var(--nxm-border, #334155);
+    color: var(--nxm-text, #f8fafc);
     border: 1px solid #475569;
     border-radius: 12px;
     padding: 2px 8px;

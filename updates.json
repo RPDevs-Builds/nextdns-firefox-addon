@@ -3,6 +3,10 @@
     "{56fda99b-4dd4-4a4a-a413-00ff1c2cffd8}": {
       "updates": [
         {
+          "version": "1.1.7",
+          "update_link": "https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases/download/v1.1.7/dns_forge-1.1.7.xpi"
+        },
+        {
           "version": "1.1.6",
           "update_link": "https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases/download/v1.1.6/dns_forge-1.1.6.xpi",
           "update_hash": "sha256:9a8f569a87f95f5b90ee0e8990109c4120e5fd67e5ee5f9325a9eb938eacff6d"

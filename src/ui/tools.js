@@ -4,7 +4,7 @@
  */
 
 import { state } from './state.js';
-import { escapeHTML, setSafeHTML, downloadAsFile } from './utils.js';
+import { escapeHTML, setSafeHTML, downloadAsFile, showToast, renderEmptyStateHTML } from './utils.js';
 
 let lastDebuggerResult = null;
 
@@ -22,11 +22,14 @@ export async function runIntelligentDebugger() {
     exportBtn?.classList.add('hidden');
 
     const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-    if (tabs.length === 0) return;
+    if (!tabs || tabs.length === 0) {
+        setSafeHTML(resultsContainer, renderEmptyStateHTML('No active tab found.', '⚠️'));
+        return;
+    }
     const tabId = tabs[0].id;
 
     if (!state.activeProfile) {
-        setSafeHTML(resultsContainer, '<div class="alert alert-warning">No active profile detected.</div>');
+        setSafeHTML(resultsContainer, renderEmptyStateHTML('No active profile detected.', '⚠️'));
         return;
     }
 
@@ -49,7 +52,7 @@ export async function runIntelligentDebugger() {
     lastDebuggerResult = res.correlations;
 
     if (res.correlations.length === 0) {
-        setSafeHTML(resultsContainer, '<div style="text-align: center; color: var(--text-muted); padding: 20px;">No blocked domains correlated from this tab.</div>');
+        setSafeHTML(resultsContainer, renderEmptyStateHTML('No blocked domains correlated from this tab.', '🔍'));
         return;
     }
 
@@ -61,7 +64,9 @@ export async function runIntelligentDebugger() {
         row.style.marginBottom = '10px';
         row.style.padding = '10px';
         
-        const reasons = c.reasons.map(r => `<span class="badge-deny" style="padding: 1px 4px; font-size: 0.7em; border-radius: 3px;">${escapeHTML(r.name || r)}</span>`).join(' ');
+        const reasons = Array.isArray(c.reasons)
+            ? c.reasons.map(r => `<span class="badge-deny" style="padding: 1px 4px; font-size: 0.7em; border-radius: 3px;">${escapeHTML(r.name || r)}</span>`).join(' ')
+            : (c.reason ? `<span class="badge-deny" style="padding: 1px 4px; font-size: 0.7em; border-radius: 3px;">${escapeHTML(c.reason)}</span>` : '');
         
         const html = `
             <div class="flex-between">
@@ -75,21 +80,24 @@ export async function runIntelligentDebugger() {
         
         row.querySelector('.debug-allow-btn').onclick = async (e) => {
             const btn = e.target;
+            const domain = btn.getAttribute('data-domain');
             btn.disabled = true;
             btn.textContent = "...";
             const allowRes = await browser.runtime.sendMessage({
                 type: "MANAGE_DOMAIN",
                 profileId: state.activeProfile,
                 listType: "allowlist",
-                domain: btn.getAttribute('data-domain'),
+                domain,
                 action: "add"
             });
             if (allowRes.success) {
                 btn.textContent = "Added";
                 btn.classList.replace('btn-allow', 'btn-secondary');
+                showToast(`Added ${domain} to Allowlist`, 'success');
             } else {
                 btn.disabled = false;
                 btn.textContent = "Error";
+                showToast(`Failed to add domain: ${allowRes?.error || 'Unknown error'}`, 'error');
             }
         };
         resultsContainer.appendChild(row);

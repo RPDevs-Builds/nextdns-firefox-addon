@@ -260,18 +260,25 @@ function applyDeviceAliases(root) {
     });
 }
 
-function showToast(message) {
+function showToast(message, type = 'info') {
     let toast = document.getElementById('nxm-toast');
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'nxm-toast';
-        toast.style.cssText = 'position:fixed; bottom:20px; right:20px; background:#333; color:#fff; padding:10px 20px; border-radius:8px; z-index:999999; box-shadow:0 4px 12px rgba(0,0,0,0.3); font-size:14px; transition: opacity 0.3s ease; opacity: 0;';
         document.body.appendChild(toast);
     }
+    const safeType = type === 'error' ? 'danger' : type;
+    toast.className = `nxm-toast nxm-toast-${safeType}`;
     toast.textContent = message;
-    toast.style.opacity = '1';
+    requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+    });
     clearTimeout(toast.timer);
-    toast.timer = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+    toast.timer = setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(12px)';
+    }, 3000);
 }
 
 observer.observe(document.body, { childList: true, subtree: true });
@@ -817,7 +824,7 @@ async function injectDomainDescriptions() {
       delBtn.textContent = 'Delete Selected';
       delBtn.onclick = async () => {
           const selected = Array.from(document.querySelectorAll('.nxm-bulk-cb:checked')).map(cb => cb.dataset.domain);
-          if (selected.length === 0) return alert('No domains selected.');
+          if (selected.length === 0) return showToast('No domains selected.', 'warning');
           if (!confirm(`Are you sure you want to delete ${selected.length} domains?`)) return;
           
           const profileId = getProfileId();
@@ -850,6 +857,7 @@ async function handleSaveNote(domain, note) {
   await browser.storage.sync.set({ domainDescriptions });
   document.querySelectorAll('.nxm-domain-desc').forEach(el => el.remove());
   injectDomainDescriptions();
+  showToast(note.trim() ? "Domain note saved." : "Domain note removed.", "success");
 }
 
 function injectLogActions() {
@@ -911,10 +919,16 @@ async function updateFilterCountBadge(forcedCount) {
   btn.textContent = `⚙️ Manage (${count})`;
 }
 
+let filterModalKeyHandler = null;
+
 /**
  * Closes and removes the Filtered Logs Manager modal dialog from the page.
  */
 function closeFilteredLogsModal() {
+  if (filterModalKeyHandler) {
+    document.removeEventListener('keydown', filterModalKeyHandler);
+    filterModalKeyHandler = null;
+  }
   const existing = document.getElementById('nxm-filter-modal-backdrop');
   if (existing) existing.remove();
 }
@@ -1160,13 +1174,12 @@ async function openFilteredLogsModal(prefilledPattern = "") {
     renderList();
   };
 
-  const keyHandler = (e) => {
+  filterModalKeyHandler = (e) => {
     if (e.key === 'Escape') {
       closeFilteredLogsModal();
-      document.removeEventListener('keydown', keyHandler);
     }
   };
-  document.addEventListener('keydown', keyHandler);
+  document.addEventListener('keydown', filterModalKeyHandler);
 
   if (prefilledPattern) {
     patternInput.focus();
@@ -1179,8 +1192,8 @@ async function handleLogAction(domain, listType) {
   if (!profileId) return;
   if (!confirm(`Add ${domain} to ${listType}?`)) return;
   browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId, listType, action: "add", domain }).then(res => {
-    if (res.success) alert(`Added ${domain} to ${listType}`);
-    else alert(`Error: ${res.error}`);
+    if (res.success) showToast(`Added ${domain} to ${listType}`, 'success');
+    else showToast(`Error: ${res.error}`, 'error');
   });
 }
 
@@ -1277,7 +1290,7 @@ async function handleEnableAll() {
   await browser.storage.sync.set({ [`tldBackup_${profileId}`]: currentTLDs });
   checkBackupStatus();
   const allTLDs = Array.from(document.querySelectorAll('.modal-dialog .list-group-item')).map(el => el.textContent.trim().toLowerCase()).filter(text => text.startsWith('.')); 
-  if (allTLDs.length === 0) return alert("Please click 'Add a TLD' to open the modal first.");
+  if (allTLDs.length === 0) return showToast("Please click 'Add a TLD' to open the modal first.", "warning");
   processTLDs(profileId, allTLDs, 'POST', 'Enabling TLDs');
 }
 
@@ -1286,7 +1299,7 @@ async function handleDisableAll() {
   if (!profileId) return;
   if (!confirm("Are you sure you want to disable ALL active TLD blocks?")) return;
   const currentTLDs = await getCurrentActiveTLDs(profileId);
-  if (currentTLDs.length === 0) return alert("No active TLDs to disable.");
+  if (currentTLDs.length === 0) return showToast("No active TLDs to disable.", "warning");
   processTLDs(profileId, currentTLDs, 'DELETE', 'Disabling TLDs');
 }
 
@@ -1295,7 +1308,7 @@ async function handleRestore() {
   if (!profileId) return;
   const data = await browser.storage.sync.get(`tldBackup_${profileId}`);
   const backup = data[`tldBackup_${profileId}`];
-  if (!backup || backup.length === 0) return alert("No backup found.");
+  if (!backup || backup.length === 0) return showToast("No backup found.", "warning");
   const currentTLDs = await getCurrentActiveTLDs(profileId);
   await processTLDs(profileId, currentTLDs, 'DELETE', 'Clearing current TLDs', false); 
   await processTLDs(profileId, backup, 'POST', 'Restoring Backup');
@@ -1319,7 +1332,10 @@ async function processTLDs(profileId, tldArray, method, actionText, alertOnFinis
     while (queue.length > 0) await runTask(queue.shift());
   });
   await Promise.all(workers);
-  if (alertOnFinish) { alert(`Success: ${actionText} finished.`); window.location.reload(); }
+  if (alertOnFinish) {
+    showToast(`Success: ${actionText} finished.`, "success");
+    setTimeout(() => window.location.reload(), 1000);
+  }
 }
 
 async function injectProfileNote() {
@@ -1596,7 +1612,7 @@ function injectBulkAddDomains() {
         if (!domainsStr) return;
         
         const domains = domainsStr.split(/[\s,]+/).map(d => d.trim()).filter(d => d.length > 0 && d.includes('.'));
-        if (domains.length === 0) return alert("No valid domains found.");
+        if (domains.length === 0) return showToast("No valid domains found.", "warning");
         if (!confirm(`Add ${domains.length} domains?`)) return;
         
         const profileId = window.location.pathname.split('/')[1] || getProfileId();

@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.1.7] - 2026-10-10
+
+### Added
+- **Design Tokens & Theme Synchronization Engine:** Extracted modular theme engine into `src/ui/theme.js` with active storage change listening for the Data Manager (`viewer.html`), harmonized CSS design tokens (`--allow`, `--deny`) and input focus rings across all views, and refactored in-page NextDNS styles to use CSS variables and class-based toasts.
+- **Snapshot Rollback & Profile Restoration:** Implemented complete step-by-step snapshot rollback in the Data Manager, extracted a shared `applyConfigToProfile()` engine for cloning and rollback with list-type restoration, centralized profile dropdown synchronization across all tabs (`populateProfileDropdowns()`), and fixed Profile Comparison tab container centering.
+- **NextDNS Console Direct Shortcut:** Added an active profile deep-link button (`#web-gui-profile-link`) on the Overview header directly beside profile status for instant one-click console access.
+- **Log Formatting & WebRequest Accuracy:** Deduplicated DOM row construction between live SSE streaming and historical native query logs via `formatLogRow()`, and upgraded WebRequest protocol detection using actual URL scheme (`url.protocol === 'https:' ? 'HTTPS' : 'HTTP'`).
+
+### Fixed
+- **In-Page Modal Lifecycle Cleanup:** Bound scoped `keydown` listener teardown in `src/content.js` to eliminate dangling event listener memory leaks upon modal dismissal.
+- **Tab Debugger & Scheduler Resilience:** Guarded Tab Debugger against empty active tab arrays and null reason arrays, and added optional chaining to automation rule loading.
+- **Module Barrel Exports:** Re-exported all background and popup sub-modules in `src/background.js` and `src/popup.js`.
+
 ## [1.1.6] - 2026-10-10
 
 ### Added

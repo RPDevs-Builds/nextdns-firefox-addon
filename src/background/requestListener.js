@@ -57,7 +57,7 @@ export function requestListener(details) {
                     reason: status === 'default' ? '' : reason,
                     reasons: allowMatch ? [{ id: 'allowlist', name: 'Allow List' }] : (denyMatch ? [{ id: 'denylist', name: 'Deny List' }] : []),
                     timestamp: Date.now(),
-                    protocol: details.type === 'xmlhttprequest' ? 'HTTPS' : 'HTTP',
+                    protocol: url.protocol === 'https:' ? 'HTTPS' : 'HTTP',
                     device: { name: 'This Browser' }
                 };
                 state.localLogs.unshift(logEntry);

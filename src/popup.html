@@ -14,6 +14,8 @@
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
       --accent: #4facf7;
+      --allow: #28a745;
+      --deny: #dc3545;
       --success: #28a745;
       --danger: #dc3545;
       --warning: #f39c12;
@@ -27,6 +29,10 @@
       --text-main: #0f172a;
       --text-muted: #64748b;
       --accent: #0284c7;
+      --allow: #28a745;
+      --deny: #dc3545;
+      --success: #28a745;
+      --danger: #dc3545;
     }
 
     body.light-mode input,
@@ -42,6 +48,8 @@
     body.light-mode textarea:focus {
       background: #ffffff;
       border-color: var(--accent);
+      outline: 2px solid var(--accent);
+      outline-offset: -1px;
     }
 
     body.light-mode .alerts-popover {
@@ -251,11 +259,34 @@
       border-radius: 6px; 
       box-sizing: border-box; 
       font-size: 0.9em; 
-      transition: border-color 0.2s, background 0.2s; 
+      transition: border-color 0.2s, background 0.2s, outline 0.2s; 
     }
-    input:focus, select:focus { border-color: var(--accent); outline: none; background: rgba(0,0,0,0.3); }
+    input:focus, select:focus, textarea:focus { 
+      border-color: var(--accent); 
+      outline: 2px solid var(--accent); 
+      outline-offset: -1px;
+      background: rgba(0,0,0,0.3); 
+    }
     
     /* Button Styles */
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .btn-add { background: var(--allow); color: white; border: none; }
+    .btn-add:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn-delete { background: var(--deny); color: white; border: none; }
+    .btn-delete:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn-edit { background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border-color); }
+    .btn-edit:hover { background: var(--hover-bg); border-color: var(--text-muted); }
+
+    .btn-primary { background-color: var(--accent); color: white; border: none; padding: 10px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: all 0.2s; }
+    .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(79, 172, 247, 0.3); }
+
     .btn-allow { background-color: var(--success); color: white; border: none; padding: 10px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: all 0.2s; }
     .btn-allow:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3); }
     
@@ -327,6 +358,67 @@
     
     .dashboard-sub-content, .settings-sub-content { display: none; flex-direction: column; flex-grow: 1; }
     .dashboard-sub-content.active, .settings-sub-content.active { display: flex; }
+
+    /* Empty State Displays */
+    .empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--text-muted);
+      font-size: 0.9em;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .empty-state-icon {
+      font-size: 2.2em;
+      margin-bottom: 10px;
+      opacity: 0.7;
+      line-height: 1;
+    }
+    .empty-state-text {
+      line-height: 1.4;
+      color: var(--text-muted);
+    }
+
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+      max-width: 90%;
+      width: max-content;
+    }
+    .toast {
+      background: var(--bg-panel);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-size: 0.9em;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      pointer-events: auto;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      animation: toastSlideUp 0.2s ease-out;
+    }
+    @keyframes toastSlideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .toast-success { border-left: 4px solid var(--success); }
+    .toast-danger { border-left: 4px solid var(--danger); }
+    .toast-warning { border-left: 4px solid var(--warning); }
+    .toast-info { border-left: 4px solid var(--accent); }
+    .toast-icon { font-size: 1.15em; line-height: 1; }
   </style>
 </head>
 <body>
@@ -371,9 +463,14 @@
     </div>
 
     <div id="dash-overview" class="dashboard-sub-content active" style="padding: 15px;">
-        <div style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;" id="profile-status">
-          <span style="display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; box-shadow: 0 0 6px var(--accent);"></span>
-          Profile: Detecting...
+        <div style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;" id="profile-status-bar">
+          <div style="display: flex; align-items: center; gap: 6px;" id="profile-status">
+            <span style="display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; box-shadow: 0 0 6px var(--accent);"></span>
+            Profile: Detecting...
+          </div>
+          <a id="web-gui-profile-link" href="https://my.nextdns.io" target="_blank" rel="noopener noreferrer" style="font-size: 0.8em; color: var(--accent); text-decoration: none; display: flex; align-items: center; gap: 4px; font-weight: 500;" title="Open active profile in NextDNS console">
+            <span>NextDNS Console ↗</span>
+          </a>
         </div>
         
         <label for="domain-input" style="font-size: 0.75em; margin-bottom: 6px; display: block; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px;">TARGET DOMAIN ACTIONS</label>
@@ -457,13 +554,13 @@
   <!-- Tab: Toggles (Protection) -->
   <div id="tab-toggles" class="tab-content">
     <div class="sub-nav" id="blocks-sub-nav">
-      <button class="sub-tab-btn active" data-sub="security">Security</button>
-      <button class="sub-tab-btn" data-sub="privacy">Privacy</button>
-      <button class="sub-tab-btn" data-sub="performance">Performance</button>
-      <button class="sub-tab-btn" data-sub="parental">Parental</button>
-      <button class="sub-tab-btn" data-sub="blocklists">Blocklists</button>
-      <button class="sub-tab-btn" data-sub="lists">Lists</button>
-      <button class="sub-tab-btn" data-sub="tlds">TLDs</button>
+      <button class="sub-tab-btn active" data-sub="security">🔒 Security</button>
+      <button class="sub-tab-btn" data-sub="privacy">👁️ Privacy</button>
+      <button class="sub-tab-btn" data-sub="performance">⚡ Performance</button>
+      <button class="sub-tab-btn" data-sub="parental">👪 Parental</button>
+      <button class="sub-tab-btn" data-sub="blocklists">🛡️ Blocklists</button>
+      <button class="sub-tab-btn" data-sub="lists">📝 Lists</button>
+      <button class="sub-tab-btn" data-sub="tlds">🌐 TLDs</button>
     </div>
     <div id="blocks-search-container" class="hidden" style="padding: 12px 15px 5px; gap: 8px;">
        <input type="text" id="blocks-search-input" placeholder="Search entries..." style="margin-bottom: 0;">
@@ -632,7 +729,7 @@
       </div>
 
       <div style="display: flex; gap: 8px;">
-        <button id="alert-test-btn" class="btn-allow" style="background-color: var(--accent); flex: 1;">📢 Send Test Alert</button>
+        <button id="alert-test-btn" class="btn-primary" style="flex: 1;">📢 Send Test Alert</button>
         <button id="alert-save-btn" class="btn-allow" style="flex: 1;">💾 Save Alert Options</button>
       </div>
     </div>
@@ -808,7 +905,7 @@
         <h4>Settings Backup & Restore</h4>
         <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Export or restore all extension settings, custom themes, and scheduled rules as a JSON file.</p>
         <div class="grid">
-          <button id="export-settings-btn" class="btn-allow" style="background-color: #5d6d7e;">📤 Backup All</button>
+          <button id="export-settings-btn" class="btn-secondary">📤 Backup All</button>
           <button id="import-settings-btn" class="btn-secondary">📥 Restore</button>
         </div>
         <input type="file" id="import-settings-file" class="hidden" accept=".json">
@@ -826,7 +923,7 @@
       <div class="panel-box" style="text-align: center; border-color: var(--accent);">
         <h4 style="color: var(--text-main);">Centralized Data Manager</h4>
         <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Manage domain notes, device aliases, and filters in a dedicated full-screen console.</p>
-        <button id="launch-full-manager-btn" class="btn-allow" style="background-color: var(--accent);">🚀 Launch Manager</button>
+        <button id="launch-full-manager-btn" class="btn-primary">🚀 Launch Manager</button>
       </div>
     </div>
 
