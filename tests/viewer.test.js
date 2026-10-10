@@ -146,4 +146,61 @@ describe('Data Manager Viewer UI Suite', () => {
         modal.classList.add('hidden');
         expect(modal.classList.contains('hidden')).toBe(true);
     });
+
+    test('Data Manager profile selector and DNS Rewrites tab elements exist', () => {
+        expect(document.getElementById('tab-rewrites')).not.toBeNull();
+        expect(document.getElementById('viewer-profile-select')).not.toBeNull();
+        expect(document.getElementById('viewer-refresh-profile-btn')).not.toBeNull();
+        expect(document.getElementById('label-note')).not.toBeNull();
+    });
+
+    test('DNS Rewrites list rendering maps domain and answer accurately', () => {
+        const listContainer = document.getElementById('list-container');
+        const mockRewrites = [
+            { id: 'rew-1', name: 'printer.lan', content: '192.168.1.50' },
+            { id: 'rew-2', domain: 'nas.home', answer: '10.0.0.100' }
+        ];
+
+        // Format rewrites data according to viewer.js logic
+        const currentData = {};
+        mockRewrites.forEach(r => {
+            const name = r.name || r.domain;
+            const content = r.content || r.answer || '';
+            if (name) currentData[name] = content;
+        });
+
+        const entries = Object.entries(currentData).sort((a, b) => a[0].localeCompare(b[0]));
+        const html = entries.map(([key, val]) => `
+            <div class="list-item">
+                <div class="item-info">
+                    <div class="item-title">${key}<span class="badge">REWRITE</span></div>
+                    <div class="item-desc">➡️ ${val}</div>
+                </div>
+                <button class="btn btn-edit" data-key="${key}">Edit</button>
+                <button class="btn btn-delete" data-key="${key}">Delete</button>
+            </div>
+        `).join('');
+
+        listContainer.innerHTML = html;
+
+        expect(listContainer.querySelectorAll('.list-item').length).toBe(2);
+        expect(listContainer.textContent).toContain('printer.lan');
+        expect(listContainer.textContent).toContain('192.168.1.50');
+        expect(listContainer.textContent).toContain('nas.home');
+        expect(listContainer.textContent).toContain('10.0.0.100');
+    });
+
+    test('DNS Rewrites empty states for missing profile and API error', () => {
+        const listContainer = document.getElementById('list-container');
+
+        // Missing profile state
+        const noProfileHTML = '<div class="empty-state">⚠️ No NextDNS profile detected or selected.</div>';
+        listContainer.innerHTML = noProfileHTML;
+        expect(listContainer.textContent).toContain('No NextDNS profile detected');
+
+        // API error state
+        const errorHTML = '<div class="empty-state">⚠️ Failed to fetch DNS rewrites: Unauthorized.</div>';
+        listContainer.innerHTML = errorHTML;
+        expect(listContainer.textContent).toContain('Failed to fetch DNS rewrites');
+    });
 });

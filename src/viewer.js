@@ -29,6 +29,10 @@ let blocksMeta = { tlds: [], blocklists: [] };
 let activeTlds = new Set();
 /** @type {Set<string>} Set of currently enabled blocklist identifiers */
 let activeBlocklists = new Set();
+/** @type {Object} Metadata map for DNS rewrites { [domain]: { id, name, content } } */
+let rewritesMeta = {};
+/** @type {string|null} Error string if DNS rewrites fetch fails */
+let rewritesFetchError = null;
 
 // --- DOM References ---
 const listContainer = document.getElementById('list-container');
@@ -149,31 +153,81 @@ async function init() {
     // 0. Initialize and synchronize theme
     await initViewerTheme();
 
-    // 1. Detect Active Profile
+    // 1. Detect Active Profile with URL query, background detection, and storage fallback
+    const params = new URLSearchParams(window.location.search);
+    const profileParam = params.get('profile');
+
     const p = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
-    if (p) activeProfile = p.id;
+    if (p && p.id) {
+        activeProfile = p.id;
+    } else {
+        const stored = await storage.get(["activeProfile", "overrideProfileId", "detectedProfileId"]);
+        activeProfile = (stored.overrideProfileId && stored.overrideProfileId !== 'auto') 
+            ? stored.overrideProfileId 
+            : (stored.activeProfile || stored.detectedProfileId || null);
+    }
+
+    if (profileParam && profileParam.trim()) {
+        activeProfile = profileParam.trim();
+    }
     
     // 2. Parse initial tab from URL
-    const params = new URLSearchParams(window.location.search);
     const initialTab = params.get('tab');
-    if (['profiles', 'filters', 'hostnames', 'tlds', 'blocklists'].includes(initialTab)) {
+    if (['domains', 'profiles', 'filters', 'hostnames', 'tlds', 'blocklists', 'backup', 'snapshots', 'comparison', 'rewrites'].includes(initialTab)) {
         activeTab = initialTab;
     }
     
     // 3. Setup event listeners
     initEventListeners();
     
-    // 4. Initial Render
+    // 4. Fetch profiles for selection before initial render
+    await fetchProfiles();
+
+    // 5. Initial Render
     await refreshView();
-    
-    // 5. Fetch profiles for selection
-    fetchProfiles();
 }
 
 /**
  * Binds global UI events for tab navigation, search, modal controls, and delegation for list items.
  */
 function initEventListeners() {
+    // Active Profile Selector
+    const viewerProfileSelect = document.getElementById('viewer-profile-select');
+    if (viewerProfileSelect) {
+        viewerProfileSelect.onchange = async () => {
+            const selected = viewerProfileSelect.value;
+            if (selected) {
+                activeProfile = selected;
+                await storage.set({ activeProfile: selected, overrideProfileId: selected });
+                showToast(`Switched to profile: ${selected}`, 'info');
+                await refreshView();
+            }
+        };
+    }
+
+    // Refresh Active Profile Button
+    const refreshProfileBtn = document.getElementById('viewer-refresh-profile-btn');
+    if (refreshProfileBtn) {
+        refreshProfileBtn.onclick = async () => {
+            refreshProfileBtn.disabled = true;
+            refreshProfileBtn.style.opacity = '0.5';
+            try {
+                const p = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
+                if (p && p.id) {
+                    activeProfile = p.id;
+                }
+                await fetchProfiles();
+                await refreshView();
+                showToast('Profiles refreshed', 'success');
+            } catch (err) {
+                showToast('Failed to refresh profile', 'error');
+            } finally {
+                refreshProfileBtn.disabled = false;
+                refreshProfileBtn.style.opacity = '1';
+            }
+        };
+    }
+
     // Tab Navigation
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.onclick = async () => {
@@ -690,6 +744,16 @@ function renderList() {
         return;
     }
     
+    if (activeTab === 'rewrites' && !activeProfile) {
+        setSafeHTML(listContainer, renderEmptyStateHTML('No NextDNS profile detected or selected. Please select a profile from the dropdown above to view its DNS rewrites.', '⚠️'));
+        return;
+    }
+
+    if (activeTab === 'rewrites' && rewritesFetchError && rewritesFetchError !== 'no_profile') {
+        setSafeHTML(listContainer, renderEmptyStateHTML(`Failed to fetch DNS rewrites: ${escapeHTML(rewritesFetchError)}. Please verify your API Key in Settings.`, '⚠️'));
+        return;
+    }
+
     const entries = Object.entries(currentData).filter(([key, val]) => {
         return key.toLowerCase().includes(query) || val.toLowerCase().includes(query);
     }).sort((a, b) => a[0].localeCompare(b[0]));
@@ -702,19 +766,27 @@ function renderList() {
         </div>`;
     }
 
+    const isRewrite = activeTab === 'rewrites';
+    const emptyMsg = isRewrite 
+        ? (query ? 'No DNS rewrites match your search.' : `No DNS rewrites configured for profile "${escapeHTML(activeProfile || '')}". Click "+ Add New Entry" to create one.`)
+        : `No items found in ${activeTab}.`;
+
     // Map entries to HTML
     html += entries.map(([key, val]) => `
         <div class="list-item">
             <div class="item-info">
-                <div class="item-title">${escapeHTML(key)}</div>
-                <div class="item-desc">${escapeHTML(val)}</div>
+                <div class="item-title">
+                    ${escapeHTML(key)}
+                    ${isRewrite ? `<span class="badge" style="background:var(--accent); font-size:0.7em; margin-left:8px;">REWRITE</span>` : ''}
+                </div>
+                <div class="item-desc">${isRewrite ? `➡️ ${escapeHTML(val)}` : escapeHTML(val)}</div>
             </div>
             <div style="display:flex; gap:10px;">
                 <button class="btn btn-edit" data-key="${escapeHTML(key)}">Edit</button>
                 <button class="btn btn-delete" data-key="${escapeHTML(key)}">Delete</button>
             </div>
         </div>
-    `).join('') || renderEmptyStateHTML(`No items found in ${activeTab}.`, '🔍');
+    `).join('') || renderEmptyStateHTML(emptyMsg, isRewrite ? '🔀' : '🔍');
     
     setSafeHTML(listContainer, html);
 }
@@ -810,12 +882,23 @@ function renderBlocklists(query) {
  */
 function openEditModal(key) {
     const val = currentData[key] || "";
-    modalTitle.textContent = `Edit Entry`;
+    modalTitle.textContent = (activeTab === 'rewrites') ? `Edit DNS Rewrite` : `Edit Entry`;
     inputKey.value = key;
     inputKey.disabled = true;
     inputKey.classList.remove('hidden');
     selectProfile.classList.add('hidden');
     inputNote.value = val;
+
+    const labelKey = document.getElementById('label-key');
+    if (labelKey) labelKey.textContent = (activeTab === 'rewrites') ? 'Domain Name' : 'Key';
+
+    const labelNote = document.getElementById('label-note');
+    if (labelNote) labelNote.textContent = (activeTab === 'rewrites') ? 'Rewrite Target (IP or Hostname)' : 'Note / Value';
+
+    if (inputNote) {
+        inputNote.placeholder = (activeTab === 'rewrites') ? 'IP Address or Target Hostname (e.g. 1.2.3.4)' : 'Enter description or value...';
+    }
+
     editModal.style.display = 'flex';
 }
 
@@ -824,23 +907,32 @@ function openEditModal(key) {
  * Adjusts labels and input visibility based on the active tab (e.g., selecting a profile vs entering a domain).
  */
 function openAddModal() {
-    modalTitle.textContent = `Add New Entry`;
+    modalTitle.textContent = (activeTab === 'rewrites') ? `Add DNS Rewrite` : `Add New Entry`;
     inputKey.value = '';
     inputNote.value = '';
     
     const labelKey = document.getElementById('label-key');
+    const labelNote = document.getElementById('label-note');
     
     if (activeTab === 'profiles') {
         if (labelKey) labelKey.textContent = 'Select Profile';
         inputKey.classList.add('hidden');
         selectProfile.classList.remove('hidden');
     } else {
-        if (labelKey) labelKey.textContent = 'Key / Domain';
+        if (labelKey) labelKey.textContent = (activeTab === 'rewrites') ? 'Domain Name (e.g. router.home)' : 'Key / Domain';
         inputKey.classList.remove('hidden');
         inputKey.disabled = false;
         selectProfile.classList.add('hidden');
     }
     
+    if (labelNote) {
+        labelNote.textContent = (activeTab === 'rewrites') ? 'Rewrite Target (IP or Hostname)' : 'Note / Value';
+    }
+
+    if (inputNote) {
+        inputNote.placeholder = (activeTab === 'rewrites') ? 'IP Address or Target Hostname (e.g. 1.2.3.4)' : 'Enter description or value...';
+    }
+
     editModal.style.display = 'flex';
 }
 
@@ -850,13 +942,32 @@ function openAddModal() {
  * @async
  */
 async function fetchRewritesData() {
-    if (!activeProfile) return;
-    const res = await browser.runtime.sendMessage({ type: "LIST_REWRITES", profileId: activeProfile });
-    if (res.success) {
-        currentData = {};
-        res.data.forEach(r => {
-            currentData[r.name] = r.content;
-        });
+    currentData = {};
+    rewritesMeta = {};
+    rewritesFetchError = null;
+
+    if (!activeProfile) {
+        rewritesFetchError = 'no_profile';
+        return;
+    }
+
+    try {
+        const res = await browser.runtime.sendMessage({ type: "LIST_REWRITES", profileId: activeProfile });
+        if (res && res.success) {
+            const list = Array.isArray(res.data) ? res.data : [];
+            list.forEach(r => {
+                const name = r.name || r.domain;
+                const content = r.content || r.answer || r.target || r.ip || '';
+                if (name) {
+                    currentData[name] = content;
+                    rewritesMeta[name] = { id: r.id || name, name, content };
+                }
+            });
+        } else {
+            rewritesFetchError = res?.error || 'Failed to fetch rewrites from NextDNS API';
+        }
+    } catch (err) {
+        rewritesFetchError = err.message || 'Failed to communicate with background engine';
     }
 }
 
@@ -907,7 +1018,13 @@ async function handleDelete(key) {
 
     try {
         if (activeTab === 'rewrites') {
-            const res = await browser.runtime.sendMessage({ type: "DELETE_REWRITE", profileId: activeProfile, name: key });
+            const meta = rewritesMeta[key];
+            const res = await browser.runtime.sendMessage({ 
+                type: "DELETE_REWRITE", 
+                profileId: activeProfile, 
+                name: key, 
+                id: meta?.id || key 
+            });
             if (!res?.success) throw new Error(res?.error || 'Failed to delete rewrite.');
         } else {
             const storageKey = getStorageKey();
@@ -992,6 +1109,17 @@ function populateProfileDropdowns() {
         const el = document.getElementById(id);
         if (el) setSafeHTML(el, html);
     });
+
+    const viewerSelect = document.getElementById('viewer-profile-select');
+    if (viewerSelect) {
+        setSafeHTML(viewerSelect, html);
+        if (activeProfile && profilesList.some(p => p.id === activeProfile)) {
+            viewerSelect.value = activeProfile;
+        } else if (profilesList.length > 0) {
+            if (!activeProfile) activeProfile = profilesList[0].id;
+            viewerSelect.value = activeProfile;
+        }
+    }
 }
 
 /**

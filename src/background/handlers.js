@@ -486,11 +486,12 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId and name.
      */
     DELETE_REWRITE: async (msg) => {
-        const { profileId, name } = msg;
+        const { profileId, name, id } = msg;
         if (!profileId || !/^[a-zA-Z0-9_-]+$/.test(profileId)) return { success: false, error: "Invalid profile ID" };
-        if (!name || typeof name !== 'string' || !name.trim()) return { success: false, error: "Invalid domain name" };
-        const safeName = encodeURIComponent(name.trim());
-        const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/rewrites/${safeName}`, { method: 'DELETE' });
+        const target = (id && typeof id === 'string' && id.trim()) ? id.trim() : (name && typeof name === 'string' ? name.trim() : '');
+        if (!target) return { success: false, error: "Invalid domain name" };
+        const safeTarget = encodeURIComponent(target);
+        const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/rewrites/${safeTarget}`, { method: 'DELETE' });
         const out = { success: r.success };
         if (r.error) out.error = r.error;
         return out;

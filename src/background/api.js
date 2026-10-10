@@ -55,11 +55,19 @@ export async function manageDomain(profileId, listType, domain, action) {
  * @returns {Promise<{id: string, name: string}|null>} The detected profile object or null.
  */
 export async function detectActiveProfile() {
-    const overrideId = await storage.get("overrideProfileId");
+    const overrideSetting = await storage.get("overrideProfileId");
+    const storedActive = await storage.get("activeProfile");
     const apiKey = await storage.get("apiKey");
 
-    // Clean up any legacy invalid fingerprint stored as manualProfileId
-    const isManual = Boolean(overrideId && overrideId !== 'auto' && !overrideId.startsWith('fp'));
+    // Resolve explicit override or stored manual profile (ignore 'auto' and legacy 'fp' fingerprints)
+    let overrideId = null;
+    if (overrideSetting && overrideSetting !== 'auto' && !overrideSetting.startsWith('fp')) {
+        overrideId = overrideSetting;
+    } else if ((overrideSetting === undefined || overrideSetting === null) && storedActive && storedActive !== 'auto' && !storedActive.startsWith('fp')) {
+        overrideId = storedActive;
+    }
+
+    const isManual = Boolean(overrideId);
     const activeId = isManual ? overrideId : null;
 
     let accountProfiles = [];

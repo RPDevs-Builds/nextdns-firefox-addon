@@ -487,7 +487,10 @@ function initGlobalEventListeners() {
 
     // Data Management
     document.getElementById('launch-full-manager-btn')?.addEventListener('click', () => {
-        browser.tabs.create({ url: browser.runtime.getURL('src/viewer.html') });
+        const url = state.activeProfile 
+            ? browser.runtime.getURL(`src/viewer.html?profile=${encodeURIComponent(state.activeProfile)}`)
+            : browser.runtime.getURL('src/viewer.html');
+        browser.tabs.create({ url });
     });
     document.getElementById('download-logs-btn')?.addEventListener('click', downloadLogsCSV);
     document.getElementById('wipe-logs-btn')?.addEventListener('click', wipeLogs);
@@ -956,7 +959,7 @@ export async function refreshActiveProfileAndUI() {
  */
 async function initSettingsUI() {
     const keys = [
-        "apiKey", "activeProfile", "iconClickAction", 
+        "apiKey", "activeProfile", "overrideProfileId", "iconClickAction", 
         "autoRefreshLogs", "enableBlockNotifications", 
         "enableLabs", "autoRefreshTime"
     ];
@@ -983,7 +986,9 @@ async function initSettingsUI() {
         // Load profiles into dropdown
         if (profileSelect) {
             await loadProfiles(data.apiKey);
-            profileSelect.value = data.activeProfile || '';
+            profileSelect.value = (data.overrideProfileId && data.overrideProfileId !== 'auto')
+                ? data.overrideProfileId
+                : (data.activeProfile || '');
         }
 
         // Live fetch on API key input (debounced)
@@ -1029,6 +1034,7 @@ async function saveSettings() {
     const newSettings = {
         apiKey,
         activeProfile,
+        overrideProfileId: activeProfile ? activeProfile : 'auto',
         iconClickAction,
         autoRefreshLogs,
         enableBlockNotifications,
