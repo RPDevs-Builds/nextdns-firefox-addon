@@ -101,4 +101,23 @@ describe('Background Scheduler & Automation Rules', () => {
 
         expect(handlersMock.TOGGLE_SETTING).not.toHaveBeenCalled();
     });
+
+    test('Ignores malformed rules with invalid triggers, missing targets, or illegal actions', async () => {
+        const now = new Date();
+        const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+        storedData.activeProfile = 'profile-123';
+        storedData.forgeRules = [
+            { id: 'bad-1', name: 'Bad Trigger Type', trigger: 1234, action: 'enable', targetId: 't1', active: true },
+            { id: 'bad-2', name: 'Bad Time Format', trigger: 'invalid-time', action: 'enable', targetId: 't1', active: true },
+            { id: 'bad-3', name: 'Out of Range Hour', trigger: '25:00', action: 'enable', targetId: 't1', active: true },
+            { id: 'bad-4', name: 'Out of Range Min', trigger: '12:65', action: 'enable', targetId: 't1', active: true },
+            { id: 'bad-5', name: 'Missing Target', trigger: currentTime, action: 'enable', targetId: '', active: true },
+            { id: 'bad-6', name: 'Illegal Action', trigger: currentTime, action: 'purge', targetId: 't1', active: true }
+        ];
+
+        await checkAutomationRules();
+
+        expect(handlersMock.TOGGLE_SETTING).not.toHaveBeenCalled();
+    });
 });

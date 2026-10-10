@@ -31,9 +31,21 @@ export async function loadRules() {
 
         list.querySelectorAll('.delete-rule-btn').forEach(btn => {
             btn.onclick = async () => {
-                await browser.runtime.sendMessage({ type: "DELETE_RULE", ruleId: btn.getAttribute('data-id') });
-                showToast("Rule deleted.", "success");
-                loadRules();
+                const ruleId = btn.getAttribute('data-id');
+                btn.disabled = true;
+                try {
+                    const delRes = await browser.runtime.sendMessage({ type: "DELETE_RULE", ruleId });
+                    if (delRes?.success) {
+                        showToast("Rule deleted.", "success");
+                        await loadRules();
+                    } else {
+                        showToast(`Failed to delete rule: ${delRes?.error || 'Unknown error'}`, "error");
+                    }
+                } catch (err) {
+                    showToast(`Failed to delete rule: ${err?.message || 'Unknown error'}`, "error");
+                } finally {
+                    btn.disabled = false;
+                }
             };
         });
     }
@@ -58,10 +70,24 @@ export async function saveAutomationRule() {
     const settingType = isService ? 'list' : 'boolean';
     const rule = { name, trigger, action, category, targetId, settingType };
 
-    await browser.runtime.sendMessage({ type: "SAVE_RULE", rule });
-    document.getElementById('rule-name').value = '';
-    const triggerEl = document.getElementById('rule-trigger');
-    if (triggerEl) triggerEl.value = '';
-    showToast("Automation rule saved.", "success");
-    loadRules();
+    const btn = document.getElementById('add-rule-btn');
+    if (btn) btn.disabled = true;
+
+    try {
+        const res = await browser.runtime.sendMessage({ type: "SAVE_RULE", rule });
+        if (res?.success) {
+            const nameInput = document.getElementById('rule-name');
+            if (nameInput) nameInput.value = '';
+            const triggerEl = document.getElementById('rule-trigger');
+            if (triggerEl) triggerEl.value = '';
+            showToast("Automation rule saved.", "success");
+            await loadRules();
+        } else {
+            showToast(`Failed to save rule: ${res?.error || 'Unknown error'}`, "error");
+        }
+    } catch (e) {
+        showToast(`Failed to save rule: ${e?.message || 'Unknown error'}`, "error");
+    } finally {
+        if (btn) btn.disabled = false;
+    }
 }

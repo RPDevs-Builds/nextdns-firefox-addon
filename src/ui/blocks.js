@@ -70,22 +70,30 @@ export function renderLists(queryOverride = null) {
     container.querySelectorAll('.list-delete-btn').forEach(btn => {
         btn.onclick = async () => {
             const domain = btn.getAttribute('data-domain');
-            btn.disabled = true; btn.textContent = "...";
-            const res = await browser.runtime.sendMessage({
-                type: "MANAGE_DOMAIN",
-                profileId: state.activeProfile,
-                listType,
-                domain,
-                action: "delete"
-            });
-            if (res.success) {
-                if (listType === 'allowlist') state.currentAllowlist.delete(domain);
-                else state.currentDenylist.delete(domain);
-                showToast(`Removed ${domain}`, 'success');
-                renderLists();
-            } else {
-                btn.disabled = false; btn.textContent = "Error";
-                showToast(`Failed to remove ${domain}`, 'error');
+            btn.disabled = true;
+            btn.textContent = "...";
+            try {
+                const res = await browser.runtime.sendMessage({
+                    type: "MANAGE_DOMAIN",
+                    profileId: state.activeProfile,
+                    listType,
+                    domain,
+                    action: "delete"
+                });
+                if (res?.success) {
+                    if (listType === 'allowlist') state.currentAllowlist.delete(domain);
+                    else state.currentDenylist.delete(domain);
+                    showToast(`Removed ${domain}`, 'success');
+                    renderLists();
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = "Remove";
+                    showToast(`Failed to remove ${domain}: ${res?.error || 'Unknown error'}`, 'error');
+                }
+            } catch (err) {
+                btn.disabled = false;
+                btn.textContent = "Remove";
+                showToast(`Failed to remove ${domain}: ${err?.message || 'Unknown error'}`, 'error');
             }
         };
     });

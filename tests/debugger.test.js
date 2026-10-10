@@ -102,4 +102,13 @@ describe('Intelligent Debugger (Phase 4.1)', () => {
         expect(result.correlations[0].reasons[0].name).toBe('AdGuard Tracking Protection');
         expect(result.correlations[0].device).toBe('Work Mac');
     });
+
+    test('requestListener: Gracefully ignores URLs without hostnames', () => {
+        const tabId = 789;
+        const res1 = bg.requestListener({ url: 'data:text/plain;base64,SGVsbG8=', tabId, type: 'xmlhttprequest' });
+        expect(res1).toEqual({ cancel: false });
+
+        const res2 = bg.requestListener({ url: 'about:blank', tabId, type: 'sub_frame' });
+        expect(res2).toEqual({ cancel: false });
+    });
 });

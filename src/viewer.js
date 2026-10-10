@@ -58,71 +58,86 @@ function initComparisonTab() {
  * @async
  */
 async function runComparison() {
-    const baseId = document.getElementById('compare-base-profile').value;
-    const targetId = document.getElementById('compare-target-profile').value;
+    const baseId = document.getElementById('compare-base-profile')?.value;
+    const targetId = document.getElementById('compare-target-profile')?.value;
     const results = document.getElementById('comparison-results');
+    const runBtn = document.getElementById('run-comparison-btn');
     
-    if (baseId === targetId) return showToast("Please select two different profiles.", "warning");
+    if (!baseId || !targetId || baseId === targetId) return showToast("Please select two different profiles.", "warning");
     
+    if (runBtn) {
+        runBtn.disabled = true;
+        runBtn.textContent = "Comparing...";
+    }
     setSafeHTML(results, '<div style="text-align:center; padding:20px;">Fetching configurations...</div>');
 
-    const [baseRes, targetRes] = await Promise.all([
-        browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: baseId }),
-        browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: targetId })
-    ]);
+    try {
+        const [baseRes, targetRes] = await Promise.all([
+            browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: baseId }),
+            browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: targetId })
+        ]);
 
-    if (!baseRes.success || !targetRes.success) {
-        setSafeHTML(results, renderEmptyStateHTML('Failed to fetch configurations.', '⚠️'));
-        return showToast("Failed to fetch configurations.", "error");
-    }
+        if (!baseRes?.success || !targetRes?.success) {
+            setSafeHTML(results, renderEmptyStateHTML('Failed to fetch configurations.', '⚠️'));
+            return showToast("Failed to fetch configurations.", "error");
+        }
 
-    const base = baseRes.data;
-    const target = targetRes.data;
-    const diffs = [];
+        const base = baseRes.data;
+        const target = targetRes.data;
+        const diffs = [];
 
-    const cats = ['security', 'privacy', 'settings'];
-    cats.forEach(cat => {
-        const baseKeys = Object.keys(base[cat] || {});
-        const targetKeys = Object.keys(target[cat] || {});
-        const allKeys = new Set([...baseKeys, ...targetKeys]);
-        
-        allKeys.forEach(key => {
-            const bVal = base[cat]?.[key];
-            const tVal = target[cat]?.[key];
-            if (bVal !== tVal) diffs.push({ cat, key, base: bVal, target: tVal });
+        const cats = ['security', 'privacy', 'settings'];
+        cats.forEach(cat => {
+            const baseKeys = Object.keys(base[cat] || {});
+            const targetKeys = Object.keys(target[cat] || {});
+            const allKeys = new Set([...baseKeys, ...targetKeys]);
+            
+            allKeys.forEach(key => {
+                const bVal = base[cat]?.[key];
+                const tVal = target[cat]?.[key];
+                if (bVal !== tVal) diffs.push({ cat, key, base: bVal, target: tVal });
+            });
         });
-    });
 
-    const lists = ['blocklists', 'tlds', 'natives', 'services', 'categories'];
-    lists.forEach(list => {
-        const baseIds = new Set((base[list] || []).map(i => i.id || i));
-        const targetIds = new Set((target[list] || []).map(i => i.id || i));
-        
-        baseIds.forEach(id => { if (!targetIds.has(id)) diffs.push({ cat: list, key: id, base: true, target: false }); });
-        targetIds.forEach(id => { if (!baseIds.has(id)) diffs.push({ cat: list, key: id, base: false, target: true }); });
-    });
+        const lists = ['blocklists', 'tlds', 'natives', 'services', 'categories'];
+        lists.forEach(list => {
+            const baseIds = new Set((base[list] || []).map(i => i.id || i));
+            const targetIds = new Set((target[list] || []).map(i => i.id || i));
+            
+            baseIds.forEach(id => { if (!targetIds.has(id)) diffs.push({ cat: list, key: id, base: true, target: false }); });
+            targetIds.forEach(id => { if (!baseIds.has(id)) diffs.push({ cat: list, key: id, base: false, target: true }); });
+        });
 
-    if (diffs.length === 0) {
-        setSafeHTML(results, renderEmptyStateHTML('Configurations are identical! No differences found.', '✅'));
-        return;
-    }
+        if (diffs.length === 0) {
+            setSafeHTML(results, renderEmptyStateHTML('Configurations are identical! No differences found.', '✅'));
+            return;
+        }
 
-    const html = diffs.map(d => `
-        <div class="panel-box" style="margin-bottom:8px; padding:10px;">
-            <div class="flex-between">
-                <div>
-                    <span class="badge" style="background:var(--accent); font-size:0.7em;">${escapeHTML(d.cat.toUpperCase())}</span>
-                    <strong style="margin-left:8px; font-size:0.9em;">${escapeHTML(d.key)}</strong>
-                </div>
-                <div style="font-size:0.85em;">
-                    <span style="color:${d.base ? 'var(--success)' : 'var(--danger)'};">${d.base ? 'ON' : 'OFF'}</span>
-                    <span style="margin:0 10px; opacity:0.5;">➡️</span>
-                    <span style="color:${d.target ? 'var(--success)' : 'var(--danger)'};">${d.target ? 'ON' : 'OFF'}</span>
+        const html = diffs.map(d => `
+            <div class="panel-box" style="margin-bottom:8px; padding:10px;">
+                <div class="flex-between">
+                    <div>
+                        <span class="badge" style="background:var(--accent); font-size:0.7em;">${escapeHTML(d.cat.toUpperCase())}</span>
+                        <strong style="margin-left:8px; font-size:0.9em;">${escapeHTML(d.key)}</strong>
+                    </div>
+                    <div style="font-size:0.85em;">
+                        <span style="color:${d.base ? 'var(--success)' : 'var(--danger)'};">${d.base ? 'ON' : 'OFF'}</span>
+                        <span style="margin:0 10px; opacity:0.5;">➡️</span>
+                        <span style="color:${d.target ? 'var(--success)' : 'var(--danger)'};">${d.target ? 'ON' : 'OFF'}</span>
+                    </div>
                 </div>
             </div>
-        </div>
-    `).join('');
-    setSafeHTML(results, html);
+        `).join('');
+        setSafeHTML(results, html);
+    } catch (err) {
+        setSafeHTML(results, renderEmptyStateHTML('Failed to compare configurations.', '⚠️'));
+        showToast("Comparison error: " + (err.message || 'Unknown error'), "error");
+    } finally {
+        if (runBtn) {
+            runBtn.disabled = false;
+            runBtn.textContent = "🔍 Compare Configurations";
+        }
+    }
 }
 
 /**
@@ -299,55 +314,89 @@ async function refreshView() {
  */
 async function loadSnapshots() {
     if (!activeProfile) return;
-    const res = await browser.runtime.sendMessage({ type: "LIST_SNAPSHOTS", profileId: activeProfile });
     const list = document.getElementById('snapshots-list');
-    
-    if (!res.snapshots || res.snapshots.length === 0) {
-        setSafeHTML(list, renderEmptyStateHTML('No snapshots yet. Take one before making changes!', '📸'));
-    } else {
-        const html = res.snapshots.map((s, i) => `
-            <div class="list-item" style="border-left: 4px solid var(--accent); padding-left: 15px;">
-                <div class="item-info">
-                    <strong>${escapeHTML(s.name)}</strong>
-                    <div class="item-note" style="font-size: 0.8em;">${new Date(s.timestamp).toLocaleString()} • ${escapeHTML(s.id)}</div>
-                </div>
-                <div class="item-actions">
-                    ${i > 0 ? `<button class="btn btn-edit compare-btn" data-id="${escapeHTML(s.id)}" style="background: var(--bg-panel); color: var(--accent); border: 1px solid var(--accent);">Diff</button>` : ''}
-                    <button class="btn btn-add restore-btn" data-id="${escapeHTML(s.id)}">Restore</button>
-                    <button class="btn btn-delete delete-snapshot-btn" data-id="${escapeHTML(s.id)}">Delete</button>
-                </div>
-            </div>
-        `).join('');
-        setSafeHTML(list, html);
+    if (!list) return;
 
-        // Event Listeners
-        list.querySelectorAll('.compare-btn').forEach(btn => {
-            btn.onclick = () => compareSnapshots(btn.getAttribute('data-id'), res.snapshots);
-        });
-        list.querySelectorAll('.restore-btn').forEach(btn => {
-            btn.onclick = () => restoreSnapshot(btn.getAttribute('data-id'), res.snapshots);
-        });
-        list.querySelectorAll('.delete-snapshot-btn').forEach(btn => {
-            btn.onclick = async () => {
-                if (confirm("Delete this snapshot permanently?")) {
-                    await browser.runtime.sendMessage({ type: "DELETE_SNAPSHOT", profileId: activeProfile, snapshotId: btn.getAttribute('data-id') });
-                    showToast("Snapshot deleted.", "info");
-                    loadSnapshots();
-                }
-            };
-        });
+    try {
+        const res = await browser.runtime.sendMessage({ type: "LIST_SNAPSHOTS", profileId: activeProfile });
+        const snapshots = Array.isArray(res?.snapshots) ? res.snapshots : [];
+        
+        if (snapshots.length === 0) {
+            setSafeHTML(list, renderEmptyStateHTML('No snapshots yet. Take one before making changes!', '📸'));
+        } else {
+            const html = snapshots.map((s, i) => `
+                <div class="list-item" style="border-left: 4px solid var(--accent); padding-left: 15px;">
+                    <div class="item-info">
+                        <strong>${escapeHTML(s.name)}</strong>
+                        <div class="item-note" style="font-size: 0.8em;">${!isNaN(new Date(s.timestamp).getTime()) ? new Date(s.timestamp).toLocaleString() : 'Recent'} • ${escapeHTML(s.id)}</div>
+                    </div>
+                    <div class="item-actions">
+                        ${i > 0 ? `<button class="btn btn-edit compare-btn" data-id="${escapeHTML(s.id)}" style="background: var(--bg-panel); color: var(--accent); border: 1px solid var(--accent);">Diff</button>` : ''}
+                        <button class="btn btn-add restore-btn" data-id="${escapeHTML(s.id)}">Restore</button>
+                        <button class="btn btn-delete delete-snapshot-btn" data-id="${escapeHTML(s.id)}">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+            setSafeHTML(list, html);
+
+            // Event Listeners
+            list.querySelectorAll('.compare-btn').forEach(btn => {
+                btn.onclick = () => compareSnapshots(btn.getAttribute('data-id'), snapshots);
+            });
+            list.querySelectorAll('.restore-btn').forEach(btn => {
+                btn.onclick = () => restoreSnapshot(btn.getAttribute('data-id'), snapshots);
+            });
+            list.querySelectorAll('.delete-snapshot-btn').forEach(btn => {
+                btn.onclick = async () => {
+                    const id = btn.getAttribute('data-id');
+                    if (confirm("Delete this snapshot permanently?")) {
+                        btn.disabled = true;
+                        try {
+                            const delRes = await browser.runtime.sendMessage({ type: "DELETE_SNAPSHOT", profileId: activeProfile, snapshotId: id });
+                            if (delRes?.success) {
+                                showToast("Snapshot deleted.", "info");
+                                await loadSnapshots();
+                            } else {
+                                showToast(`Failed to delete snapshot: ${delRes?.error || 'Unknown error'}`, "error");
+                            }
+                        } catch (err) {
+                            showToast(`Failed to delete snapshot: ${err?.message || 'Unknown error'}`, "error");
+                        } finally {
+                            btn.disabled = false;
+                        }
+                    }
+                };
+            });
+        }
+    } catch (err) {
+        setSafeHTML(list, renderEmptyStateHTML('Failed to load snapshots.', '⚠️'));
+        showToast(`Failed to load snapshots: ${err?.message || 'Unknown error'}`, "error");
     }
 
-    document.getElementById('create-snapshot-btn').onclick = async () => {
-        const name = prompt("Enter snapshot name:", `Manual Snapshot ${new Date().toLocaleTimeString()}`);
-        if (name === null) return;
-        const btn = document.getElementById('create-snapshot-btn');
-        btn.disabled = true; btn.textContent = "Taking...";
-        await browser.runtime.sendMessage({ type: "CREATE_SNAPSHOT", profileId: activeProfile, name });
-        btn.disabled = false; btn.textContent = "📸 Take Snapshot";
-        showToast("Snapshot created successfully.", "success");
-        loadSnapshots();
-    };
+    const createBtn = document.getElementById('create-snapshot-btn');
+    if (createBtn) {
+        createBtn.onclick = async () => {
+            const rawName = prompt("Enter snapshot name:", `Manual Snapshot ${new Date().toLocaleTimeString()}`);
+            if (rawName === null) return;
+            const name = rawName.trim() || `Manual Snapshot ${new Date().toLocaleTimeString()}`;
+            createBtn.disabled = true;
+            createBtn.textContent = "Taking...";
+            try {
+                const res = await browser.runtime.sendMessage({ type: "CREATE_SNAPSHOT", profileId: activeProfile, name });
+                if (res?.success) {
+                    showToast("Snapshot created successfully.", "success");
+                    await loadSnapshots();
+                } else {
+                    showToast(`Failed to create snapshot: ${res?.error || 'Unknown error'}`, "error");
+                }
+            } catch (err) {
+                showToast(`Failed to create snapshot: ${err?.message || 'Unknown error'}`, "error");
+            } finally {
+                createBtn.disabled = false;
+                createBtn.textContent = "📸 Take Snapshot";
+            }
+        };
+    }
 }
 
 /**

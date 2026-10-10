@@ -19,6 +19,7 @@ export function requestListener(details) {
         try {
             const url = new URL(details.url);
             const domain = url.hostname;
+            if (!domain) return { cancel: false };
             
             if (!state.tabRequests[details.tabId] || details.type === "main_frame") {
                 state.tabRequests[details.tabId] = {};
@@ -72,7 +73,7 @@ export function requestListener(details) {
                     reason: status === 'default' ? '' : reason,
                     reasons: allowMatch ? [{ id: 'allowlist', name: 'Allow List' }] : (denyMatch ? [{ id: 'denylist', name: 'Deny List' }] : []),
                     timestamp: Date.now(),
-                    protocol: url.protocol === 'https:' ? 'HTTPS' : 'HTTP',
+                    protocol: url.protocol ? url.protocol.replace(':', '').toUpperCase() : 'HTTP',
                     device: { name: 'This Browser' }
                 };
                 state.localLogs.unshift(logEntry);

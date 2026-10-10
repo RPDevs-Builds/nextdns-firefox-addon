@@ -25,10 +25,13 @@ export async function checkAutomationRules() {
     let rulesChanged = false;
 
     for (const rule of forgeRules) {
-        if (!rule.active || !rule.trigger) continue;
+        if (!rule || !rule.active || typeof rule.trigger !== 'string') continue;
+        if (!rule.targetId || !['enable', 'disable'].includes(rule.action)) continue;
 
-        const [tHours, tMins] = rule.trigger.split(':').map(Number);
-        if (isNaN(tHours) || isNaN(tMins)) continue;
+        const parts = rule.trigger.split(':');
+        if (parts.length !== 2) continue;
+        const [tHours, tMins] = parts.map(Number);
+        if (isNaN(tHours) || isNaN(tMins) || tHours < 0 || tHours > 23 || tMins < 0 || tMins > 59) continue;
         const triggerTotalMins = tHours * 60 + tMins;
 
         // Check if current time is within a 2-minute catch-up window of trigger, and not yet executed today
