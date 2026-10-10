@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.1.6] - 2026-10-10
+
+### Added
+- **Unified Switch Components Across All Options:** Standardized all settings and binary feature toggles across Web Console Enhancements, Connection Preferences, and Alerts to use the modern, right-aligned `.switch` sliding toggle pattern matching the Protection tab.
+- **Automated Checksum Synchronization in CI/CD:** Hardened the GitHub Actions release pipeline to automatically commit and push the signed Mozilla XPI SHA-256 checksum back to `updates.json` on `main`, ensuring seamless, zero-maintenance browser updates in Firefox.
+
 ## [1.1.5] - 2026-10-09
 
 ### Added

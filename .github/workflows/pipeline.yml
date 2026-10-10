@@ -79,22 +79,36 @@ jobs:
         run: |
           if [ -n "$AMO_JWT_ISSUER" ] && [ -n "$AMO_JWT_SECRET" ]; then
             echo "Submitting to Mozilla for signing..."
-            npm run sign || echo "Note: Signing completed or version already submitted."
+            npm run sign
             if [ -d "web-ext-artifacts" ]; then
               SIGNED_XPI=$(ls -t web-ext-artifacts/*.xpi 2>/dev/null | head -n 1)
               if [ -n "$SIGNED_XPI" ]; then
                 echo "Found signed XPI: $SIGNED_XPI"
-                for orig in release-artifacts/dns_forge-*.xpi; do
-                  if [ -f "$orig" ]; then
-                    echo "Replacing $orig with signed package $SIGNED_XPI"
-                    cp -f "$SIGNED_XPI" "$orig"
-                  fi
-                done
-                cp -f "$SIGNED_XPI" release-artifacts/ 2>/dev/null || true
+                VERSION=$(node -p "require('./package.json').version")
+                rm -rf release-artifacts/*
+                cp -f "$SIGNED_XPI" "release-artifacts/dns_forge-${VERSION}.xpi"
+                echo "Release artifact prepared: release-artifacts/dns_forge-${VERSION}.xpi"
+              else
+                echo "❌ No signed XPI found in web-ext-artifacts"
+                exit 1
               fi
+            else
+              echo "❌ web-ext-artifacts directory not found"
+              exit 1
             fi
           else
             echo "AMO credentials not configured. Proceeding with unsigned build."
+          fi
+
+      - name: Commit and Push Signed Checksum to updates.json
+        run: |
+          if git status --porcelain | grep -q "updates.json"; then
+            echo "Committing signed sha256 checksum in updates.json..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add updates.json
+            git commit -m "chore(updates): record signed sha256 checksum [skip ci]"
+            git push origin HEAD:main
           fi
 
       - name: Create Release
