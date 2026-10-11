@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.2.0] - 2026-10-10
+
+### Major Features & Additions
+- **Real-Time NextDNS Connection & Edge PoP Indicators:** Integrated live connection telemetry into the Overview UI header, displaying connection protocol, NextDNS edge PoP server (e.g. `anycast.ams`, `vultr-ewr-1`), and active routing state (🟢 DoH / 🟡 Manual Override / 🔴 Unconfigured).
+- **Bounded Concurrency Task Worker (`mapConcurrent`):** Implemented a high-performance concurrency-bounded promise runner inspired by NextDNS CLI's `maxInflightRequests` semaphore. Accelerated bulk domain imports and Data Manager snapshot restores across Security, Privacy, Blocklists, TLDs, and Parental Controls by **4x** without hitting HTTP 429 rate limits.
+- **Integrated NextDNS Network & Edge PoP Diagnostic Suite:** Added a dedicated **🩺 Diagnostics** sub-tab in Tools providing live round-trip latency (RTT) probing against `https://dns.nextdns.io/info` and test diagnostic metadata from `https://test.nextdns.io`, complete with real-time telemetry cards and single-click JSON diagnostic bundle export.
+- **Rich Client Device Attribution:** Enhanced device recognition across popup query logs, analytics, and the `my.nextdns.io` web console to display device names, hardware models, and IP addresses in tooltips and badges.
+- **Remote Configuration Cache Tracking:** Added tracking for `X-Conf-Last-Modified` and `Last-Modified` response headers in the API client to monitor profile updates.
+
+### Architecture Hardening & Reliability
+- **DNS Rewrite Dynamic Profile Switcher:** Resolved profile mismatch in Data Manager rewrites tab by synchronizing `overrideProfileId` and adding an interactive profile selector.
+- **Defensive Error Body Parsing:** Improved HTTP 400 and 403 error parsing to extract nested messages from NextDNS API JSON responses.
+- **Safe JSON Decoding:** Replaced raw `response.json()` calls with guarded `.catch(() => ({}))` across all background API endpoints.
+- **Background Message Listener Guard:** Added try/catch rejection wrappers in `browser.runtime.onMessage` to prevent silent promise rejection failures.
+- **Context Menu Scheme Validation:** Added scheme guards restricting context menu domain addition to valid HTTP and HTTPS URLs.
+- **Notification Debounce Pruning:** Added automatic memory eviction for debounce timestamps older than 60 seconds.
+- **Log Scanning Performance:** Replaced quadratic slice search with a linear Set index for fast duplicate log detection.
+- **Profile Snapshot Diff Precision:** Scoped diff generation to boolean settings to eliminate false positive diff noise.
+- **SPA Navigation Hooks:** Added `popstate` event listeners in `content.js` to ensure reliable script re-evaluation across NextDNS web console client-side route changes.
+- **Unit Test Coverage:** Added 20 new tests bringing the test suite to 128 tests across 17 suites with 100% pass rate.
+
 ## [1.1.8] - 2026-10-10
 
 ### Added

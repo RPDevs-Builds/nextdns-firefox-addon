@@ -292,7 +292,7 @@ export async function runNetworkDiagnostics() {
         rttMs: rtt,
         activeProfileId: activeProfile || testData.profile || null,
         activeProfileName,
-        extensionVersion: (typeof browser !== 'undefined' && browser.runtime?.getManifest) ? (browser.runtime.getManifest()?.version || "1.1.8") : "1.1.8"
+        extensionVersion: (typeof browser !== 'undefined' && browser.runtime?.getManifest) ? (browser.runtime.getManifest()?.version || "1.2.0") : "1.2.0"
     };
 
     if (state.networkStatus) {
