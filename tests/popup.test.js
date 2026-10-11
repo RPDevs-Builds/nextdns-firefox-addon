@@ -318,5 +318,97 @@ describe('Popup UI - Advanced Coverage Suite', () => {
         expect(profStatus.textContent).toContain('Profile: Not Detected');
         expect(profStatus.textContent).toContain('🔴 Unconfigured / Leaking');
     });
+
+    test('downloadLogsCSV exports formatted CSV and warns when logs cache is empty', async () => {
+        const { downloadLogsCSV } = await import('../src/ui/dashboard.js');
+        const { state } = await import('../src/ui/state.js');
+
+        // Case 1: Empty cache
+        state.cachedLogs = [];
+        downloadLogsCSV();
+        expect(document.querySelector('.toast-text')?.textContent).toContain('No logs to export');
+
+        // Case 2: Populated cache
+        state.cachedLogs = [
+            {
+                timestamp: new Date().toISOString(),
+                device: { id: 'dev-1', name: 'Laptop' },
+                name: 'test.com',
+                status: 'blocked',
+                reasons: [{ name: 'EasyList' }, { name: 'AdGuard' }]
+            },
+            {
+                timestamp: 'invalid-time',
+                clientIp: '1.2.3.4',
+                domain: 'tracker.com',
+                status: 'blocked',
+                reason: 'Disguised Tracker'
+            }
+        ];
+        state.hostnameAliases = { 'dev-1': 'Work Laptop' };
+
+        global.URL.createObjectURL = jest.fn().mockReturnValue('blob:mock-csv');
+        global.URL.revokeObjectURL = jest.fn();
+
+        downloadLogsCSV();
+        expect(global.URL.createObjectURL).toHaveBeenCalled();
+    });
+
+    test('wipeLogs clears remote logs and resets local cache upon confirmation', async () => {
+        const { wipeLogs } = await import('../src/ui/dashboard.js');
+        const { state } = await import('../src/ui/state.js');
+
+        document.body.innerHTML += `<button id="wipe-logs-btn">🗑️ Clear Logs</button>`;
+        state.activeProfile = 'p1';
+        state.cachedLogs = [{ name: 'log1.com' }];
+
+        // Case 1: User cancels confirm prompt
+        global.confirm = jest.fn().mockReturnValue(false);
+        await wipeLogs();
+        expect(state.cachedLogs.length).toBe(1);
+
+        // Case 2: User confirms and clear succeeds
+        global.confirm = jest.fn().mockReturnValue(true);
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: true });
+
+        await wipeLogs();
+        expect(state.cachedLogs.length).toBe(0);
+        expect(document.getElementById('wipe-logs-btn').disabled).toBe(false);
+
+        // Case 3: Background returns error
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false, error: 'Unauthorized' });
+        await wipeLogs();
+        expect(document.getElementById('wipe-logs-btn').disabled).toBe(false);
+
+        // Case 4: Exception thrown
+        global.browser.runtime.sendMessage = jest.fn().mockRejectedValue(new Error('Network dead'));
+        await wipeLogs();
+        expect(document.getElementById('wipe-logs-btn').disabled).toBe(false);
+    });
+
+    test('updateDynamicLinks updates links with active profile', async () => {
+        const { updateDynamicLinks } = await import('../src/ui/dashboard.js');
+        const { state } = await import('../src/ui/state.js');
+
+        document.body.innerHTML += `
+            <a id="web-gui-profile-link" href="#">Profile</a>
+            <a id="web-gui-logs-link" href="#">Logs</a>
+            <a id="web-gui-security-link" href="#">Security</a>
+            <a id="web-gui-privacy-link" href="#">Privacy</a>
+        `;
+
+        state.activeProfile = 'prof-abc';
+        updateDynamicLinks();
+
+        expect(document.getElementById('web-gui-profile-link').href).toBe('https://my.nextdns.io/prof-abc');
+        expect(document.getElementById('web-gui-logs-link').href).toBe('https://my.nextdns.io/prof-abc/logs');
+        expect(document.getElementById('web-gui-security-link').href).toBe('https://my.nextdns.io/prof-abc/security');
+        expect(document.getElementById('web-gui-privacy-link').href).toBe('https://my.nextdns.io/prof-abc/privacy');
+
+        // No active profile
+        state.activeProfile = null;
+        updateDynamicLinks();
+        expect(document.getElementById('web-gui-profile-link').href).toBe('https://my.nextdns.io/');
+    });
 });
 

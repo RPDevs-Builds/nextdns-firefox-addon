@@ -126,4 +126,45 @@ describe('Storage Persistence & Auto-Heal', () => {
         await storage.remove('tempKey');
         expect(await storage.get('tempKey')).toBeNull();
     });
+
+    test('StorageManager: onChanged listener updates and deletes keys in cache', async () => {
+        let changeListener;
+        global.browser.storage.onChanged.addListener = jest.fn(fn => { changeListener = fn; });
+        const { storage } = await import('../src/storage.js');
+        storage.initialized = false;
+        await storage.init();
+        expect(changeListener).toBeDefined();
+
+        // Simulate update
+        changeListener({ newProp: { newValue: 'hello' } }, 'sync');
+        expect(await storage.get('newProp')).toBe('hello');
+
+        // Simulate delete (newValue: undefined)
+        changeListener({ newProp: { newValue: undefined } }, 'sync');
+        expect(await storage.get('newProp')).toBeNull();
+    });
+
+    test('StorageManager: handles init timeout or failure gracefully', async () => {
+        jest.useFakeTimers();
+        global.browser.storage.sync.get = jest.fn(() => new Promise(() => {})); // Hangs
+        const { storage } = await import('../src/storage.js');
+        storage.initialized = false;
+        const initP = storage.init();
+        jest.advanceTimersByTime(2500);
+        await initP;
+        expect(storage.initialized).toBe(true);
+        expect(await storage.get('anyKey', 'defaultVal')).toBe('defaultVal');
+        jest.useRealTimers();
+    });
+
+    test('StorageManager: Supports removing array of keys', async () => {
+        const { storage } = await import('../src/storage.js');
+        storage.initialized = false;
+        await storage.init();
+        await storage.set({ k1: 'v1', k2: 'v2' });
+        await storage.remove(['k1', 'k2']);
+        expect(await storage.get('k1')).toBeNull();
+        expect(await storage.get('k2')).toBeNull();
+    });
 });
+

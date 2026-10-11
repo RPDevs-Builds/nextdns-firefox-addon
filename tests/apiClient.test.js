@@ -185,6 +185,88 @@ describe('APIClient Unit Tests', () => {
         expect(client.lastModified).toBe('Sun, 11 Oct 2026 01:20:00 GMT');
     });
 
+    test('getHeaders handles malformed URLs gracefully', async () => {
+        const client = new APIClient();
+        const headers = await client.getHeaders("::invalid-url::");
+        expect(headers['Content-Type']).toBe('application/json');
+        expect(headers['Accept']).toBe('application/json');
+    });
+
+    test('fetchWithRetry throws when fetch returns null', async () => {
+        const client = new APIClient();
+        global.fetch.mockResolvedValueOnce(null);
+
+        const res = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(res.success).toBe(false);
+        expect(res.error).toBe("No response returned from fetch");
+    });
+
+    test('fetchWithRetry extracts errors[0].message on 500 server error exhaust', async () => {
+        const client = new APIClient();
+        global.fetch.mockResolvedValueOnce({
+            status: 500,
+            ok: false,
+            clone: () => ({
+                json: async () => ({ errors: [{ message: "Internal server outage" }] })
+            })
+        });
+
+        const res = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(res.success).toBe(false);
+        expect(res.error).toBe("Internal server outage");
+    });
+
+    test('fetchWithRetry extracts error.message object on 429 rate limit exhaust', async () => {
+        const client = new APIClient();
+        global.fetch.mockResolvedValueOnce({
+            status: 429,
+            ok: false,
+            clone: () => ({
+                json: async () => ({ error: { message: "Rate limit exhausted" } })
+            })
+        });
+
+        const res = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(res.success).toBe(false);
+        expect(res.error).toBe("Rate limit exhausted");
+    });
+
+    test('fetchWithRetry extracts string error and errData.message on 400', async () => {
+        const client = new APIClient();
+        global.fetch.mockResolvedValueOnce({
+            status: 400,
+            ok: false,
+            clone: () => ({
+                json: async () => ({ errors: ["Direct string failure"] })
+            })
+        });
+
+        const res1 = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(res1.error).toBe("Direct string failure");
+
+        global.fetch.mockResolvedValueOnce({
+            status: 400,
+            ok: false,
+            clone: () => ({
+                json: async () => ({ message: "Direct message field" })
+            })
+        });
+
+        const res2 = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(res2.error).toBe("Direct message field");
+
+        // Clone error fallback
+        global.fetch.mockResolvedValueOnce({
+            status: 400,
+            statusText: 'Bad Request',
+            ok: false,
+            clone: () => { throw new Error("Broken stream"); }
+        });
+
+        const res3 = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(res3.error).toBe("HTTP 400 Bad Request");
+    });
+
     describe('mapConcurrent', () => {
         let mapConcurrent;
 

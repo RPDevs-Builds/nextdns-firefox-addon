@@ -143,4 +143,81 @@ describe('Background Scheduler & Automation Rules', () => {
             profileId: 'profile-override-999'
         }));
     });
+
+    test('Handles empty rules list and missing target profile gracefully', async () => {
+        storedData.forgeRules = [];
+        await checkAutomationRules();
+        expect(handlersMock.TOGGLE_SETTING).not.toHaveBeenCalled();
+
+        const now = new Date();
+        const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        delete storedData.activeProfile;
+        delete storedData.overrideProfileId;
+        delete storedData.detectedProfileId;
+
+        storedData.forgeRules = [{
+            id: 'rule-noprofile',
+            name: 'No Profile Rule',
+            trigger: currentTime,
+            action: 'enable',
+            category: 'security',
+            targetId: 'block-dga',
+            active: true
+        }];
+
+        await checkAutomationRules();
+        expect(handlersMock.TOGGLE_SETTING).not.toHaveBeenCalled();
+    });
+
+    test('Executes disable action on parental service with detected profile and handles execution errors', async () => {
+        const now = new Date();
+        const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        delete storedData.activeProfile;
+        delete storedData.overrideProfileId;
+        storedData.detectedProfileId = 'detected-prof-456';
+
+        storedData.forgeRules = [
+            {
+                id: 'rule-service',
+                name: 'Disable YouTube',
+                trigger: currentTime,
+                action: 'disable',
+                category: 'parentalcontrol/services',
+                targetId: 'youtube',
+                active: true
+            },
+            {
+                id: 'unrelated-rule',
+                name: 'Unrelated',
+                trigger: '01:00',
+                action: 'enable',
+                targetId: 't1',
+                active: true
+            }
+        ];
+
+        let forgeRulesCallCount = 0;
+        jest.spyOn(storage, 'get').mockImplementation(async (key, def) => {
+            if (key === 'forgeRules') {
+                forgeRulesCallCount++;
+                if (forgeRulesCallCount > 1) {
+                    return [...storedData.forgeRules, { id: 'concurrently-added-rule', name: 'Concurrent' }];
+                }
+            }
+            return storedData[key] !== undefined ? storedData[key] : def;
+        });
+
+        handlersMock.TOGGLE_SETTING.mockRejectedValueOnce(new Error('NextDNS API Down'));
+        const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        await checkAutomationRules();
+
+        expect(handlersMock.TOGGLE_SETTING).toHaveBeenCalledWith(expect.objectContaining({
+            profileId: 'detected-prof-456',
+            action: 'delete',
+            settingType: 'list'
+        }));
+        expect(errSpy).toHaveBeenCalled();
+        errSpy.mockRestore();
+    });
 });

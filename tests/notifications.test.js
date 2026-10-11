@@ -161,4 +161,86 @@ describe('Action Center (Phase 8.1)', () => {
         expect(badge.classList.contains('hidden')).toBe(true);
         expect(container.textContent).toContain('No new alerts.');
     });
+
+    test('UI: initNotifications handles toggle, outside clicks, escape key, and clear button', async () => {
+        document.body.innerHTML = `
+            <button id="alerts-toggle-btn">📢<span id="alerts-badge" class="alerts-badge hidden"></span></button>
+            <div id="alerts-popover" class="alerts-popover hidden">
+                <button id="notifications-clear-btn">Clear All</button>
+                <div id="notifications-container"></div>
+            </div>
+            <div id="outside-element">Outside</div>
+        `;
+
+        global.browser.runtime.sendMessage = jest.fn().mockImplementation((msg) => {
+            if (msg.type === 'GET_NOTIFICATIONS') {
+                return Promise.resolve({
+                    success: true,
+                    notifications: [
+                        { id: 'n1', severity: 'medium', type: 'denylist', message: 'Blocked ad', timestamp: Date.now() }
+                    ]
+                });
+            }
+            if (msg.type === 'CLEAR_NOTIFICATIONS') {
+                return Promise.resolve({ success: true });
+            }
+            return Promise.resolve({});
+        });
+
+        const uiNotifications = await import('../src/ui/notifications.js');
+        const uiState = (await import('../src/ui/state.js')).state;
+
+        delete document.__alertsClickListenerAdded;
+        uiNotifications.initNotifications();
+
+        // Allow initial GET_NOTIFICATIONS promise to resolve
+        await new Promise(r => setTimeout(r, 10));
+
+        const badge = document.getElementById('alerts-badge');
+        expect(badge.classList.contains('hidden')).toBe(false);
+        expect(uiState.notifications.length).toBe(1);
+
+        const toggleBtn = document.getElementById('alerts-toggle-btn');
+        const popover = document.getElementById('alerts-popover');
+
+        // Toggle open
+        toggleBtn.click();
+        expect(popover.classList.contains('hidden')).toBe(false);
+
+        // Toggle closed
+        toggleBtn.click();
+        expect(popover.classList.contains('hidden')).toBe(true);
+
+        // Toggle open again
+        toggleBtn.click();
+        expect(popover.classList.contains('hidden')).toBe(false);
+
+        // Click outside closes
+        const outside = document.getElementById('outside-element');
+        outside.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        expect(popover.classList.contains('hidden')).toBe(true);
+
+        // Open again, press Escape
+        popover.classList.remove('hidden');
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        expect(popover.classList.contains('hidden')).toBe(true);
+
+        // Test clear button
+        const clearBtn = document.getElementById('notifications-clear-btn');
+        await clearBtn.onclick({ stopPropagation: jest.fn() });
+        expect(uiState.notifications).toEqual([]);
+        expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith({ type: 'CLEAR_NOTIFICATIONS' });
+
+        // Test clear button with exception
+        global.browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Clear failed'));
+        await clearBtn.onclick({ stopPropagation: jest.fn() });
+    });
+
+    test('UI: initNotifications handles GET_NOTIFICATIONS error gracefully', async () => {
+        global.browser.runtime.sendMessage = jest.fn().mockRejectedValueOnce(new Error('Storage unavailable'));
+        const uiNotifications = await import('../src/ui/notifications.js');
+        delete document.__alertsClickListenerAdded;
+        uiNotifications.initNotifications();
+        await new Promise(r => setTimeout(r, 10));
+    });
 });

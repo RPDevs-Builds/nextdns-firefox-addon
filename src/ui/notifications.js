@@ -4,7 +4,7 @@
  */
 
 import { state } from './state.js';
-import { escapeHTML, setSafeHTML, renderEmptyStateHTML } from './utils.js';
+import { escapeHTML, setSafeHTML, renderEmptyStateHTML, showToast } from './utils.js';
 
 /**
  * Updates the visibility of the red indicator badge on the header alerts button.

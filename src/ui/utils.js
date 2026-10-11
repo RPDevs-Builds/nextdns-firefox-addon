@@ -20,7 +20,7 @@ function sanitizeNode(node) {
     if (node.nodeType !== 1) return;
 
     const dangerousTags = ['SCRIPT', 'IFRAME', 'OBJECT', 'EMBED', 'BASE', 'META', 'LINK', 'STYLE', 'SVG', 'MATH', 'PORTAL'];
-    if (dangerousTags.includes(node.tagName)) {
+    if (dangerousTags.includes(node.tagName?.toUpperCase())) {
         node.remove();
         return;
     }

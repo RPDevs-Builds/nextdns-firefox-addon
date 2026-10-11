@@ -26,7 +26,10 @@ describe('Intelligent Debugger (Phase 4.1)', () => {
                 },
                 onChanged: { addListener: jest.fn() }
             },
-            runtime: { onMessage: { addListener: jest.fn() } },
+            runtime: { 
+                onMessage: { addListener: jest.fn() },
+                sendMessage: jest.fn().mockResolvedValue({})
+            },
             alarms: { create: jest.fn(), onAlarm: { addListener: jest.fn() } },
             webRequest: { onBeforeRequest: { addListener: jest.fn(), hasListener: jest.fn(() => false) } },
             tabs: { onRemoved: { addListener: jest.fn() } },
@@ -110,6 +113,51 @@ describe('Intelligent Debugger (Phase 4.1)', () => {
 
         const res2 = bg.requestListener({ url: 'about:blank', tabId, type: 'sub_frame' });
         expect(res2).toEqual({ cancel: false });
+    });
+
+    test('requestListener: Blocks domain in denylist and dispatches live log', async () => {
+        const { state } = await import('../src/background/state.js');
+        state.currentProfileData.denylist = new Set(['badsite.com']);
+        const sendSpy = jest.spyOn(browser.runtime, 'sendMessage').mockResolvedValue({});
+
+        const res = bg.requestListener({ url: 'https://badsite.com/malware', tabId: 999, type: 'xmlhttprequest' });
+        expect(res).toEqual({ cancel: true });
+        expect(state.blockedTabRequests[999]).toBe(1);
+        expect(sendSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'LIVE_LOG' }));
+
+        sendSpy.mockRestore();
+    });
+
+    test('requestListener: Allows domain in allowlist', async () => {
+        const { state } = await import('../src/background/state.js');
+        state.currentProfileData.allowlist = new Set(['goodsite.com']);
+
+        const res = bg.requestListener({ url: 'https://goodsite.com/safe', tabId: 999, type: 'xmlhttprequest' });
+        expect(res).toEqual({ cancel: false });
+        expect(state.tabRequests[999]['goodsite.com'].status).toBe('allowed');
+    });
+
+    test('requestListener: Catches and logs URL parsing or state errors', () => {
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+        const res = bg.requestListener({
+            tabId: 999,
+            get url() { throw new Error("Faulty URL getter"); }
+        });
+        expect(res).toEqual({ cancel: false });
+        expect(errorSpy).toHaveBeenCalledWith('[WebRequest] Error processing request:', expect.any(Error));
+        errorSpy.mockRestore();
+    });
+
+    test('requestListener: Evicts oldest domain when tab accumulates 300 domains', () => {
+        const { state } = require('../src/background/state.js');
+        state.tabRequests[888] = {};
+        for (let i = 0; i < 300; i++) {
+            state.tabRequests[888][`domain${i}.com`] = { status: 'default', timestamp: i };
+        }
+
+        bg.requestListener({ url: 'https://newdomain301.com', tabId: 888, type: 'sub_frame' });
+        expect(state.tabRequests[888]['domain0.com']).toBeUndefined();
+        expect(state.tabRequests[888]['newdomain301.com']).toBeDefined();
     });
 
     test('GET_NETWORK_STATUS: Returns current networkStatus from background state', async () => {

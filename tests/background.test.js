@@ -581,4 +581,196 @@ describe('Background Script - Full Coverage Suite', () => {
     expect(res.data).toBeDefined();
     expect(res.data.security).toEqual({});
   });
+
+  test('Message Handler - SNAPSHOTS CRUD & Quota Management', async () => {
+    await bg.initializeBackground();
+
+    // Invalid profile ID
+    const invRes = await new Promise(r => messageHandlerRef({ type: 'CREATE_SNAPSHOT', profileId: '' }, {}, r));
+    expect(invRes.success).toBe(false);
+
+    // Mock GET_ALL_SETTINGS fetch
+    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => ({ data: { block_dga: true } }) }));
+
+    // Create Snapshot 1
+    const snap1 = await new Promise(r => messageHandlerRef({ type: 'CREATE_SNAPSHOT', profileId: 'profile123', name: 'My Snapshot' }, {}, r));
+    expect(snap1.success).toBe(true);
+    expect(snap1.snapshot.name).toBe('My Snapshot');
+
+    // List snapshots
+    const listRes = await new Promise(r => messageHandlerRef({ type: 'LIST_SNAPSHOTS', profileId: 'profile123' }, {}, r));
+    expect(listRes.success).toBe(true);
+    expect(listRes.snapshots.length).toBe(1);
+
+    // Delete snapshot
+    const delRes = await new Promise(r => messageHandlerRef({ type: 'DELETE_SNAPSHOT', profileId: 'profile123', snapshotId: snap1.snapshot.id }, {}, r));
+    expect(delRes.success).toBe(true);
+
+    const afterDel = await new Promise(r => messageHandlerRef({ type: 'LIST_SNAPSHOTS', profileId: 'profile123' }, {}, r));
+    expect(afterDel.snapshots.length).toBe(0);
+  });
+
+  test('Message Handler - AUTOMATION RULES CRUD', async () => {
+    await bg.initializeBackground();
+
+    // List rules (initially empty)
+    const list1 = await new Promise(r => messageHandlerRef({ type: 'LIST_RULES' }, {}, r));
+    expect(list1.success).toBe(true);
+    expect(list1.rules).toEqual([]);
+
+    // Save rule validation
+    const badSave = await new Promise(r => messageHandlerRef({ type: 'SAVE_RULE', rule: null }, {}, r));
+    expect(badSave.success).toBe(false);
+
+    // Save valid rule
+    const saved = await new Promise(r => messageHandlerRef({
+      type: 'SAVE_RULE',
+      rule: { name: 'Auto Block', trigger: '23:00', action: 'enable', targetId: 'block-dga' }
+    }, {}, r));
+    expect(saved.success).toBe(true);
+    expect(saved.rule.id).toBeDefined();
+
+    // List rules has new rule
+    const list2 = await new Promise(r => messageHandlerRef({ type: 'LIST_RULES' }, {}, r));
+    expect(list2.rules.length).toBe(1);
+
+    // Delete rule validation
+    const badDel = await new Promise(r => messageHandlerRef({ type: 'DELETE_RULE', ruleId: '' }, {}, r));
+    expect(badDel.success).toBe(false);
+
+    // Delete valid rule
+    const del = await new Promise(r => messageHandlerRef({ type: 'DELETE_RULE', ruleId: saved.rule.id }, {}, r));
+    expect(del.success).toBe(true);
+  });
+
+  test('Message Handler - REWRITES LIST, SAVE, and DELETE', async () => {
+    await bg.initializeBackground();
+
+    fetchMock.mockImplementation(async (url, options) => {
+      if (url.includes('/rewrites') && options?.method === 'POST') {
+        return { ok: true, json: async () => ({ success: true }) };
+      }
+      if (url.includes('/rewrites') && options?.method === 'DELETE') {
+        return { ok: true, json: async () => ({ success: true }) };
+      }
+      if (url.includes('/rewrites')) {
+        return { ok: true, json: async () => ({ data: [{ name: 'local.lan', content: '192.168.1.1' }] }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    // List rewrites
+    const list = await new Promise(r => messageHandlerRef({ type: 'LIST_REWRITES', profileId: 'profile123' }, {}, r));
+    expect(list.success).toBe(true);
+    expect(list.data.length).toBe(1);
+
+    // Save rewrite
+    const saved = await new Promise(r => messageHandlerRef({
+      type: 'SAVE_REWRITE',
+      profileId: 'profile123',
+      name: 'srv.lan',
+      content: '10.0.0.1'
+    }, {}, r));
+    expect(saved.success).toBe(true);
+
+    // Delete rewrite
+    const del = await new Promise(r => messageHandlerRef({
+      type: 'DELETE_REWRITE',
+      profileId: 'profile123',
+      name: 'srv.lan'
+    }, {}, r));
+    expect(del.success).toBe(true);
+  });
+
+  test('Message Handler - GET_PROFILES_LIST, START_STREAM, and STOP_STREAM', async () => {
+    await bg.initializeBackground();
+
+    fetchMock.mockImplementation(async (url, options) => {
+      if (url.endsWith('/profiles')) {
+        return { ok: true, json: async () => ({ data: [{ id: 'p1', name: 'Profile 1' }] }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    // Get profiles with custom apiKey
+    const res = await new Promise(r => messageHandlerRef({ type: 'GET_PROFILES_LIST', apiKey: 'custom-key-xyz' }, {}, r));
+    expect(res.success).toBe(true);
+    expect(res.data.length).toBe(1);
+
+    // Stream start / stop
+    const startRes = await new Promise(r => messageHandlerRef({ type: 'START_STREAM', profileId: 'profile123' }, {}, r));
+    expect(startRes).toBeDefined();
+
+    const stopRes = await new Promise(r => messageHandlerRef({ type: 'STOP_STREAM' }, {}, r));
+    expect(stopRes.success).toBe(true);
+  });
+
+  test('Message Handler - SAVE_SCRAPED_META, TAB STATS, and GET_PROFILE_DATA', async () => {
+    await bg.initializeBackground();
+
+    // SAVE_SCRAPED_META validation & success
+    const badMeta = await new Promise(r => messageHandlerRef({ type: 'SAVE_SCRAPED_META', payload: null }, {}, r));
+    expect(badMeta.success).toBe(false);
+
+    const goodMeta = await new Promise(r => messageHandlerRef({
+      type: 'SAVE_SCRAPED_META',
+      payload: { metaType: 'blocklists', data: [{ id: 'oisd', name: 'OISD' }] }
+    }, {}, r));
+    expect(goodMeta.success).toBe(true);
+
+    // TAB STATS
+    const stats = await new Promise(r => messageHandlerRef({ type: 'GET_TAB_STATS', tabId: 99 }, {}, r));
+    expect(stats.requests).toBeDefined();
+
+    const clearStats = await new Promise(r => messageHandlerRef({ type: 'CLEAR_TAB_STATS', tabId: 99 }, {}, r));
+    expect(clearStats.success).toBe(true);
+
+    // GET_PROFILE_DATA
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/allowlist')) return { ok: true, json: async () => ({ data: [{ id: 'good.com' }] }) };
+      if (url.includes('/denylist')) return { ok: true, json: async () => ({ data: [{ id: 'bad.com' }] }) };
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const profData = await new Promise(r => messageHandlerRef({ type: 'GET_PROFILE_DATA', profileId: 'profile123' }, {}, r));
+    expect(profData.success).toBe(true);
+    expect(profData.allowlist).toContain('good.com');
+    expect(profData.denylist).toContain('bad.com');
+  });
+
+  test('Message Handler - DEBUG_TAB and GET_LOGS', async () => {
+    await bg.initializeBackground();
+
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/logs')) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: [
+              { domain: 'tracker.com', status: 'blocked', reason: 'EasyList', timestamp: 1000 }
+            ]
+          })
+        };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    // GET_LOGS with local log merging
+    const { state } = await import('../src/background/state.js');
+    state.localLogs = [{ domain: 'local-blocked.com', status: 'blocked', timestamp: 2000 }];
+
+    const logsRes = await new Promise(r => messageHandlerRef({ type: 'GET_LOGS', profileId: 'profile123' }, {}, r));
+    expect(logsRes.success).toBe(true);
+    expect(logsRes.data.length).toBe(2);
+
+    // DEBUG_TAB
+    state.tabRequests[10] = {
+      'tracker.com': { status: 'blocked', timestamp: 1000 },
+      'local-blocked.com': { status: 'blocked', timestamp: 2000, reason: 'Custom Denylist' }
+    };
+
+    const debugRes = await new Promise(r => messageHandlerRef({ type: 'DEBUG_TAB', tabId: 10, profileId: 'profile123' }, {}, r));
+    expect(debugRes.success).toBe(true);
+    expect(debugRes.correlations.length).toBe(2);
+  });
 });
