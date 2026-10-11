@@ -5,7 +5,7 @@
   "main": "src/background/main.js",
   "license": "GPL-3.0-or-later",
   "scripts": {
-    "test": "jest",
+    "test": "jest --forceExit",
     "test:watch": "jest --watch",
     "lint:addon": "node scripts/lint_addon.js",
     "build": "web-ext build --overwrite-dest --filename \"{name}-{version}.xpi\" --ignore-files \"tests/**\" \"tests\" \"scripts/**\" \"scripts\" \"node_modules/**\" \".git/**\" \".github/**\" \".vscode/**\" \".staging/**\" \".staging\" \".tools/**\" \".tools\" \"package.json\" \"package-lock.json\" \"jest.setup.js\" \".gitignore\" \"README.md\" \"CHANGELOG.md\" \"LICENSE\" \"AGENTS.md\" \"babel.config.json\" \".gemini/**\" \"*.skill\" \"**/*.test.js\" \"*-results.json\" \"reports/**\" \"web-ext-artifacts/**\" \"updates.json\" \"coverage/**\" \"coverage\" \".amo-upload-uuid\"",
@@ -43,10 +43,10 @@
     "maxWorkers": "50%",
     "coverageThreshold": {
       "global": {
-        "branches": 50,
-        "functions": 55,
-        "lines": 60,
-        "statements": 58
+        "branches": 60,
+        "functions": 70,
+        "lines": 78,
+        "statements": 74
       }
     }
   }

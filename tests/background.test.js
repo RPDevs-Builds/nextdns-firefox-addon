@@ -773,4 +773,128 @@ describe('Background Script - Full Coverage Suite', () => {
     expect(debugRes.success).toBe(true);
     expect(debugRes.correlations.length).toBe(2);
   });
+
+  test('DDNS - checkAndUpdateLinkedIP edge cases and IP transitions', async () => {
+    const { checkAndUpdateLinkedIP, runNetworkDiagnostics } = await import('../src/background/api.js');
+    const { storage } = await import('../src/storage.js');
+
+    // 1. Returns early if profile starts with 'fp'
+    await storage.set({ activeProfile: 'fp12345' });
+    await checkAndUpdateLinkedIP();
+
+    // 2. Returns early if profile has no linkedIp
+    await storage.set({ activeProfile: 'profile123' });
+    fetchMock.mockImplementationOnce(async (url) => {
+      if (url.includes('/profiles/profile123')) {
+        return { ok: true, json: async () => ({ data: { linkedIp: null } }) };
+      }
+      return { ok: false };
+    });
+    await checkAndUpdateLinkedIP();
+
+    // 3. IPv4 change detected via TEST_URL
+    let postedEndpoint = null;
+    fetchMock.mockImplementation(async (url, options) => {
+      if (url.includes('/profiles/profile123/linked-ip')) {
+        postedEndpoint = url;
+        return { ok: true, json: async () => ({ success: true }) };
+      }
+      if (url.includes('/profiles/profile123')) {
+        return { ok: true, json: async () => ({ data: { linkedIp: '198.51.100.1' } }) };
+      }
+      if (url === 'https://test.nextdns.io/') {
+        return { ok: true, json: async () => ({ client: '203.0.113.50' }) };
+      }
+      return { ok: false };
+    });
+    await checkAndUpdateLinkedIP();
+    expect(postedEndpoint).toContain('/profiles/profile123/linked-ip/203.0.113.50');
+
+    // 4. Same IP does not trigger update
+    postedEndpoint = null;
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/profiles/profile123')) {
+        return { ok: true, json: async () => ({ data: { linkedIp: '203.0.113.50' } }) };
+      }
+      if (url === 'https://test.nextdns.io/') {
+        return { ok: true, json: async () => ({ client: '203.0.113.50' }) };
+      }
+      return { ok: false };
+    });
+    await checkAndUpdateLinkedIP();
+    expect(postedEndpoint).toBeNull();
+
+    // 5. IPv6 change detected via info fallback
+    postedEndpoint = null;
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/profiles/profile123/linked-ip')) {
+        postedEndpoint = url;
+        return { ok: true, json: async () => ({ success: true }) };
+      }
+      if (url.includes('/profiles/profile123')) {
+        return { ok: true, json: async () => ({ data: { linkedIp: '198.51.100.1' } }) };
+      }
+      if (url === 'https://test.nextdns.io/') {
+        return { ok: false };
+      }
+      if (url === 'https://dns.nextdns.io/info') {
+        return { ok: true, json: async () => ({ ip: '2001:db8::1' }) };
+      }
+      return { ok: false };
+    });
+    await checkAndUpdateLinkedIP();
+    expect(postedEndpoint).toContain('/profiles/profile123/linked-ip/2001%3Adb8%3A%3A1');
+
+    // 6. External ipify fallback
+    postedEndpoint = null;
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/profiles/profile123/linked-ip')) {
+        postedEndpoint = url;
+        return { ok: true, json: async () => ({ success: true }) };
+      }
+      if (url.includes('/profiles/profile123')) {
+        return { ok: true, json: async () => ({ data: { linkedIp: '198.51.100.1' } }) };
+      }
+      if (url === 'https://test.nextdns.io/' || url === 'https://dns.nextdns.io/info') {
+        return { ok: false };
+      }
+      if (url.includes('api.ipify.org')) {
+        return { ok: true, json: async () => ({ ip: '198.51.100.99' }) };
+      }
+      return { ok: false };
+    });
+    await checkAndUpdateLinkedIP();
+    expect(postedEndpoint).toContain('/profiles/profile123/linked-ip/198.51.100.99');
+
+    // 7. Invalid IP format rejects without posting
+    postedEndpoint = null;
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/profiles/profile123')) {
+        return { ok: true, json: async () => ({ data: { linkedIp: '198.51.100.1' } }) };
+      }
+      if (url === 'https://test.nextdns.io/') {
+        return { ok: true, json: async () => ({ client: 'invalid-not-an-ip' }) };
+      }
+      return { ok: false };
+    });
+    await checkAndUpdateLinkedIP();
+    expect(postedEndpoint).toBeNull();
+
+    // 8. runNetworkDiagnostics handles JSON parse failure on test endpoint
+    fetchMock.mockImplementation(async (url) => {
+      if (url === 'https://test.nextdns.io/') {
+        return {
+          ok: true,
+          json: async () => { throw new Error('Bad JSON'); }
+        };
+      }
+      if (url === 'https://dns.nextdns.io/info') {
+        return { ok: true, json: async () => ({ pop: 'cdg-1' }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    const diag = await runNetworkDiagnostics();
+    expect(diag.isConnected).toBe(true);
+    expect(diag.popServer).toBe('cdg-1');
+  });
 });

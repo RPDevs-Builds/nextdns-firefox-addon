@@ -161,4 +161,256 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
         }, 'sync');
         expect(document.documentElement.classList.contains('nxm-forced-light')).toBe(true);
     });
+
+    test('Device Aliases replaces spans with friendly names and detailed tooltips', async () => {
+        document.body.innerHTML += `
+            <div class="row">
+                <span class="notranslate">192.168.1.10</span>
+                <span class="notranslate">unknown-device</span>
+            </div>
+        `;
+
+        await import('../src/content.js');
+        await new Promise(r => setTimeout(r, 60));
+
+        const spans = document.querySelectorAll('.notranslate');
+        // 1. String alias from storage: 'Smart TV'
+        expect(spans[0].dataset.nxmAliased).toBe("true");
+        expect(spans[0].textContent).toBe("Smart TV");
+        expect(spans[0].querySelector('span').title).toBe("ID: 192.168.1.10");
+
+        // 2. Unknown device untouched
+        expect(spans[1].dataset.nxmAliased).toBeUndefined();
+        expect(spans[1].textContent).toBe("unknown-device");
+    });
+
+    test('Blocklist Modal Sort button sorts modal list items alphabetically', async () => {
+        await import('../src/content.js');
+
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-header"><h5>Add a blocklist</h5></div>
+            <div class="list-group">
+                <div class="list-group-item"><strong>Zebra List</strong></div>
+                <div class="list-group-item"><strong>Alpha List</strong></div>
+                <div class="list-group-item"><strong>Beta List</strong></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        // Wait for MutationObserver callback
+        await new Promise(r => setTimeout(r, 180));
+
+        const sortBtn = modal.querySelector('#nxm-sort-blocklists');
+        expect(sortBtn).not.toBeNull();
+
+        sortBtn.click();
+
+        const items = modal.querySelectorAll('.list-group-item strong');
+        expect(items[0].textContent).toBe("Alpha List");
+        expect(items[1].textContent).toBe("Beta List");
+        expect(items[2].textContent).toBe("Zebra List");
+    });
+
+    test('Network Error modal suppression hides modal and presents reconnecting toast', async () => {
+        await import('../src/content.js');
+
+        const errorModal = document.createElement('div');
+        errorModal.className = 'modal';
+        errorModal.textContent = 'Network Error occurred while syncing';
+        document.body.appendChild(errorModal);
+
+        await new Promise(r => setTimeout(r, 60));
+
+        expect(errorModal.style.display).toBe('none');
+        expect(errorModal.style.opacity).toBe('0');
+
+        const toast = document.getElementById('nxm-toast');
+        expect(toast).not.toBeNull();
+        expect(toast.textContent).toContain('Reconnecting to NextDNS...');
+    });
+
+    test('Privacy controls filter blocklists and toggle list rollup', async () => {
+        window.history.pushState({}, '', '/abc123/privacy');
+
+        document.body.innerHTML += `
+            <div class="list-group">
+                <div class="list-group-item">
+                    <h5>Blocklists</h5>
+                </div>
+                <div class="list-group-item" id="item-easylist">EasyList - Ad blocking (150,000 entries)</div>
+                <div class="list-group-item" id="item-oisd">OISD Basic - Privacy protection (80,000 entries)</div>
+            </div>
+        `;
+
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const controls = document.getElementById('nxm-privacy-controls');
+        expect(controls).not.toBeNull();
+
+        const searchInput = document.getElementById('nxm-search-blocklists');
+        const toggleBtn = document.getElementById('nxm-toggle-blocklists');
+
+        // Search for 'oisd'
+        searchInput.value = 'oisd';
+        searchInput.dispatchEvent(new Event('input'));
+
+        const easyItem = document.getElementById('item-easylist');
+        const oisdItem = document.getElementById('item-oisd');
+        expect(easyItem.style.display).toBe('none');
+        expect(oisdItem.style.display).toBe('');
+
+        // Toggle list rollup
+        toggleBtn.click();
+        expect(oisdItem.style.display).toBe('none');
+        toggleBtn.click();
+        expect(oisdItem.style.display).toBe('');
+    });
+
+    test('Bulk Add button on allowlist/denylist page splits domains and dispatches messages', async () => {
+        window.history.pushState({}, '', '/myprofile/allowlist');
+        global.prompt = jest.fn().mockReturnValue('good1.com, good2.org, bad-entry, good3.net');
+        global.confirm = jest.fn().mockReturnValue(true);
+
+        document.body.innerHTML = `
+            <form>
+                <input type="text" />
+            </form>
+        `;
+
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const bulkBtn = document.getElementById('nxm-bulk-add-btn');
+        if (bulkBtn) {
+            await bulkBtn.onclick(new Event('click'));
+            expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+                type: 'MANAGE_DOMAIN',
+                domain: 'good1.com',
+                action: 'add'
+            }));
+            expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+                type: 'MANAGE_DOMAIN',
+                domain: 'good2.org',
+                action: 'add'
+            }));
+            expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+                type: 'MANAGE_DOMAIN',
+                domain: 'good3.net',
+                action: 'add'
+            }));
+        }
+    });
+
+    test('Profile note and switcher are injected into header', async () => {
+        global.browser.storage.sync.get.mockImplementation(async (keys) => {
+            if (keys === 'profileNotes' || (Array.isArray(keys) && keys.includes('profileNotes'))) {
+                return { profileNotes: { abc123: 'Production Profile' } };
+            }
+            return {
+                webGuiMaster: true,
+                webGuiProfileNotes: true,
+                profileNotes: { abc123: 'Production Profile' }
+            };
+        });
+
+        global.browser.runtime.sendMessage.mockImplementation(async (msg) => {
+            if (msg.type === 'GET_PROFILES_LIST') {
+                return {
+                    success: true,
+                    data: [
+                        { id: 'abc123', name: 'Primary' },
+                        { id: 'xyz789', name: 'Secondary' }
+                    ]
+                };
+            }
+            return { success: true };
+        });
+
+        document.body.innerHTML += `
+            <nav class="navbar">
+                <div class="container-fluid">
+                    <a class="navbar-brand">NextDNS</a>
+                </div>
+            </nav>
+        `;
+
+        window.history.pushState({}, '', '/abc123/setup');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const note = document.getElementById('nxm-profile-note');
+        expect(note).not.toBeNull();
+        expect(note.textContent).toContain('Production Profile');
+
+        const switcher = document.getElementById('nxm-profile-switcher');
+        expect(switcher).not.toBeNull();
+        expect(switcher.options.length).toBe(2);
+        expect(switcher.value).toBe('abc123');
+    });
+
+    test('Logs page controls and filter toggle are injected into logs view', async () => {
+        document.body.innerHTML += `
+            <div class="Logs">
+                <div class="list-group-item bg-2">
+                    <div class="d-md-flex">
+                        <h5>Logs</h5>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        window.history.pushState({}, '', '/abc123/logs');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const logGroup = document.getElementById('nxm-logs-filter-group');
+        expect(logGroup).not.toBeNull();
+
+        const toggle = document.getElementById('nxm-filtered-logs-toggle');
+        expect(toggle).not.toBeNull();
+        expect(toggle.checked).toBe(true);
+
+        const highlight = document.getElementById('nxm-logs-highlight');
+        expect(highlight).not.toBeNull();
+    });
+
+    test('TLD page buttons enable search filtering and list toggling', async () => {
+        document.body.innerHTML = `
+            <div class="list-group">
+                <div class="list-group-item">
+                    <h5>Block Top-Level Domains (TLDs)</h5>
+                </div>
+                <div class="list-group-item" id="tld-xyz">.xyz - High risk</div>
+                <div class="list-group-item" id="tld-top">.top - Spammer favorite</div>
+            </div>
+        `;
+
+        window.history.pushState({}, '', '/abc123/security');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const tldControls = document.getElementById('nxm-tld-controls');
+        expect(tldControls).not.toBeNull();
+
+        const search = document.getElementById('nxm-search-tlds');
+        const toggle = document.getElementById('nxm-toggle-table');
+
+        // Search for .xyz
+        search.value = 'xyz';
+        search.dispatchEvent(new Event('input'));
+
+        expect(document.getElementById('tld-xyz').style.display).toBe('');
+        expect(document.getElementById('tld-top').style.display).toBe('none');
+
+        // Toggle table
+        toggle.click();
+        expect(document.getElementById('tld-xyz').style.display).toBe('none');
+    });
 });

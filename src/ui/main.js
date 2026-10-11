@@ -104,7 +104,7 @@ document.addEventListener("DOMContentLoaded", async () => {
  * @param {string} action - The action to perform ('add' or 'delete').
  * @param {boolean} [isTemp=false] - Whether this is a temporary allow (snooze).
  */
-async function handleDashboardDomain(listType, action, isTemp = false) {
+export async function handleDashboardDomain(listType, action, isTemp = false) {
     const input = document.getElementById('domain-input');
     const domain = input?.value.trim();
     if (!domain) return;
@@ -141,7 +141,7 @@ async function handleDashboardDomain(listType, action, isTemp = false) {
  * Handles adding a single domain to the selected list.
  * @async
  */
-async function handleAddDomain() {
+export async function handleAddDomain() {
     const input = document.getElementById('list-new-domain');
     const domain = input?.value.trim();
     if (!domain) return;
@@ -177,7 +177,7 @@ async function handleAddDomain() {
  * Handles bulk adding multiple domains to the selected list.
  * @async
  */
-async function handleBulkAdd() {
+export async function handleBulkAdd() {
     const textarea = document.getElementById('list-bulk-domains');
     const domains = textarea?.value.split('\n').map(d => d.trim()).filter(d => d.length > 0);
     if (domains.length === 0) return;
@@ -220,7 +220,7 @@ async function handleBulkAdd() {
  * Detects and applies CSS classes based on the current window mode (Popout vs Sidebar).
  * Adjusts html and body classes to enable mode-specific styling.
  */
-function initWindowMode() {
+export function initWindowMode() {
     if (isPopoutMode) {
         document.documentElement.classList.add('mode-popout');
         document.body.classList.add('mode-popout');
@@ -242,7 +242,7 @@ function initWindowMode() {
  * @async
  * @returns {Promise<boolean>} True if redirected, false if proceeding in standard popup mode.
  */
-async function handleIconClickModeRedirect() {
+export async function handleIconClickModeRedirect() {
     if (isPopoutMode || isSidebarMode || isTabMode) return false;
     try {
         const iconClickAction = await storage.get("iconClickAction");
@@ -285,7 +285,7 @@ async function handleIconClickModeRedirect() {
  * Binds global event listeners for UI interactions.
  * Covers tab switching, dashboard actions, tool triggers, and background message listeners.
  */
-function initGlobalEventListeners() {
+export function initGlobalEventListeners() {
     // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.onclick = () => {
@@ -719,7 +719,7 @@ export function updateLocalBlocksCache(cat, id, action) {
  * Determines the initial tab to display based on URL parameters.
  * Defaults to the 'dashboard' tab.
  */
-function initTabNavigation() {
+export function initTabNavigation() {
     const initialTab = urlParams.get('tab') || 'dashboard';
     setActiveTab(initialTab);
 }
@@ -730,7 +730,7 @@ function initTabNavigation() {
  * Implements fault-tolerance to ensure one failing service doesn't block others.
  * @async
  */
-async function initializeApp() {
+export async function initializeApp() {
     console.log("[Init] Starting fault-tolerant app bootstrap...");
     
     // Load device hostname aliases and listen for dynamic updates
@@ -816,7 +816,7 @@ async function initializeApp() {
     }, 1000);
 }
 
-async function initCustomizeUI() {
+export async function initCustomizeUI() {
     const keys = ["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter", "webGuiForcedTheme"];
     try {
         const data = await storage.get(keys);
@@ -855,7 +855,7 @@ async function initCustomizeUI() {
  * Fetches the list of all available profiles and binds the save handler.
  * @async
  */
-async function initMirrorModeUI() {
+export async function initMirrorModeUI() {
     const list = document.getElementById('mirror-profiles-list');
     const saveBtn = document.getElementById('save-mirror-btn');
     if (!list || !saveBtn) return;
@@ -884,7 +884,7 @@ async function initMirrorModeUI() {
  * Saves the selected mirror profiles to sync storage.
  * @async
  */
-async function saveMirrorMode() {
+export async function saveMirrorMode() {
     const list = document.getElementById('mirror-profiles-list');
     const saveBtn = document.getElementById('save-mirror-btn');
     if (!list || !saveBtn) return;
@@ -1019,7 +1019,7 @@ export async function refreshActiveProfileAndUI() {
  * @async
  * @returns {Promise<Object>} The loaded settings object.
  */
-async function initSettingsUI() {
+export async function initSettingsUI() {
     const keys = [
         "apiKey", "activeProfile", "overrideProfileId", "iconClickAction", 
         "autoRefreshLogs", "enableBlockNotifications", 
@@ -1081,7 +1081,7 @@ async function initSettingsUI() {
  * Saves the current settings from the UI to sync storage.
  * @async
  */
-async function saveSettings() {
+export async function saveSettings() {
     const saveBtn = document.getElementById('save-settings-btn');
     if (!saveBtn) return;
 
@@ -1113,16 +1113,17 @@ async function saveSettings() {
     await loadProfiles(apiKey);
     await refreshActiveProfileAndUI();
 
+    const hasIconActionChanged = iconClickAction !== state.lastIconAction;
+    state.lastIconAction = iconClickAction;
+
     saveBtn.textContent = "✅ Saved!";
     saveBtn.disabled = false;
     setTimeout(() => { 
         saveBtn.textContent = "💾 Save Options"; 
-        if (iconClickAction !== state.lastIconAction) {
+        if (hasIconActionChanged) {
             browser.runtime.reload();
         }
     }, 1500);
-
-    state.lastIconAction = iconClickAction;
 }
 
 /**
@@ -1131,7 +1132,7 @@ async function saveSettings() {
  * @async
  * @param {boolean} enable - Whether to enable or disable auto-refresh.
  */
-async function toggleAutoRefresh(enable) {
+export async function toggleAutoRefresh(enable) {
     const btn = document.getElementById("auto-refresh-btn");
     if (!btn) return;
     if (state.autoRefreshInterval) clearInterval(state.autoRefreshInterval);
