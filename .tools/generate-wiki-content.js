@@ -3,17 +3,32 @@ const path = require('path');
 const jsdoc2md = require('jsdoc-to-markdown');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
-const WIKI_DOCS_DIR = path.resolve(__dirname, '../.wiki/dns-forge.github.io/wiki/docs');
+const WIKI_DOCS_DIR = process.argv[2] 
+    ? path.resolve(process.argv[2]) 
+    : (process.env.WIKI_DOCS_DIR || path.resolve(__dirname, '../../wiki.iamrp.dev/content/dns-forge'));
 
 // Helper to ensure directory exists
 const ensureDir = (dir) => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 };
 
+console.log(`🌐 Target Wiki Docs Directory: ${WIKI_DOCS_DIR}`);
+ensureDir(WIKI_DOCS_DIR);
+
 // Task A: Manifest Processing
 console.log("📦 Processing manifest.json...");
 const manifest = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'manifest.json'), 'utf8'));
-let manifestMd = `# Extension Architecture: Manifest
+let manifestMd = `---
+title: "Extension Architecture: Manifest V3"
+description: "Manifest V3 configuration, permissions breakdown, and background service declaration for DNS Forge."
+tags:
+  - wiki
+  - dns-forge
+  - architecture
+  - manifest
+---
+
+# Extension Architecture: Manifest V3
 
 The \`manifest.json\` defines the core configuration, permissions, and background processes of DNS Forge.
 
@@ -23,6 +38,7 @@ The \`manifest.json\` defines the core configuration, permissions, and backgroun
 | **Name** | ${manifest.name} |
 | **Version** | ${manifest.version} |
 | **Manifest Version** | ${manifest.manifest_version} |
+| **Description** | ${manifest.description} |
 
 ## Security Permissions
 The following permissions are required for the extension to operate correctly.
@@ -57,11 +73,17 @@ const srcFiles = [
 ];
 
 async function generateWiki() {
+    const modulesByCategory = {
+        background: [],
+        ui: [],
+        content: [],
+        core: []
+    };
+
     for (const fullPath of srcFiles) {
         const relativePath = path.relative(ROOT_DIR, fullPath);
         const fileName = path.basename(fullPath, '.js');
         
-        // Skip if it's a directory or not a js file (already filtered but safe)
         if (!fullPath.endsWith('.js')) continue;
 
         let doc = "";
@@ -71,27 +93,88 @@ async function generateWiki() {
             console.error(`❌ Error parsing ${relativePath}:`, e.message);
         }
 
-        const targetSubDir = path.dirname(relativePath.replace('src/', ''));
-        const targetPath = path.join(WIKI_DOCS_DIR, 'reference', targetSubDir, `${fileName}.md`);
+        // Clean raw HTML anchors that can break Quartz clean layout
+        doc = doc.replace(/<a name="[^"]*"><\/a>/g, '');
+
+        let targetSubDir = '';
+        if (relativePath.startsWith('src/background/')) {
+            targetSubDir = 'background';
+            modulesByCategory.background.push({ name: fileName, relPath: relativePath });
+        } else if (relativePath.startsWith('src/ui/')) {
+            targetSubDir = 'ui';
+            modulesByCategory.ui.push({ name: fileName, relPath: relativePath });
+        } else if (relativePath.startsWith('src/content/')) {
+            targetSubDir = 'content';
+            modulesByCategory.content.push({ name: fileName, relPath: relativePath });
+        } else {
+            modulesByCategory.core.push({ name: fileName, relPath: relativePath });
+        }
+
+        const targetPath = targetSubDir 
+            ? path.join(WIKI_DOCS_DIR, 'reference', targetSubDir, `${fileName}.md`)
+            : path.join(WIKI_DOCS_DIR, 'reference', `${fileName}.md`);
         
         ensureDir(path.dirname(targetPath));
 
         const frontmatter = `---
-title: ${fileName}
-description: Technical reference for ${relativePath}
+title: "${fileName}"
+description: "Technical reference for ${relativePath}"
+tags:
+  - wiki
+  - dns-forge
+  - reference
 ---
 
 `;
 
         if (!doc.trim()) {
-            const placeholder = `# ${fileName}\n\nDocumentation for \`${relativePath}\` is generated automatically from source code. Currently, no JSDoc comments were found in this file.\n\n### Source Location\n\`${relativePath}\``;
+            const placeholder = `# ${fileName}\n\nDocumentation for \`${relativePath}\` is generated automatically from source code. Currently, no JSDoc comments were found in this file.\n\n### Source Location\n\`${relativePath}\`\n`;
             fs.writeFileSync(targetPath, frontmatter + placeholder);
         } else {
             fs.writeFileSync(targetPath, frontmatter + doc);
         }
     }
 
-    console.log("✅ Wiki content generation complete.");
+    // Generate reference/index.md
+    const refIndexMd = `---
+title: "Technical Reference Index"
+description: "Complete module index and API reference for DNS Forge codebase."
+tags:
+  - wiki
+  - dns-forge
+  - reference
+---
+
+# 📚 Technical Reference
+
+This section contains API documentation and architectural summaries for all modules across the DNS Forge codebase.
+
+---
+
+## ⚙️ Background Engine Modules (\`src/background/\`)
+${modulesByCategory.background.map(m => `- **[[dns-forge/reference/background/${m.name}|${m.name}]]** — \`${m.relPath}\``).join('\n')}
+
+---
+
+## 🎨 UI & Presentation Modules (\`src/ui/\`)
+${modulesByCategory.ui.map(m => `- **[[dns-forge/reference/ui/${m.name}|${m.name}]]** — \`${m.relPath}\``).join('\n')}
+
+---
+
+## 🌐 Content Scripts & Injections
+${modulesByCategory.content.map(m => `- **[[dns-forge/reference/content/${m.name}|${m.name}]]** — \`${m.relPath}\``).join('\n')}
+${modulesByCategory.core.filter(m => m.name === 'content').map(m => `- **[[dns-forge/reference/${m.name}|${m.name}]]** — \`${m.relPath}\``).join('\n')}
+
+---
+
+## 🗄️ Core Utilities, Storage & Managers
+${modulesByCategory.core.filter(m => m.name !== 'content').map(m => `- **[[dns-forge/reference/${m.name}|${m.name}]]** — \`${m.relPath}\``).join('\n')}
+`;
+
+    ensureDir(path.join(WIKI_DOCS_DIR, 'reference'));
+    fs.writeFileSync(path.join(WIKI_DOCS_DIR, 'reference/index.md'), refIndexMd);
+
+    console.log("✅ Technical reference generation complete.");
 }
 
 generateWiki().catch(err => {
