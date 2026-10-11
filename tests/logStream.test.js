@@ -1,0 +1,128 @@
+/**
+ * DNS Forge - LogStreamManager Unit Tests
+ */
+
+import { jest } from '@jest/globals';
+import { logStreamManager } from '../src/background/logStream.js';
+import { storage } from '../src/storage.js';
+
+describe('LogStreamManager', () => {
+    beforeEach(async () => {
+        logStreamManager.stop();
+        fetchMock.resetMocks();
+        jest.clearAllMocks();
+        await storage.init();
+        await storage.set('apiKey', 'test-api-key-12345');
+    });
+
+    afterEach(() => {
+        logStreamManager.stop();
+    });
+
+    test('rejects invalid or missing profile IDs', async () => {
+        const resNull = await logStreamManager.start(null);
+        expect(resNull.success).toBe(false);
+        expect(resNull.error).toBe('Invalid profile ID');
+
+        const resInvalid = await logStreamManager.start('invalid/profile!#');
+        expect(resInvalid.success).toBe(false);
+        expect(resInvalid.error).toBe('Invalid profile ID');
+    });
+
+    test('returns error when API key is missing', async () => {
+        await storage.set('apiKey', '');
+        const res = await logStreamManager.start('p12345');
+        expect(res.success).toBe(false);
+        expect(res.error).toBe('API Key required');
+    });
+
+    test('parses and broadcasts valid SSE chunk lines', () => {
+        const sendSpy = jest.spyOn(browser.runtime, 'sendMessage').mockResolvedValue({});
+
+        const chunk = `data: {"status":"blocked","domain":"malicious.example","category":"malware","name":"malicious.example"}\n\n`;
+        logStreamManager.parseSSEChunk(chunk);
+
+        expect(sendSpy).toHaveBeenCalledWith({
+            type: 'LIVE_LOG',
+            log: expect.objectContaining({
+                status: 'blocked',
+                domain: 'malicious.example',
+                category: 'malware'
+            })
+        });
+
+        // Verifies high-severity threat notification dispatch
+        expect(sendSpy).toHaveBeenCalledWith({
+            type: 'PUSH_NOTIFICATION',
+            payload: expect.objectContaining({
+                type: 'security',
+                severity: 'high'
+            })
+        });
+
+        sendSpy.mockRestore();
+    });
+
+    test('gracefully ignores malformed JSON in SSE chunk', () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        logStreamManager.parseSSEChunk('data: not-a-json-object\n\n');
+        expect(warnSpy).toHaveBeenCalled();
+        warnSpy.mockRestore();
+    });
+
+    test('starts streaming fetch with X-Api-Key headers', async () => {
+        const stream = new ReadableStream({
+            start(controller) {
+                const encoder = new TextEncoder();
+                controller.enqueue(encoder.encode('data: {"domain":"test.com","status":"allowed"}\n\n'));
+                controller.close();
+            }
+        });
+
+        fetchMock.mockResponseOnce(() => Promise.resolve({
+            ok: true,
+            body: stream,
+            headers: { 'Content-Type': 'text/event-stream' }
+        }));
+
+        const res = await logStreamManager.start('p12345');
+        expect(res.success).toBe(true);
+        expect(fetchMock).toHaveBeenCalledWith(
+            expect.stringContaining('/profiles/p12345/logs/stream?raw=1'),
+            expect.objectContaining({
+                headers: expect.objectContaining({
+                    'X-Api-Key': 'test-api-key-12345',
+                    'Accept': 'text/event-stream'
+                })
+            })
+        );
+    });
+
+    test('stop clears timers, aborts controller, and resets state', () => {
+        logStreamManager.reconnectTimeout = setTimeout(() => {}, 10000);
+        logStreamManager.currentProfileId = 'p12345';
+        logStreamManager.currentApiKey = 'key';
+
+        logStreamManager.stop();
+
+        expect(logStreamManager.isExplicitlyStopped).toBe(true);
+        expect(logStreamManager.reconnectTimeout).toBeNull();
+        expect(logStreamManager.currentProfileId).toBeNull();
+        expect(logStreamManager.currentApiKey).toBeNull();
+    });
+
+    test('schedules reconnect with exponential backoff on failure', () => {
+        jest.useFakeTimers();
+        const startSpy = jest.spyOn(logStreamManager, 'start').mockResolvedValue({ success: true });
+
+        logStreamManager._scheduleReconnect('p12345');
+        expect(logStreamManager.reconnectAttempts).toBe(1);
+        expect(logStreamManager.reconnectTimeout).not.toBeNull();
+
+        jest.advanceTimersByTime(8000);
+        expect(startSpy).toHaveBeenCalledWith('p12345');
+
+        startSpy.mockRestore();
+        jest.useRealTimers();
+    });
+});

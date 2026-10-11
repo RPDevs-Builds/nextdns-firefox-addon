@@ -240,33 +240,37 @@ browser.storage.onChanged.addListener((changes, area) => {
 
 let mutationTimer;
 const observer = new MutationObserver((mutations) => {
-    // 1. Core suppression & aliasing
+    let hasRelevantMutations = false;
     for (const mutation of mutations) {
-        if (mutation.addedNodes.length) {
-            mutation.addedNodes.forEach(node => {
-                if (node.nodeType === 1) {
-                    if (node.classList && node.classList.contains('modal')) {
-                        if (node.textContent.includes('Network Error')) {
-                            node.style.display = 'none';
-                            node.style.opacity = '0';
-                            console.warn("[DNS Forge] Suppressed NextDNS Network Error modal.");
-                            showToast("Reconnecting to NextDNS...");
-                        } else if (node.textContent.includes('Add a blocklist')) {
-                            setTimeout(() => injectBlocklistModalSort(node), 100);
-                        }
+        if (!mutation.addedNodes.length) continue;
+        for (let i = 0; i < mutation.addedNodes.length; i++) {
+            const node = mutation.addedNodes[i];
+            if (node.nodeType === 1) {
+                const className = typeof node.className === 'string' ? node.className : '';
+                if (className.includes('nxm-')) continue;
+                hasRelevantMutations = true;
+                if (node.classList && node.classList.contains('modal')) {
+                    if (node.textContent.includes('Network Error')) {
+                        node.style.display = 'none';
+                        node.style.opacity = '0';
+                        console.warn("[DNS Forge] Suppressed NextDNS Network Error modal.");
+                        showToast("Reconnecting to NextDNS...");
+                    } else if (node.textContent.includes('Add a blocklist')) {
+                        setTimeout(() => injectBlocklistModalSort(node), 100);
                     }
-                    applyDeviceAliases(node);
                 }
-            });
+                applyDeviceAliases(node);
+            }
         }
     }
 
-    // 2. Throttled logic for UI enhancements
-    clearTimeout(mutationTimer);
-    mutationTimer = setTimeout(() => {
-        evaluatePage();
-        setupSectionCollapsing();
-    }, 100);
+    if (hasRelevantMutations) {
+        clearTimeout(mutationTimer);
+        mutationTimer = setTimeout(() => {
+            evaluatePage();
+            setupSectionCollapsing();
+        }, 120);
+    }
 });
 
 function applyDeviceAliases(root) {

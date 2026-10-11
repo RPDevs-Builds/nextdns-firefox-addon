@@ -214,23 +214,37 @@ async function _detectActiveProfile() {
  * Persists the lists to storage to survive event page suspension.
  * @async
  */
+let updateCacheInFlight = null;
+
+export function _resetUpdateCacheInFlight() {
+    updateCacheInFlight = null;
+}
+
 export async function updateProfileCache() {
-    const activeProfileId = (await storage.get("activeProfile")) || (await storage.get("detectedProfileId"));
-    if (!activeProfileId || activeProfileId.startsWith('fp')) return;
-    
-    const [allow, deny] = await Promise.all([
-        manageDomain(activeProfileId, "allowlist", null, "list"),
-        manageDomain(activeProfileId, "denylist", null, "list")
-    ]);
+    if (updateCacheInFlight) return updateCacheInFlight;
+    updateCacheInFlight = (async () => {
+        try {
+            const activeProfileId = (await storage.get("activeProfile")) || (await storage.get("detectedProfileId"));
+            if (!activeProfileId || activeProfileId.startsWith('fp')) return;
+            
+            const [allow, deny] = await Promise.all([
+                manageDomain(activeProfileId, "allowlist", null, "list"),
+                manageDomain(activeProfileId, "denylist", null, "list")
+            ]);
 
-    const allowList = (allow?.data || []).filter(d => d?.id).map(d => d.id);
-    const denyList = (deny?.data || []).filter(d => d?.id).map(d => d.id);
+            const allowList = (allow?.data || []).filter(d => d?.id).map(d => d.id);
+            const denyList = (deny?.data || []).filter(d => d?.id).map(d => d.id);
 
-    state.currentProfileData.allowlist = new Set(allowList);
-    state.currentProfileData.denylist = new Set(denyList);
+            state.currentProfileData.allowlist = new Set(allowList);
+            state.currentProfileData.denylist = new Set(denyList);
 
-    await storage.set("cachedAllowlist", allowList);
-    await storage.set("cachedDenylist", denyList);
+            await storage.set("cachedAllowlist", allowList);
+            await storage.set("cachedDenylist", denyList);
+        } finally {
+            updateCacheInFlight = null;
+        }
+    })();
+    return updateCacheInFlight;
 }
 
 /**

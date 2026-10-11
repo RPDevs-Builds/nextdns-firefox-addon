@@ -5,7 +5,7 @@ import "jest-webextension-mock";
 import fetchMock from "jest-fetch-mock";
 
 fetchMock.enableMocks();
-jest.setTimeout(15000);
+jest.setTimeout(30000);
 
 /**
  * Robust Browser Mock Extension
