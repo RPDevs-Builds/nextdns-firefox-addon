@@ -151,4 +151,73 @@ describe('APIClient Unit Tests', () => {
         expect(res.success).toBe(false);
         expect(res.error).toBe("Invalid API key");
     });
+
+    test('fetchWithRetry captures X-Conf-Last-Modified and Last-Modified headers', async () => {
+        const client = new APIClient();
+        global.fetch.mockResolvedValueOnce({
+            status: 200,
+            ok: true,
+            headers: {
+                get: (h) => {
+                    const lower = h.toLowerCase();
+                    if (lower === 'x-conf-last-modified') return 'Sun, 11 Oct 2026 01:20:00 GMT';
+                    return null;
+                }
+            },
+            json: async () => ({ success: true })
+        });
+
+        const res = await client.fetchWithRetry("/profiles/xyz", {}, 1, 10);
+        expect(res.success).toBe(true);
+        expect(client.lastModified).toBe('Sun, 11 Oct 2026 01:20:00 GMT');
+    });
+
+    describe('mapConcurrent', () => {
+        let mapConcurrent;
+
+        beforeEach(async () => {
+            const module = await import('../src/apiClient.js');
+            mapConcurrent = module.mapConcurrent;
+        });
+
+        test('returns empty array when given empty or non-array input', async () => {
+            expect(await mapConcurrent([], 4, async () => {})).toEqual([]);
+            expect(await mapConcurrent(null, 4, async () => {})).toEqual([]);
+        });
+
+        test('preserves result order across items', async () => {
+            const items = [10, 20, 30, 40];
+            const results = await mapConcurrent(items, 2, async (item) => item * 2);
+            expect(results).toEqual([20, 40, 60, 80]);
+        });
+
+        test('strictly bounds maximum active concurrency', async () => {
+            const items = [1, 2, 3, 4, 5, 6];
+            let active = 0;
+            let maxActive = 0;
+
+            const results = await mapConcurrent(items, 2, async (item) => {
+                active++;
+                maxActive = Math.max(maxActive, active);
+                await new Promise(r => setTimeout(r, 20));
+                active--;
+                return item;
+            });
+
+            expect(results).toEqual(items);
+            expect(maxActive).toBeLessThanOrEqual(2);
+        });
+
+        test('captures worker exceptions without failing other tasks', async () => {
+            const items = ['ok1', 'fail', 'ok2'];
+            const results = await mapConcurrent(items, 2, async (item) => {
+                if (item === 'fail') throw new Error("Boom");
+                return `processed_${item}`;
+            });
+
+            expect(results[0]).toBe('processed_ok1');
+            expect(results[1]).toEqual({ error: 'Boom' });
+            expect(results[2]).toBe('processed_ok2');
+        });
+    });
 });

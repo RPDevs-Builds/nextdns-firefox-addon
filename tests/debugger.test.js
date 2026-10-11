@@ -111,4 +111,73 @@ describe('Intelligent Debugger (Phase 4.1)', () => {
         const res2 = bg.requestListener({ url: 'about:blank', tabId, type: 'sub_frame' });
         expect(res2).toEqual({ cancel: false });
     });
+
+    test('GET_NETWORK_STATUS: Returns current networkStatus from background state', async () => {
+        global.fetch.mockResolvedValue({
+            ok: true,
+            status: 200,
+            headers: { get: () => null },
+            json: () => Promise.resolve({
+                status: 'ok',
+                protocol: 'DOH',
+                client: '1.2.3.4',
+                server: 'anycast.ams',
+                destIP: '45.90.28.0',
+                profile: 'p123'
+            })
+        });
+
+        const { state } = await import('../src/background/state.js');
+        state.networkStatus = {
+            isConnected: true,
+            status: 'ok',
+            protocol: 'DOH',
+            popServer: 'anycast.ams',
+            clientIp: '1.2.3.4',
+            destIp: '45.90.28.0',
+            profileId: 'p123',
+            rttMs: 24,
+            lastChecked: 1760000000000
+        };
+
+        const res = await bg.messageHandlers.GET_NETWORK_STATUS({});
+        expect(res.success).toBe(true);
+        expect(res.networkStatus.isConnected).toBe(true);
+        expect(res.networkStatus.popServer).toBe('anycast.ams');
+        expect(res.networkStatus.protocol).toBe('DOH');
+    });
+
+    test('RUN_DIAGNOSTICS: Executes live probe and returns diagnostic report', async () => {
+        global.fetch
+            .mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: () => Promise.resolve({
+                    status: 'ok',
+                    protocol: 'DOH',
+                    client: '198.51.100.1',
+                    server: 'vultr-ewr-1',
+                    destIP: '45.90.28.0',
+                    profile: 'testprof'
+                })
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: () => Promise.resolve({
+                    pop: 'ewr',
+                    server: 'vultr-ewr-1',
+                    ip: '198.51.100.1'
+                })
+            });
+
+        const res = await bg.messageHandlers.RUN_DIAGNOSTICS({});
+        expect(res.success).toBe(true);
+        expect(res.diagnostics.isConnected).toBe(true);
+        expect(res.diagnostics.popServer).toBe('vultr-ewr-1');
+        expect(res.diagnostics.protocol).toBe('DOH');
+        expect(typeof res.diagnostics.rttMs).toBe('number');
+    });
 });

@@ -11,10 +11,11 @@ import { state, isPopoutMode, isSidebarMode, isTabMode, PRESET_THEMES, THEME_VAR
 import { setActiveTab, setSafeHTML, escapeHTML, downloadAsFile, showToast, renderEmptyStateHTML } from './utils.js';
 import { handleLiveLog, renderLogs, loadAnalytics, updateDashboardTabInfo, updateDynamicLinks, loadNativeLogs, downloadLogsCSV, wipeLogs, initTabLogEvents } from './dashboard.js';
 import { loadToggles, syncLists, renderLists } from './blocks.js';
-import { runIntelligentDebugger, exportDebuggerSnapshot } from './tools.js';
+import { runIntelligentDebugger, exportDebuggerSnapshot, runNetworkDiagnosticsUI, exportDiagnosticReport } from './tools.js';
 import { loadRules, saveAutomationRule } from './scheduler.js';
 import { renderNotifications, initNotifications } from './notifications.js';
 import { storage } from '../storage.js';
+import { mapConcurrent } from '../apiClient.js';
 import {
     normalizeHexColor,
     getThemeColors,
@@ -187,8 +188,7 @@ async function handleBulkAdd() {
     }
 
     try {
-        let successCount = 0;
-        for (const domain of domains) {
+        const results = await mapConcurrent(domains, 4, async (domain) => {
             const res = await browser.runtime.sendMessage({
                 type: "MANAGE_DOMAIN",
                 profileId: state.activeProfile,
@@ -196,9 +196,10 @@ async function handleBulkAdd() {
                 domain,
                 action: "add"
             });
-            if (res?.success) successCount++;
-        }
+            return !!res?.success;
+        });
 
+        const successCount = results.filter(Boolean).length;
         showToast(`Successfully added ${successCount} of ${domains.length} domains.`, 'success');
         textarea.value = '';
         document.getElementById('list-bulk-container')?.classList.add('hidden');
@@ -473,6 +474,8 @@ function initGlobalEventListeners() {
     // Tools
     document.getElementById('run-debugger-btn')?.addEventListener('click', runIntelligentDebugger);
     document.getElementById('export-debugger-btn')?.addEventListener('click', exportDebuggerSnapshot);
+    document.getElementById('run-diagnostics-btn')?.addEventListener('click', runNetworkDiagnosticsUI);
+    document.getElementById('export-diagnostics-btn')?.addEventListener('click', exportDiagnosticReport);
     document.getElementById('add-rule-btn')?.addEventListener('click', saveAutomationRule);
 
     // Alerts Settings
@@ -938,18 +941,32 @@ export async function refreshActiveProfileAndUI() {
     if (profStatus) {
         setSafeHTML(profStatus, `
             <span style="display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; box-shadow: 0 0 6px var(--accent);"></span>
-            Profile: Detecting...
+            <span>Profile: Detecting...</span>
         `);
     }
 
     try {
-        const profile = await browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null);
+        const [profile, netRes] = await Promise.all([
+            browser.runtime.sendMessage({ type: "GET_PROFILE" }).catch(() => null),
+            browser.runtime.sendMessage({ type: "GET_NETWORK_STATUS" }).catch(() => null)
+        ]);
+        const netStatus = netRes?.networkStatus || {};
+
         if (profile && profile.id) {
             state.activeProfile = profile.id;
             if (profStatus) {
+                const isConn = netStatus.isConnected;
+                const dotColor = isConn ? 'var(--success)' : (profile.manual ? 'var(--warning)' : 'var(--danger)');
+                const statusBadge = isConn 
+                    ? `<span style="font-size: 0.7em; background: rgba(34, 197, 94, 0.15); color: var(--success); border: 1px solid var(--success); padding: 1px 5px; border-radius: 4px; font-weight: 700;">🟢 ${escapeHTML(netStatus.protocol || 'DoH')}${netStatus.popServer ? ` (${escapeHTML(netStatus.popServer)})` : ''}</span>`
+                    : (profile.manual 
+                        ? `<span style="font-size: 0.7em; background: rgba(243, 156, 18, 0.15); color: var(--warning); border: 1px solid var(--warning); padding: 1px 5px; border-radius: 4px; font-weight: 700;">🟡 Override</span>`
+                        : `<span style="font-size: 0.7em; background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid var(--danger); padding: 1px 5px; border-radius: 4px; font-weight: 700;">🔴 Unconfigured</span>`);
+
                 const html = `
-                    <span style="display:inline-block; width:8px; height:8px; background:var(--success); border-radius:50%; box-shadow: 0 0 6px var(--success);"></span>
-                    Profile: ${escapeHTML(profile.name)}
+                    <span style="display:inline-block; width:8px; height:8px; background:${dotColor}; border-radius:50%; box-shadow: 0 0 6px ${dotColor};"></span>
+                    <span>Profile: ${escapeHTML(profile.name)}</span>
+                    ${statusBadge}
                 `;
                 setSafeHTML(profStatus, html);
             }
@@ -961,7 +978,11 @@ export async function refreshActiveProfileAndUI() {
             return profile;
         } else {
             if (profStatus) {
-                setSafeHTML(profStatus, `<span style="display:inline-block; width:8px; height:8px; background:var(--danger); border-radius:50%;"></span> Profile: Not Detected`);
+                setSafeHTML(profStatus, `
+                    <span style="display:inline-block; width:8px; height:8px; background:var(--danger); border-radius:50%;"></span>
+                    <span>Profile: Not Detected</span>
+                    <span style="font-size: 0.7em; background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid var(--danger); padding: 1px 5px; border-radius: 4px; font-weight: 700;">🔴 Leaking / Inactive</span>
+                `);
             }
             return null;
         }

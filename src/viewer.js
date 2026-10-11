@@ -13,6 +13,7 @@ import { storage } from './storage.js';
 import { loadMetadata } from './metadataManager.js';
 import { escapeHTML, setSafeHTML, showToast, renderEmptyStateHTML } from './ui/utils.js';
 import { initViewerTheme } from './ui/theme.js';
+import { mapConcurrent } from './apiClient.js';
 
 // --- Global State ---
 /** @type {string} Currently active sub-tab ('domains', 'profiles', 'filters', 'hostnames', 'tlds', 'blocklists', 'backup', 'snapshots', 'comparison', 'rewrites') */
@@ -498,6 +499,7 @@ function compareSnapshots(id, snapshots) {
 /**
  * Applies a configuration settings object to a specified NextDNS profile.
  * Sequentially updates Security, Privacy, Blocklists, TLDs, and Parental Controls.
+ * Uses bounded concurrency worker (concurrency=4) for accelerated restoration.
  * @async
  * @param {Object} config - Configuration object.
  * @param {string} targetProfile - ID of the target profile.
@@ -506,50 +508,48 @@ function compareSnapshots(id, snapshots) {
 async function applyConfigToProfile(config, targetProfile, logger = () => {}) {
     // 1. Security Settings
     logger("[1/4] Applying Security settings...");
-    for (let [key, val] of Object.entries(config.security || {})) {
-        if (typeof val === 'boolean') {
-            const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "security", id: key, action: val ? "add" : "delete", settingType: "boolean" });
-            if (!res?.success) logger(`[Warning] Security ${key}: ${res?.error || 'Failed'}`);
-        }
-    }
+    const secEntries = Object.entries(config.security || {}).filter(([_, val]) => typeof val === 'boolean');
+    await mapConcurrent(secEntries, 4, async ([key, val]) => {
+        const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "security", id: key, action: val ? "add" : "delete", settingType: "boolean" });
+        if (!res?.success) logger(`[Warning] Security ${key}: ${res?.error || 'Failed'}`);
+    });
 
     // 2. Privacy settings
     logger("[2/4] Applying Privacy settings...");
-    for (let [key, val] of Object.entries(config.privacy || {})) {
-        if (typeof val === 'boolean') {
-            const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy", id: key, action: val ? "add" : "delete", settingType: "boolean" });
-            if (!res?.success) logger(`[Warning] Privacy ${key}: ${res?.error || 'Failed'}`);
-        }
-    }
+    const privEntries = Object.entries(config.privacy || {}).filter(([_, val]) => typeof val === 'boolean');
+    await mapConcurrent(privEntries, 4, async ([key, val]) => {
+        const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy", id: key, action: val ? "add" : "delete", settingType: "boolean" });
+        if (!res?.success) logger(`[Warning] Privacy ${key}: ${res?.error || 'Failed'}`);
+    });
 
     // 3. Blocklists & TLDs
     logger("[3/4] Enabling Blocklists & TLDs...");
-    for (let b of (config.blocklists || [])) {
+    await mapConcurrent(config.blocklists || [], 4, async (b) => {
         const id = b.id || b;
         const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy/blocklists", id, action: "add", settingType: "list" });
         if (!res?.success) logger(`[Warning] Blocklist ${id}: ${res?.error || 'Failed'}`);
-    }
-    for (let t of (config.tlds || [])) {
+    });
+    await mapConcurrent(config.tlds || [], 4, async (t) => {
         const id = t.id || t;
         const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "security/tlds", id, action: "add", settingType: "list" });
         if (!res?.success) logger(`[Warning] TLD ${id}: ${res?.error || 'Failed'}`);
-    }
+    });
 
     // 4. Parental Control
     logger("[4/4] Applying Parental Controls...");
     const parental = config.parentalcontrol || config.parentalControl || {};
     const services = config.services || parental.services || [];
-    for (let s of services) {
+    await mapConcurrent(services, 4, async (s) => {
         const id = s.id || s;
         const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "parentalcontrol/services", id, action: "add", settingType: "list" });
         if (!res?.success) logger(`[Warning] Service ${id}: ${res?.error || 'Failed'}`);
-    }
+    });
     const categories = config.categories || parental.categories || [];
-    for (let c of categories) {
+    await mapConcurrent(categories, 4, async (c) => {
         const id = c.id || c;
         const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "parentalcontrol/categories", id, action: "add", settingType: "list" });
         if (!res?.success) logger(`[Warning] Category ${id}: ${res?.error || 'Failed'}`);
-    }
+    });
 
     logger("[Success] Configuration applied successfully!");
 }

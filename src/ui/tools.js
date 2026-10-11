@@ -157,3 +157,97 @@ export function exportDebuggerSnapshot() {
     }, null, 2);
     downloadAsFile(`forge_debugger_${state.activeProfile}_${Date.now()}.json`, data);
 }
+
+let lastDiagnosticResult = null;
+
+/**
+ * Executes the NextDNS Network Diagnostics check and renders findings.
+ * Measures PoP RTT latency, validates connection status, and displays network info.
+ * @async
+ */
+export async function runNetworkDiagnosticsUI() {
+    const resultsContainer = document.getElementById('diagnostics-results');
+    const exportBtn = document.getElementById('export-diagnostics-btn');
+    const runBtn = document.getElementById('run-diagnostics-btn');
+
+    if (runBtn) {
+        runBtn.disabled = true;
+        runBtn.textContent = "Testing...";
+    }
+    setSafeHTML(resultsContainer, '<div style="text-align: center; padding: 20px;">Testing NextDNS network connectivity and PoP latency...</div>');
+    exportBtn?.classList.add('hidden');
+
+    try {
+        const res = await browser.runtime.sendMessage({ type: "RUN_DIAGNOSTICS" });
+        if (!res?.success || !res?.diagnostics) {
+            setSafeHTML(resultsContainer, renderEmptyStateHTML(res?.error || 'Diagnostic test failed.', '⚠️'));
+            return;
+        }
+
+        const diag = res.diagnostics;
+        lastDiagnosticResult = diag;
+
+        const isConn = diag.isConnected;
+        const statusBadge = isConn 
+            ? '<span class="badge-allow" style="padding: 2px 8px; border-radius: 4px; font-weight: 700;">🟢 CONNECTED</span>'
+            : '<span class="badge-deny" style="padding: 2px 8px; border-radius: 4px; font-weight: 700;">🔴 UNCONFIGURED</span>';
+
+        const latencyBadge = diag.rttMs !== null 
+            ? `<span style="font-weight: 700; color: ${diag.rttMs < 50 ? 'var(--success)' : (diag.rttMs < 120 ? 'var(--warning)' : 'var(--danger)')};">${diag.rttMs} ms</span>`
+            : '<span style="color: var(--text-muted);">---</span>';
+
+        const html = `
+            <div class="panel-box" style="margin-bottom: 10px; padding: 12px;">
+                <div class="flex-between" style="margin-bottom: 8px;">
+                    <strong style="font-size: 0.9em;">NextDNS Status</strong>
+                    <div>${statusBadge}</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8em; margin-top: 10px;">
+                    <div style="background: rgba(0,0,0,0.15); padding: 8px; border-radius: 4px;">
+                        <span style="color: var(--text-muted); display: block; font-size: 0.75em; text-transform: uppercase;">Edge PoP Server</span>
+                        <strong style="font-family: monospace;">${escapeHTML(diag.popServer || 'Unknown')}</strong>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.15); padding: 8px; border-radius: 4px;">
+                        <span style="color: var(--text-muted); display: block; font-size: 0.75em; text-transform: uppercase;">Round-Trip Latency</span>
+                        ${latencyBadge}
+                    </div>
+                    <div style="background: rgba(0,0,0,0.15); padding: 8px; border-radius: 4px;">
+                        <span style="color: var(--text-muted); display: block; font-size: 0.75em; text-transform: uppercase;">DNS Protocol</span>
+                        <strong style="font-family: monospace;">${escapeHTML(diag.protocol || 'Unknown')}</strong>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.15); padding: 8px; border-radius: 4px;">
+                        <span style="color: var(--text-muted); display: block; font-size: 0.75em; text-transform: uppercase;">Client Public IP</span>
+                        <strong style="font-family: monospace;">${escapeHTML(diag.clientIp || 'Unknown')}</strong>
+                    </div>
+                </div>
+                <div style="margin-top: 10px; font-size: 0.75em; color: var(--text-muted); display: flex; justify-content: space-between;">
+                    <span>Profile: <strong>${escapeHTML(diag.activeProfileName || diag.activeProfileId || 'None')}</strong></span>
+                    <span>${new Date(diag.timestamp).toLocaleTimeString()}</span>
+                </div>
+            </div>
+        `;
+        setSafeHTML(resultsContainer, html);
+        exportBtn?.classList.remove('hidden');
+    } catch (e) {
+        setSafeHTML(resultsContainer, renderEmptyStateHTML(e.message || 'Diagnostic error', '⚠️'));
+    } finally {
+        if (runBtn) {
+            runBtn.disabled = false;
+            runBtn.textContent = "🩺 Run Diagnostics";
+        }
+    }
+}
+
+/**
+ * Exports the current diagnostic report as a JSON file.
+ */
+export function exportDiagnosticReport() {
+    if (!lastDiagnosticResult) return;
+    const data = JSON.stringify({
+        tool: "NextDNS Network Diagnostics",
+        version: lastDiagnosticResult.extensionVersion || "1.1.8",
+        timestamp: new Date().toISOString(),
+        diagnostics: lastDiagnosticResult
+    }, null, 2);
+    downloadAsFile(`nextdns_diagnostic_${lastDiagnosticResult.activeProfileId || 'profile'}_${Date.now()}.json`, data);
+}

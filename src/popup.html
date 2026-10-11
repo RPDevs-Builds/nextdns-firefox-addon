@@ -460,13 +460,15 @@
     <div class="sub-nav" id="dashboard-sub-nav" style="background: var(--bg-main);">
       <button class="sub-tab-btn active" data-sub="overview">📊 Overview</button>
       <button class="sub-tab-btn" data-sub="debugger">🔍 Debugger</button>
+      <button class="sub-tab-btn" data-sub="diagnostics">🩺 Diagnostics</button>
     </div>
 
     <div id="dash-overview" class="dashboard-sub-content active" style="padding: 15px;">
         <div style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;" id="profile-status-bar">
-          <div style="display: flex; align-items: center; gap: 6px;" id="profile-status">
-            <span style="display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; box-shadow: 0 0 6px var(--accent);"></span>
-            Profile: Detecting...
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;" id="profile-status">
+            <span id="conn-indicator-dot" style="display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; box-shadow: 0 0 6px var(--accent);"></span>
+            <span id="profile-status-text">Profile: Detecting...</span>
+            <span id="conn-status-badge" class="badge-status hidden" style="font-size: 0.7em; padding: 2px 6px; border-radius: 4px; font-weight: 700;"></span>
           </div>
           <a id="web-gui-profile-link" href="https://my.nextdns.io" target="_blank" rel="noopener noreferrer" style="font-size: 0.8em; color: var(--accent); text-decoration: none; display: flex; align-items: center; gap: 4px; font-weight: 500;" title="Open active profile in NextDNS console">
             <span>NextDNS Console ↗</span>
@@ -518,6 +520,20 @@
             </div>
         </div>
         <button id="export-debugger-btn" class="btn-secondary hidden" style="margin-top: 10px;">📥 Export Snapshot</button>
+    </div>
+
+    <div id="dash-diagnostics" class="dashboard-sub-content hidden" style="padding: 15px;">
+        <div class="panel-box">
+            <h4>NextDNS Network Diagnostics</h4>
+            <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Test live DNS connection health, measure PoP latency, and verify DoH routing.</p>
+            <button id="run-diagnostics-btn" class="btn-allow" style="background-color: var(--accent);">🩺 Run Diagnostics</button>
+        </div>
+        <div id="diagnostics-results" class="dashboard-panel" style="margin-top: 15px;">
+            <div style="text-align: center; color: var(--text-muted); padding: 20px;">
+                Ready to run diagnostics.
+            </div>
+        </div>
+        <button id="export-diagnostics-btn" class="btn-secondary hidden" style="margin-top: 10px;">📥 Export Diagnostic Report</button>
     </div>
   </div>
 

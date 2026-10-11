@@ -277,14 +277,19 @@ function applyDeviceAliases(root) {
     elements.forEach(el => {
         if (el.dataset.nxmAliased) return;
         const id = el.textContent.trim();
-        if (hostnameAliases[id]) {
+        const alias = hostnameAliases[id];
+        if (alias) {
             el.dataset.nxmAliased = "true";
             el.textContent = "";
             const span = document.createElement('span');
-            span.title = `ID: ${id}`;
+            const displayName = typeof alias === 'object' ? (alias.name || alias.alias || id) : alias;
+            const extra = (typeof alias === 'object' && (alias.model || alias.ip)) 
+                ? ` [${[alias.model, alias.ip].filter(Boolean).join(' - ')}]` 
+                : '';
+            span.title = `ID: ${id}${extra ? ` | Details: ${extra.trim()}` : ''}`;
             span.style.borderBottom = '1px dashed var(--accent)';
             span.style.cursor = 'help';
-            span.textContent = hostnameAliases[id];
+            span.textContent = displayName;
             el.appendChild(span);
         }
     });

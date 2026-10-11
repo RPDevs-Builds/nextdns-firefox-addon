@@ -10,7 +10,7 @@
 import { state, API_BASE, TEST_URL, ALARM_PREFIX } from './state.js';
 import { storage } from '../storage.js';
 import { apiClient } from '../apiClient.js';
-import { manageDomain, detectActiveProfile, updateProfileCache } from './api.js';
+import { manageDomain, detectActiveProfile, updateProfileCache, runNetworkDiagnostics } from './api.js';
 import { logStreamManager } from './logStream.js';
 
 /**
@@ -172,6 +172,22 @@ export const messageHandlers = {
     DETECT_PROFILE: async () => {
         const profile = await detectActiveProfile();
         return { success: !!profile, profile };
+    },
+    /**
+     * Retrieves current real-time network and NextDNS connectivity status.
+     */
+    GET_NETWORK_STATUS: async () => {
+        if (!state.networkStatus || Date.now() - (state.networkStatus.lastChecked || 0) > 300000) {
+            await detectActiveProfile();
+        }
+        return { success: true, networkStatus: state.networkStatus };
+    },
+    /**
+     * Executes full network & PoP diagnostics benchmark.
+     */
+    RUN_DIAGNOSTICS: async () => {
+        const diagnostics = await runNetworkDiagnostics();
+        return { success: true, diagnostics };
     },
     /**
      * Fetches the list of all available NextDNS profiles in the account.

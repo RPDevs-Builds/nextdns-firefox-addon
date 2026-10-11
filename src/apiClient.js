@@ -63,6 +63,9 @@ export class APIClient {
                 };
 
                 const response = await fetch(url, requestOptions);
+                if (!response) {
+                    throw new Error("No response returned from fetch");
+                }
 
                 // If Rate Limited (429) or Server Error (50x), retry
                 if (response.status === 429 || response.status >= 500) {
@@ -111,6 +114,11 @@ export class APIClient {
                     return { success: false, response, error: errMsg };
                 }
 
+                if (response.headers?.get) {
+                    const mod = response.headers.get("X-Conf-Last-Modified") || response.headers.get("Last-Modified");
+                    if (mod) this.lastModified = mod;
+                }
+
                 return { success: true, response };
             } catch (error) {
                 // Network error (e.g. offline)
@@ -121,6 +129,38 @@ export class APIClient {
             }
         }
     }
+}
+
+/**
+ * Executes an async task across an array of items with bounded concurrency.
+ * Inspired by NextDNS CLI's max-inflight-upstream-requests semaphore.
+ * @param {Array} items - Items to process.
+ * @param {number} [concurrency=4] - Max concurrent promises.
+ * @param {Function} fn - Async worker function (item, index).
+ * @returns {Promise<Array>} Results corresponding to each item.
+ */
+export async function mapConcurrent(items, concurrency = 4, fn) {
+    if (!Array.isArray(items) || items.length === 0) return [];
+    const limit = Math.max(1, Math.min(16, concurrency));
+    const results = new Array(items.length);
+    const executing = new Set();
+
+    for (let i = 0; i < items.length; i++) {
+        const p = Promise.resolve()
+            .then(() => fn(items[i], i))
+            .then(res => { results[i] = res; })
+            .catch(err => { results[i] = { error: err?.message || String(err) }; });
+
+        executing.add(p);
+        const clean = () => executing.delete(p);
+        p.then(clean).catch(clean);
+
+        if (executing.size >= limit) {
+            await Promise.race(executing);
+        }
+    }
+    await Promise.all(executing);
+    return results;
 }
 
 /**

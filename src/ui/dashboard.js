@@ -41,7 +41,10 @@ export function formatLogRow(log) {
     row.style.color = rowColor;
     
     const deviceId = log.device?.id || log.clientIp;
-    const name = state.hostnameAliases?.[deviceId] || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
+    const alias = state.hostnameAliases?.[deviceId] || state.hostnameAliases?.[log.device?.ip] || state.hostnameAliases?.[log.clientIp];
+    const baseName = alias || log.device?.name || log.device?.id || log.clientIp || 'Unknown Device';
+    const model = (log.device?.model && !baseName.includes(log.device.model)) ? ` (${log.device.model})` : '';
+    const name = `${baseName}${model}`;
     let timeStr = "---";
     if (log.timestamp) {
         const d = new Date(log.timestamp);

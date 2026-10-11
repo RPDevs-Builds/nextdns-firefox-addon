@@ -26,7 +26,19 @@ export const state = {
     lastNotificationTimes: {},
     isInitialized: false,
     notifications: [],
-    localLogs: []
+    localLogs: [],
+    networkStatus: {
+        isConnected: false,
+        status: 'detecting',
+        protocol: '',
+        popServer: '',
+        clientIp: '',
+        destIp: '',
+        profileId: null,
+        rttMs: null,
+        lastChecked: 0
+    },
+    lastProfileModified: null
 };
 
 /** @constant {string} Base URL for the NextDNS API */

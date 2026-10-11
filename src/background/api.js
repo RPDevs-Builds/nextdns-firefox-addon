@@ -91,6 +91,9 @@ export async function detectActiveProfile() {
         }
         await storage.set("activeProfile", activeId);
         await storage.set("activeProfileName", profileName);
+        if (state.networkStatus) {
+            state.networkStatus.profileId = activeId;
+        }
         return { id: activeId, name: profileName, manual: true };
     }
 
@@ -104,6 +107,21 @@ export async function detectActiveProfile() {
         if (res.success) {
             const data = await res.response.json().catch(() => ({}));
             const networkProfile = data?.profile;
+            const isConnected = data?.status === 'ok';
+            if (state.networkStatus) {
+                state.networkStatus = {
+                    ...state.networkStatus,
+                    isConnected,
+                    status: data?.status || 'unconfigured',
+                    protocol: data?.protocol || 'Unknown',
+                    popServer: data?.server || 'Unknown',
+                    clientIp: data?.client || data?.srcIP || '',
+                    destIp: data?.destIP || '',
+                    profileId: networkProfile || null,
+                    lastChecked: Date.now()
+                };
+                await storage.set("networkStatus", state.networkStatus);
+            }
             if (networkProfile) {
                 if (accountProfiles.length > 0) {
                     const matched = accountProfiles.find(p => p.id === networkProfile || p.fingerprint === networkProfile);
@@ -228,4 +246,68 @@ export async function checkAndUpdateLinkedIP() {
     } catch (e) {
         console.warn("[DDNS] Check failed", e);
     }
+}
+
+/**
+ * Executes a comprehensive network diagnostic check against NextDNS.
+ * Measures PoP RTT latency, verifies DoH routing, and extracts client and resolver metadata.
+ * Inspired by official NextDNS diag tool (github.com/nextdns/diag).
+ * @async
+ * @returns {Promise<Object>} Diagnostic result payload.
+ */
+export async function runNetworkDiagnostics() {
+    const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    let testData = {};
+    let infoData = {};
+    let rtt = null;
+
+    try {
+        const testRes = await apiClient.fetchWithRetry(TEST_URL, { cache: 'no-store' }, 1, 500);
+        if (testRes.success) testData = await testRes.response.json().catch(() => ({}));
+    } catch (_) {}
+
+    try {
+        const infoRes = await apiClient.fetchWithRetry("https://dns.nextdns.io/info", { cache: 'no-store' }, 1, 500);
+        const tEnd = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        rtt = Math.round(tEnd - t0);
+        if (infoRes.success) infoData = await infoRes.response.json().catch(() => ({}));
+    } catch (_) {}
+
+    const activeProfile = (await storage.get("activeProfile")) || (await storage.get("detectedProfileId"));
+    const activeProfileName = (await storage.get("activeProfileName")) || activeProfile || "Unknown";
+
+    const isConnected = testData.status === 'ok' || Boolean(infoData.pop);
+    const popServer = testData.server || infoData.pop || infoData.server || 'Unknown';
+    const clientIp = testData.client || testData.srcIP || infoData.ip || infoData.client || 'Unknown';
+    const protocol = testData.protocol || (infoData.pop ? 'HTTPS' : 'Unknown');
+
+    const result = {
+        timestamp: new Date().toISOString(),
+        isConnected,
+        status: testData.status || (infoData.pop ? 'ok' : 'unconfigured'),
+        protocol,
+        popServer,
+        clientIp,
+        destIp: testData.destIP || '',
+        rttMs: rtt,
+        activeProfileId: activeProfile || testData.profile || null,
+        activeProfileName,
+        extensionVersion: (typeof browser !== 'undefined' && browser.runtime?.getManifest) ? (browser.runtime.getManifest()?.version || "1.1.8") : "1.1.8"
+    };
+
+    if (state.networkStatus) {
+        state.networkStatus = {
+            ...state.networkStatus,
+            isConnected,
+            status: result.status,
+            protocol,
+            popServer,
+            clientIp,
+            rttMs: rtt,
+            lastChecked: Date.now()
+        };
+        await storage.set("networkStatus", state.networkStatus);
+    }
+
+    return result;
 }
