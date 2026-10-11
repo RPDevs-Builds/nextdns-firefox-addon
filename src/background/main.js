@@ -68,7 +68,12 @@ export async function initializeBackground() {
 
     browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (messageHandlers[msg.type]) {
-            messageHandlers[msg.type](msg, sender).then(sendResponse);
+            messageHandlers[msg.type](msg, sender)
+                .then(sendResponse)
+                .catch(err => {
+                    console.error(`[Background] Handler error on ${msg.type}:`, err);
+                    sendResponse({ success: false, error: err.message || "Handler error" });
+                });
             return true; // Keep channel open for async response
         }
     });
@@ -203,8 +208,21 @@ if (browser.menus?.onClicked?.addListener) {
         try {
             const urlStr = info.linkUrl || info.pageUrl || tab?.url;
             if (!urlStr) return;
-            const domain = new URL(urlStr).hostname;
-            const activeProfileId = await storage.get("activeProfile");
+            let parsedUrl;
+            try {
+                parsedUrl = new URL(urlStr);
+            } catch (_) {
+                return;
+            }
+            if (!['http:', 'https:'].includes(parsedUrl.protocol)) return;
+            const domain = parsedUrl.hostname;
+            if (!domain || !domain.trim()) return;
+
+            const activeProfileId = (await storage.get("overrideProfileId")) || (await storage.get("activeProfile")) || (await storage.get("detectedProfileId"));
+            if (!activeProfileId || activeProfileId === 'auto' || activeProfileId.startsWith('fp')) {
+                console.warn("[ContextMenus] Cannot apply menu action: No valid NextDNS profile active.");
+                return;
+            }
 
             if (info.menuItemId === "dns-forge-allow") {
                 await manageDomain(activeProfileId, "allowlist", domain, "add");

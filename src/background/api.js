@@ -38,7 +38,7 @@ export async function manageDomain(profileId, listType, domain, action) {
             res = await apiClient.fetchWithRetry(`${endpoint}/${encodeURIComponent(domain.trim())}`, { method: 'DELETE' });
         } else if (action === 'list') {
             res = await apiClient.fetchWithRetry(endpoint, { method: 'GET' });
-            if (res.success) return await res.response.json();
+            if (res.success) return await res.response.json().catch(() => ({ data: [] }));
             return { error: res.error || "Fetch Error" };
         }
         const out = { success: res.success };
@@ -75,7 +75,7 @@ export async function detectActiveProfile() {
         try {
             const pRes = await apiClient.fetchWithRetry(`${API_BASE}/profiles`, {}, 2, 500);
             if (pRes.success) {
-                const pData = await pRes.response.json();
+                const pData = await pRes.response.json().catch(() => ({}));
                 accountProfiles = Array.isArray(pData.data) ? pData.data : [];
             }
         } catch (e) {
@@ -102,7 +102,7 @@ export async function detectActiveProfile() {
     try {
         const res = await apiClient.fetchWithRetry(TEST_URL, { cache: 'no-store' }, 2, 500);
         if (res.success) {
-            const data = await res.response.json();
+            const data = await res.response.json().catch(() => ({}));
             const networkProfile = data?.profile;
             if (networkProfile) {
                 if (accountProfiles.length > 0) {
@@ -190,7 +190,18 @@ export async function checkAndUpdateLinkedIP() {
             }
         } catch (_) {}
 
-        // 2. Fall back to external IP detection only if NextDNS test diagnostic is unavailable
+        // 2. NextDNS native PoP/IP diagnostic endpoint fallback
+        if (!ip) {
+            try {
+                const infoRes = await apiClient.fetchWithRetry("https://dns.nextdns.io/info", { cache: 'no-store' }, 1, 300);
+                if (infoRes.success) {
+                    const infoData = await infoRes.response.json().catch(() => ({}));
+                    ip = infoData.ip || infoData.client;
+                }
+            } catch (_) {}
+        }
+
+        // 3. Fall back to external IP detection only if NextDNS test diagnostic is unavailable
         if (!ip) {
             try {
                 const res = await fetch("https://api.ipify.org?format=json");

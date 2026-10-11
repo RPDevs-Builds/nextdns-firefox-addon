@@ -543,9 +543,9 @@ export function downloadLogsCSV() {
     const headers = ["Timestamp", "Device", "Domain", "Status", "Reason"];
     const rows = state.cachedLogs.map(l => [
         !isNaN(new Date(l.timestamp).getTime()) ? new Date(l.timestamp).toISOString() : (l.timestamp || "Invalid Date"),
-        state.hostnameAliases[l.device?.id || l.clientIp] || l.device?.name || l.clientIp || "Unknown",
-        l.name || l.domain,
-        l.status,
+        state.hostnameAliases?.[l.device?.id || l.clientIp] || l.device?.name || l.clientIp || "Unknown",
+        l.name || l.domain || "",
+        l.status || "",
         Array.isArray(l.reasons) ? l.reasons.map(r => r.name || r.id || r).filter(Boolean).join('; ') : (l.reason || "")
     ]);
 

@@ -313,6 +313,16 @@ function showToast(message, type = 'info') {
 
 observer.observe(document.body, { childList: true, subtree: true });
 
+// Listen for client-side SPA navigation events on my.nextdns.io
+window.addEventListener('popstate', () => {
+    evaluatePage();
+    setupSectionCollapsing();
+});
+window.addEventListener('hashchange', () => {
+    evaluatePage();
+    setupSectionCollapsing();
+});
+
 async function extractApiKey() {
   const elements = [
     ...Array.from(document.querySelectorAll('code')),

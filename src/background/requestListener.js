@@ -64,15 +64,23 @@ export function requestListener(details) {
 
             // Record into localLogs buffer and broadcast LIVE_LOG for active log views
             if (!Array.isArray(state.localLogs)) state.localLogs = [];
-            const recentDuplicate = state.localLogs.find(l => (l.domain === domain || l.name === domain) && (Date.now() - l.timestamp < 3000));
-            if (!recentDuplicate) {
+            state.recentLogTimestamps = state.recentLogTimestamps || new Map();
+            const now = Date.now();
+            const lastLogTime = state.recentLogTimestamps.get(domain) || 0;
+            if (now - lastLogTime >= 3000) {
+                state.recentLogTimestamps.set(domain, now);
+                if (state.recentLogTimestamps.size > 300) {
+                    for (const [d, ts] of state.recentLogTimestamps.entries()) {
+                        if (now - ts > 10000) state.recentLogTimestamps.delete(d);
+                    }
+                }
                 const logEntry = {
                     domain,
                     name: domain,
                     status,
                     reason: status === 'default' ? '' : reason,
                     reasons: allowMatch ? [{ id: 'allowlist', name: 'Allow List' }] : (denyMatch ? [{ id: 'denylist', name: 'Deny List' }] : []),
-                    timestamp: Date.now(),
+                    timestamp: now,
                     protocol: url.protocol ? url.protocol.replace(':', '').toUpperCase() : 'HTTP',
                     device: { name: 'This Browser' }
                 };

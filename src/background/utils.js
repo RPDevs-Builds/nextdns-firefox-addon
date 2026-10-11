@@ -49,6 +49,16 @@ export async function handleBlockNotification(domain) {
     if (now - lastTime > 10000) {
         state.lastNotificationTimes[domain] = now;
 
+        // Memory hygiene: Prune timestamps older than 60 seconds if map grows large
+        const notifKeys = Object.keys(state.lastNotificationTimes);
+        if (notifKeys.length > 200) {
+            for (const k of notifKeys) {
+                if (now - state.lastNotificationTimes[k] > 60000) {
+                    delete state.lastNotificationTimes[k];
+                }
+            }
+        }
+
         if (isActionCenterEnabled) {
             const notification = {
                 id: Date.now().toString(),

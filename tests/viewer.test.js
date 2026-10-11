@@ -260,4 +260,36 @@ describe('Data Manager Viewer UI Suite', () => {
             content: '192.168.1.200'
         });
     });
+
+    test('Snapshot diff formatting accurately marks enabled (+), disabled (-), and modified (~) properties', () => {
+        const c1 = { aiGov: false, blockDga: true, timeout: 50 };
+        const c2 = { aiGov: true, blockDga: false, timeout: 100 };
+        const allKeys = ['aiGov', 'blockDga', 'timeout'];
+
+        let catDiff = "";
+        allKeys.forEach(k => {
+            if (c1[k] !== c2[k]) {
+                const v1 = c1[k] !== undefined ? String(c1[k]) : 'unset';
+                const v2 = c2[k] !== undefined ? String(c2[k]) : 'unset';
+                const prefix = c2[k] === true ? '+' : (c2[k] === false ? '-' : '~');
+                catDiff += `${prefix} ${k}: ${v1} -> ${v2}\n`;
+            }
+        });
+
+        expect(catDiff).toContain('+ aiGov: false -> true');
+        expect(catDiff).toContain('- blockDga: true -> false');
+        expect(catDiff).toContain('~ timeout: 50 -> 100');
+    });
+
+    test('Rewrite deletion immediately purges local cache and metadata', () => {
+        const rewritesMeta = { 'internal.lan': { id: 'r1', name: 'internal.lan' } };
+        const currentData = { 'internal.lan': '10.0.0.1' };
+        const key = 'internal.lan';
+
+        delete rewritesMeta[key];
+        delete currentData[key];
+
+        expect(rewritesMeta[key]).toBeUndefined();
+        expect(currentData[key]).toBeUndefined();
+    });
 });

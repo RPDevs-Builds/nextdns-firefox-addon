@@ -252,6 +252,22 @@ describe('Background Script - Full Coverage Suite', () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/denylist'), expect.objectContaining({ method: 'POST', body: JSON.stringify({ id: 'new-bad.com' }) }));
   });
 
+  test('Context Menus - Rejects non-HTTP/HTTPS URLs and malformed links', async () => {
+    await bg.initializeBackground();
+    await new Promise(r => setTimeout(r, 50));
+    fetchMock.mockClear();
+
+    // Non-http schemes
+    await menuClickListenerRef({ menuItemId: 'dns-forge-allow', linkUrl: 'about:blank' }, { id: 1 });
+    await menuClickListenerRef({ menuItemId: 'dns-forge-allow', linkUrl: 'ftp://ftp.example.com' }, { id: 1 });
+    await menuClickListenerRef({ menuItemId: 'dns-forge-allow', linkUrl: 'javascript:alert(1)' }, { id: 1 });
+    // Malformed URL
+    await menuClickListenerRef({ menuItemId: 'dns-forge-allow', linkUrl: 'not_a_valid_url' }, { id: 1 });
+
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining('/allowlist'), expect.anything());
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining('/denylist'), expect.anything());
+  });
+
   test('Message Handler - TOGGLE_SETTING', async () => {
     await bg.initializeBackground();
     

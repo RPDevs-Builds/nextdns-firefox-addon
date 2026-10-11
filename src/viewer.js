@@ -483,7 +483,10 @@ function compareSnapshots(id, snapshots) {
         let catDiff = "";
         allKeys.forEach(k => {
             if (c1[k] !== c2[k]) {
-                catDiff += `${c1[k] ? '+' : '-'} ${k}: ${c1[k]} -> ${c2[k]}\n`;
+                const v1 = c1[k] !== undefined ? String(c1[k]) : 'unset';
+                const v2 = c2[k] !== undefined ? String(c2[k]) : 'unset';
+                const prefix = c2[k] === true ? '+' : (c2[k] === false ? '-' : '~');
+                catDiff += `${prefix} ${k}: ${v1} -> ${v2}\n`;
             }
         });
         if (catDiff) diffStr += `[${cat.toUpperCase()}]\n${catDiff}\n`;
@@ -505,7 +508,8 @@ async function applyConfigToProfile(config, targetProfile, logger = () => {}) {
     logger("[1/4] Applying Security settings...");
     for (let [key, val] of Object.entries(config.security || {})) {
         if (typeof val === 'boolean') {
-            await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "security", id: key, action: val ? "add" : "delete", settingType: "boolean" });
+            const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "security", id: key, action: val ? "add" : "delete", settingType: "boolean" });
+            if (!res?.success) logger(`[Warning] Security ${key}: ${res?.error || 'Failed'}`);
         }
     }
 
@@ -513,7 +517,8 @@ async function applyConfigToProfile(config, targetProfile, logger = () => {}) {
     logger("[2/4] Applying Privacy settings...");
     for (let [key, val] of Object.entries(config.privacy || {})) {
         if (typeof val === 'boolean') {
-            await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy", id: key, action: val ? "add" : "delete", settingType: "boolean" });
+            const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy", id: key, action: val ? "add" : "delete", settingType: "boolean" });
+            if (!res?.success) logger(`[Warning] Privacy ${key}: ${res?.error || 'Failed'}`);
         }
     }
 
@@ -521,11 +526,13 @@ async function applyConfigToProfile(config, targetProfile, logger = () => {}) {
     logger("[3/4] Enabling Blocklists & TLDs...");
     for (let b of (config.blocklists || [])) {
         const id = b.id || b;
-        await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy/blocklists", id, action: "add", settingType: "list" });
+        const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "privacy/blocklists", id, action: "add", settingType: "list" });
+        if (!res?.success) logger(`[Warning] Blocklist ${id}: ${res?.error || 'Failed'}`);
     }
     for (let t of (config.tlds || [])) {
         const id = t.id || t;
-        await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "security/tlds", id, action: "add", settingType: "list" });
+        const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "security/tlds", id, action: "add", settingType: "list" });
+        if (!res?.success) logger(`[Warning] TLD ${id}: ${res?.error || 'Failed'}`);
     }
 
     // 4. Parental Control
@@ -534,12 +541,14 @@ async function applyConfigToProfile(config, targetProfile, logger = () => {}) {
     const services = config.services || parental.services || [];
     for (let s of services) {
         const id = s.id || s;
-        await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "parentalcontrol/services", id, action: "add", settingType: "list" });
+        const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "parentalcontrol/services", id, action: "add", settingType: "list" });
+        if (!res?.success) logger(`[Warning] Service ${id}: ${res?.error || 'Failed'}`);
     }
     const categories = config.categories || parental.categories || [];
     for (let c of categories) {
         const id = c.id || c;
-        await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "parentalcontrol/categories", id, action: "add", settingType: "list" });
+        const res = await browser.runtime.sendMessage({ type: "TOGGLE_SETTING", profileId: targetProfile, category: "parentalcontrol/categories", id, action: "add", settingType: "list" });
+        if (!res?.success) logger(`[Warning] Category ${id}: ${res?.error || 'Failed'}`);
     }
 
     logger("[Success] Configuration applied successfully!");
@@ -1055,6 +1064,8 @@ async function handleDelete(key) {
                 id: meta?.id || key 
             });
             if (!res?.success) throw new Error(res?.error || 'Failed to delete rewrite.');
+            delete rewritesMeta[key];
+            delete currentData[key];
         } else {
             const storageKey = getStorageKey();
             const data = (await storage.get(storageKey)) || {};
