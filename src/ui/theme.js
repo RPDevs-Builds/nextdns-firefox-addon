@@ -144,10 +144,13 @@ export function applyTheme(id, customThemes = null) {
             THEME_VARS.forEach(v => document.body.style.setProperty(`--${v}`, darkColors[v]));
         } else {
             const theme = PRESET_THEMES[id] || (customThemes && customThemes[id]) || (state.savedThemes && state.savedThemes[id]);
+            const SAFE_COLOR_REGEX = /^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
             if (theme) {
                 Object.entries(theme).forEach(([key, val]) => {
                     const prop = key.startsWith('--') ? key : `--${key}`;
-                    document.body.style.setProperty(prop, val);
+                    if (typeof val === 'string' && SAFE_COLOR_REGEX.test(val.trim())) {
+                        document.body.style.setProperty(prop, val.trim());
+                    }
                 });
             }
         }

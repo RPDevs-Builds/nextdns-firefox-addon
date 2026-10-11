@@ -36,8 +36,14 @@ export class APIClient {
             "Content-Type": "application/json",
             "Accept": "application/json"
         };
-        const isPublicEndpoint = url.includes('test.nextdns.io') || url.includes('dns.nextdns.io') || url.includes('router.nextdns.io');
-        if (!isPublicEndpoint) {
+        let isApiEndpoint = false;
+        try {
+            const parsedUrl = new URL(url.startsWith("http") ? url : `${this.baseURL}${url}`);
+            isApiEndpoint = parsedUrl.hostname === 'api.nextdns.io';
+        } catch (_) {
+            isApiEndpoint = !url.startsWith("http");
+        }
+        if (isApiEndpoint) {
             headers["X-Api-Key"] = apiKey || "";
         }
         return headers;

@@ -22,7 +22,7 @@ export async function loadRules() {
             <div class="flex-between" style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 4px; margin-bottom: 5px; border-left: 3px solid ${r.action === 'enable' ? 'var(--success)' : 'var(--danger)'};">
                 <div style="font-size: 0.85em;">
                     <strong>${escapeHTML(r.name)}</strong>
-                    <div style="font-size: 0.8em; color: var(--text-muted);">${r.trigger} • ${r.action} ${r.targetId}</div>
+                    <div style="font-size: 0.8em; color: var(--text-muted);">${escapeHTML(r.trigger)} • ${escapeHTML(r.action)} ${escapeHTML(r.targetId)}</div>
                 </div>
                 <button class="btn-deny delete-rule-btn" data-id="${escapeHTML(r.id)}" style="width: auto; padding: 2px 6px; font-size: 0.75em;" aria-label="Delete rule ${escapeHTML(r.name)}">🗑️</button>
             </div>

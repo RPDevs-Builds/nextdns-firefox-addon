@@ -65,6 +65,14 @@ export async function checkAutomationRules() {
     }
 
     if (rulesChanged) {
-        await storage.set("forgeRules", forgeRules);
+        const freshRules = await storage.get("forgeRules", []);
+        const updatedMap = new Map(forgeRules.map(r => [r.id, r.lastRunDate]));
+        const merged = (Array.isArray(freshRules) ? freshRules : []).map(r => {
+            if (updatedMap.has(r.id)) {
+                return { ...r, lastRunDate: updatedMap.get(r.id) };
+            }
+            return r;
+        });
+        await storage.set("forgeRules", merged);
     }
 }

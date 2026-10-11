@@ -1,6 +1,6 @@
 # 🛡️ DNS Forge (for NextDNS)
 
-[![Version: 1.2.1](https://img.shields.io/badge/Version-1.2.1-blue)](https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases)
+[![Version: 1.2.2](https://img.shields.io/badge/Version-1.2.2-blue)](https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases)
 [![AMO Compliance: 100%](https://img.shields.io/badge/AMO_Compliance-100%25-success)](https://addons.mozilla.org)
 [![Security: Hardened](https://img.shields.io/badge/Security-Hardened-blue)](https://nextdns.io)
 [![CodeQL: Passing](https://img.shields.io/badge/CodeQL-Passing-brightgreen)](https://github.com/RPDevs-Builds/nextdns-firefox-addon/actions/workflows/codeql.yml)
@@ -126,7 +126,7 @@ Explore our in-depth documentation, architecture diagrams, and technical referen
 ## ⚙️ Setup & Installation
 
 ### Option 1: Install Signed Package (Recommended)
-1. Download `dns_forge-1.2.1.xpi` from the [Latest Release](https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases/latest) or the [Sovereign Repository Hub](https://firefox.repo.iamrp.dev/).
+1. Download `dns_forge-1.2.2.xpi` from the [Latest Release](https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases/latest) or the [Sovereign Repository Hub](https://firefox.repo.iamrp.dev/).
 2. In Firefox, navigate to `about:addons`.
 3. Click the gear icon (⚙️) and select **"Install Add-on From File..."**.
 4. Choose the downloaded `.xpi` file and confirm installation.

@@ -831,7 +831,7 @@ function renderTlds(query) {
                         <div class="flex-between" style="background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px;">
                             <span style="font-family:monospace; font-size:0.95em; ${active ? 'color: var(--deny);' : ''}">${escapeHTML(t)}</span>
                             <button class="api-toggle-btn btn ${active ? 'btn-delete' : 'btn-add'}" 
-                                data-cat="security/tlds" data-id="${t}" data-active="${active}" 
+                                data-cat="security/tlds" data-id="${escapeHTML(t)}" data-active="${active}" 
                                 style="padding:4px 10px; font-size: 0.8em;">${active ? 'OFF' : 'ON'}</button>
                         </div>`;
                 }).join('')}
@@ -865,24 +865,20 @@ function renderBlocklists(query) {
                         <div>
                             <div class="flex-between" style="margin-bottom: 8px;">
                                 <strong style="color: var(--accent);">${escapeHTML(b.name)}</strong>
-                                <span style="font-size: 0.75em; opacity: 0.6;">${b.entries_text || ''}</span>
+                                <span style="font-size: 0.75em; opacity: 0.6;">${escapeHTML(b.entries_text || '')}</span>
                             </div>
                             <p style="font-size: 0.8em; margin: 0 0 10px; color: var(--text-muted); line-height: 1.4;">${escapeHTML(b.description)}</p>
                         </div>
                         <div class="flex-between" style="margin-top: auto; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05);">
-                            <span style="font-size: 0.7em; opacity: 0.5;">${b.updated_text || ''}</span>
+                            <span style="font-size: 0.7em; opacity: 0.5;">${escapeHTML(b.updated_text || '')}</span>
                             <button class="api-toggle-btn btn ${active ? 'btn-delete' : 'btn-add'}" 
-                                data-cat="privacy/blocklists" data-id="${b.id}" data-active="${active}" 
+                                data-cat="privacy/blocklists" data-id="${escapeHTML(b.id)}" data-active="${active}" 
                                 style="padding:4px 12px; font-size: 0.8em;">${active ? 'REMOVE' : 'ENABLE'}</button>
                         </div>
                     </div>`;
             }).join('')}
         </div>`;
 
-    if (filtered.length === 0) {
-        html = `<div style="text-align:center; padding:60px; opacity:0.5;">No blocklists found matching your search.</div>`;
-    }
-    
     setSafeHTML(listContainer, html);
 }
 
@@ -1141,7 +1137,7 @@ function getStorageKey() {
  */
 function populateProfileDropdowns() {
     if (!profilesList || profilesList.length === 0) return;
-    const html = profilesList.map(p => `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`).join('');
+    const html = profilesList.map(p => `<option value="${escapeHTML(p.id)}">${escapeHTML(p.name)} (${escapeHTML(p.id)})</option>`).join('');
     if (selectProfile) setSafeHTML(selectProfile, html);
     const cloneTarget = document.getElementById('clone-target-profile');
     if (cloneTarget) setSafeHTML(cloneTarget, html);

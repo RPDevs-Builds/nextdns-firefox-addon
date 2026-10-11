@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.2.2] - 2026-10-11
+
+### Security & Hardening
+- **Scoped API Authentication:** `APIClient.getHeaders()` now strictly verifies that the target request URL is on `api.nextdns.io` before attaching the `X-Api-Key` header, preventing authorization tokens from leaking to external diagnostic services or third-party endpoints.
+- **Message Sender Verification:** Hardened `browser.runtime.onMessage` in `src/background/main.js` with sender origin and extension identity verification. Restricts callers from web tabs (`sender.tab`) to an explicit whitelist of safe content-script actions (`MANAGE_DOMAIN`, `SAVE_SCRAPED_META`, `GET_PROFILES_LIST`, `GET_PROFILE`, `GET_PROFILE_DATA`), blocking privileged administrative handlers from being triggered by scripts on web pages.
+- **API Path Traversal Protection:** Implemented strict profile ID regex validation (`/^[a-zA-Z0-9_-]+$/`) across all background handlers (`GET_LOGS`, `GET_PROFILE_DATA`, `GET_ANALYTICS`, `GET_ALL_SETTINGS`, `DEBUG_TAB`, and snapshots). Sanitized `GET_ANALYTICS` endpoint parameters against directory traversal while maintaining support for query string filters.
+- **DOM Sanitizer Hardening:** Expanded `setSafeHTML`'s `sanitizeNode()` to strip `<meta>`, `<link>`, and `<style>` tags, and sanitized dangerous CSS `style` attributes containing `url()` or `expression()`.
+- **Template String Escaping:** Enforced `escapeHTML()` on all unescaped dynamic interpolations across `src/ui/scheduler.js`, `src/viewer.js`, `src/ui/blocks.js`, and `src/ui/main.js`.
+- **CSS Variable Injection Guard:** Enforced `SAFE_COLOR_REGEX` (`/^#[0-9a-fA-F]{3,8}$/`) validation on custom theme color tokens before applying CSS custom properties in `applyTheme()`.
+
+### Fixed
+- **Automation Scheduler Storage Race:** Fixed a read-modify-write race condition in `src/background/scheduler.js` where background automation evaluation ticks could overwrite newly created or deleted rules in storage. The scheduler now retrieves fresh storage and merges execution timestamps (`lastRunDate`) into live rules before persisting.
+- **IPv4/IPv6 Validation:** Upgraded loose IP regexes in `checkAndUpdateLinkedIP` to RFC-compliant IPv4 and IPv6 format checks.
+- **SSE Stream Cancellation:** Added cancellation guards in `LogStreamManager.start()` to prevent zombie connection initialization if stream shutdown is requested while storage reads are pending.
+- **Polling Interval Memory Leak:** Registered tab tracking interval into `state.tabTrackingIntervalId` in `src/ui/main.js` with comprehensive cleanup listeners on `pagehide` and `unload`.
+- **Unresponsive Retry Button:** Fixed inactive inline `onclick` handler on initialization failure card by wiring an explicit `addEventListener` attachment.
+- **Dead Code Cleanup:** Removed unreachable blocklist search check in `src/viewer.js:renderBlocklists()`.
+
+### Tests & Tooling
+- Verified 100% pass rate across all 17 test suites (131 tests).
+- Confirmed 0 errors, 0 warnings, and 0 notices via Mozilla `addons-linter`.
+- Added test report files and artifacts to `.gitignore`.
+
 ## [1.2.1] - 2026-10-11
 
 ### Fixed

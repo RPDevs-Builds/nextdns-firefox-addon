@@ -245,7 +245,7 @@ export function exportDiagnosticReport() {
     if (!lastDiagnosticResult) return;
     const data = JSON.stringify({
         tool: "NextDNS Network Diagnostics",
-        version: lastDiagnosticResult.extensionVersion || "1.2.1",
+        version: lastDiagnosticResult.extensionVersion || "1.2.2",
         timestamp: new Date().toISOString(),
         diagnostics: lastDiagnosticResult
     }, null, 2);

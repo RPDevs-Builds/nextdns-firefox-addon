@@ -19,7 +19,7 @@ export function escapeHTML(str) {
 function sanitizeNode(node) {
     if (node.nodeType !== 1) return;
 
-    const dangerousTags = ['SCRIPT', 'IFRAME', 'OBJECT', 'EMBED', 'BASE'];
+    const dangerousTags = ['SCRIPT', 'IFRAME', 'OBJECT', 'EMBED', 'BASE', 'META', 'LINK', 'STYLE'];
     if (dangerousTags.includes(node.tagName)) {
         node.remove();
         return;
@@ -33,6 +33,13 @@ function sanitizeNode(node) {
         if (name.startsWith('on')) {
             node.removeAttribute(attr.name);
             continue;
+        }
+
+        if (name === 'style') {
+            if (/url\s*\(|expression\s*\(/i.test(value)) {
+                node.removeAttribute(attr.name);
+                continue;
+            }
         }
 
         if (['href', 'src', 'action', 'formaction', 'xlink:href'].includes(name)) {

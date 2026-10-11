@@ -13,6 +13,12 @@ import { apiClient } from '../apiClient.js';
 import { manageDomain, detectActiveProfile, updateProfileCache, runNetworkDiagnostics } from './api.js';
 import { logStreamManager } from './logStream.js';
 
+function isValidProfileId(id) {
+    return typeof id === 'string' && /^[a-zA-Z0-9_-]+$/.test(id);
+}
+
+const ALLOWED_ANALYTICS_ENDPOINTS = new Set(['status', 'reasons', 'destinations', 'devices', 'protocols', 'dnssec', 'ip_versions']);
+
 /**
  * Registry of message handlers keyed by message type.
  * Each handler is an asynchronous function that processes a specific request.
@@ -84,6 +90,7 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId.
      */
     GET_LOGS: async (msg) => {
+        if (!isValidProfileId(msg?.profileId)) return { success: false, data: state.localLogs || [], error: "Invalid profile ID" };
         try {
             const rawParam = msg.raw === false ? '' : '?raw=1';
             const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/logs${rawParam}`, { 
@@ -114,6 +121,7 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId.
      */
     GET_PROFILE_DATA: async (msg) => {
+        if (!isValidProfileId(msg?.profileId)) return { success: false, allowlist: [], denylist: [], error: "Invalid profile ID" };
         try {
             const [allow, deny] = await Promise.all([
                 apiClient.fetchWithRetry(`/profiles/${msg.profileId}/allowlist`),
@@ -136,7 +144,11 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId and an optional series flag.
      */
     GET_ANALYTICS: async (msg) => {
-        const { profileId, series = false, endpoint = 'status' } = msg;
+        const { profileId, series = false, endpoint = 'status' } = msg || {};
+        if (!isValidProfileId(profileId)) return { success: false, error: "Invalid profile ID" };
+        const isSafeEndpoint = typeof endpoint === 'string' && /^[a-zA-Z0-9_/?=&-]+$/.test(endpoint) && !endpoint.includes('..') && !endpoint.includes('\\') && !endpoint.startsWith('/');
+        if (!isSafeEndpoint) return { success: false, error: "Invalid analytics endpoint" };
+
         const seriesSuffix = series ? ';series' : '';
         try {
             const path = endpoint === 'status' 
@@ -280,7 +292,8 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId.
      */
     GET_ALL_SETTINGS: async (msg) => {
-        const { profileId } = msg;
+        const { profileId } = msg || {};
+        if (!isValidProfileId(profileId)) return { success: false, data: {}, error: "Invalid profile ID" };
         const categories = ['security', 'privacy', 'parentalcontrol', 'settings', 'settings/performance'];
         const results = await Promise.all(categories.map(c => apiClient.fetchWithRetry(`/profiles/${profileId}/${c}`, { cache: 'no-store' })));
         const data = {};
@@ -310,7 +323,8 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing tabId and profileId.
      */
     DEBUG_TAB: async (msg) => {
-        const { tabId, profileId } = msg;
+        const { tabId, profileId } = msg || {};
+        if (!isValidProfileId(profileId)) return { success: false, error: "Invalid profile ID", correlations: [] };
         const tabData = state.tabRequests[tabId] || {};
         const requestedDomains = Object.keys(tabData);
         
@@ -360,8 +374,8 @@ export const messageHandlers = {
      */
     CREATE_SNAPSHOT: async (msg) => {
         try {
-            const { profileId, name } = msg;
-            if (!profileId) return { success: false, error: "Profile ID required" };
+            const { profileId, name } = msg || {};
+            if (!isValidProfileId(profileId)) return { success: false, error: "Profile ID required" };
 
             const configRes = await messageHandlers.GET_ALL_SETTINGS({ profileId });
             if (!configRes.success) return { success: false, error: configRes.error || "Failed to fetch current config" };
@@ -398,6 +412,7 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId.
      */
     LIST_SNAPSHOTS: async (msg) => {
+        if (!isValidProfileId(msg?.profileId)) return { success: false, snapshots: [], error: "Invalid profile ID" };
         const profileSnapshots = await storage.get("profileSnapshots", {});
         return { success: true, snapshots: profileSnapshots[msg.profileId] || [] };
     },
@@ -406,6 +421,7 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId and snapshotId.
      */
     DELETE_SNAPSHOT: async (msg) => {
+        if (!isValidProfileId(msg?.profileId)) return { success: false, error: "Invalid profile ID" };
         const profileSnapshots = await storage.get("profileSnapshots", {});
         if (profileSnapshots[msg.profileId]) {
             profileSnapshots[msg.profileId] = profileSnapshots[msg.profileId].filter(s => s.id !== msg.snapshotId);

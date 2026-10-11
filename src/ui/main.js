@@ -88,9 +88,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <div class="panel-box" style="border-color: var(--danger);">
                     <h4 style="color: var(--danger);">Initialization Failed</h4>
                     <p style="font-size: 0.8em; color: var(--text-muted);">The extension failed to bootstrap core services.</p>
-                    <button class="btn-secondary" onclick="location.reload()" style="width: 100%;">🔄 Retry Popup</button>
+                    <button id="retry-bootstrap-btn" class="btn-secondary" style="width: 100%;">🔄 Retry Popup</button>
                 </div>
             `);
+            const retryBtn = dashContainer.querySelector("#retry-bootstrap-btn");
+            if (retryBtn) retryBtn.addEventListener("click", () => location.reload());
         }
     });
 });
@@ -782,12 +784,22 @@ async function initializeApp() {
 
     try { updateDashboardTabInfo(); } catch(e) {}
 
-    window.addEventListener("unload", () => {
-        browser.runtime.sendMessage({ type: "STOP_STREAM" });
-    });
+    const cleanup = () => {
+        if (state.tabTrackingIntervalId) {
+            clearInterval(state.tabTrackingIntervalId);
+            state.tabTrackingIntervalId = null;
+        }
+        browser.runtime.sendMessage({ type: "STOP_STREAM" }).catch(() => {});
+    };
+
+    window.addEventListener("pagehide", cleanup);
+    window.addEventListener("unload", cleanup);
 
     // Start Dashboard update interval
-    setInterval(() => {
+    if (state.tabTrackingIntervalId) {
+        clearInterval(state.tabTrackingIntervalId);
+    }
+    state.tabTrackingIntervalId = setInterval(() => {
         if (!state.isTabTrackingPaused && state.activeTab === 'dashboard') {
             updateDashboardTabInfo();
         }
@@ -851,7 +863,7 @@ async function initMirrorModeUI() {
                 label.style.display = 'block';
                 label.style.marginBottom = '6px';
                 const isChecked = Array.isArray(mirrorProfiles) && mirrorProfiles.includes(p.id);
-                setSafeHTML(label, `<input type="checkbox" data-id="${p.id}" ${isChecked ? 'checked' : ''}> ${escapeHTML(p.name)}`);
+                setSafeHTML(label, `<input type="checkbox" data-id="${escapeHTML(p.id)}" ${isChecked ? 'checked' : ''}> ${escapeHTML(p.name)}`);
                 list.appendChild(label);
             });
         }

@@ -284,8 +284,8 @@ export async function checkAndUpdateLinkedIP() {
         }
 
         if (ip && ip !== currentLinkedIP) {
-            const isIPv4 = /^(\d{1,3}\.){3}\d{1,3}$/.test(ip);
-            const isIPv6 = /^([a-fA-F0-9:]+)$/.test(ip);
+            const isIPv4 = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/.test(ip);
+            const isIPv6 = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,7}:$/.test(ip);
             if (!isIPv4 && !isIPv6) {
                 console.warn("[DDNS] Detected invalid IP format:", ip);
                 return;
@@ -354,7 +354,7 @@ export async function runNetworkDiagnostics() {
         rttMs: rtt,
         activeProfileId: activeProfile || testData.profile || null,
         activeProfileName,
-        extensionVersion: (typeof browser !== 'undefined' && browser.runtime?.getManifest) ? (browser.runtime.getManifest()?.version || "1.2.1") : "1.2.1"
+        extensionVersion: (typeof browser !== 'undefined' && browser.runtime?.getManifest) ? (browser.runtime.getManifest()?.version || "1.2.2") : "1.2.2"
     };
 
     if (state.networkStatus) {

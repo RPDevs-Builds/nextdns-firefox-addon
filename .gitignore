@@ -9,3 +9,6 @@ dist/
 web-ext-artifacts/
 .amo-upload-uuid
 coverage/
+reports/
+*-results.json
+.DS_Store

@@ -33,6 +33,7 @@ class LogStreamManager {
         }
 
         const apiKey = await storage.get("apiKey");
+        if (this.isExplicitlyStopped) return { success: true };
         if (!apiKey) return { success: false, error: "API Key required" };
 
         if (this.eventSource && this.currentProfileId === profileId && this.currentApiKey === apiKey) {
@@ -43,7 +44,7 @@ class LogStreamManager {
 
         this.currentProfileId = profileId;
         this.currentApiKey = apiKey;
-        const url = `${API_BASE}/profiles/${profileId}/logs/stream?raw=1&api_key=${encodeURIComponent(apiKey)}`;
+        const url = `${API_BASE}/profiles/${encodeURIComponent(profileId)}/logs/stream?raw=1&api_key=${encodeURIComponent(apiKey)}`;
 
         try {
             console.log(`[SSE] Connecting to live log stream for profile: ${profileId}`);

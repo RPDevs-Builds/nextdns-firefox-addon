@@ -26,7 +26,8 @@ export const state = {
     activeThemeId: 'default-dark',
     savedThemes: {},
     isThemeUnsaved: false,
-    notifications: []
+    notifications: [],
+    tabTrackingIntervalId: null
 };
 
 export const DEFAULT_THEME_COLORS = {

@@ -277,7 +277,7 @@ function renderBlocklistsGrid(query) {
                         ${metaText ? `<div style="font-size: 0.75em; opacity: 0.5;">${escapeHTML(metaText)}</div>` : ''}
                     </div>
                     <button class="api-toggle-btn ${active?'btn-deny':'btn-allow'}"
-                        data-cat="privacy/blocklists" data-id="${b.id}" data-type="list" data-active="${active}"
+                        data-cat="privacy/blocklists" data-id="${escapeHTML(b.id)}" data-type="list" data-active="${active}"
                         style="width:auto; padding:4px 12px; font-size: 0.8em;">${active?'Remove':'Add'}</button>
                 </div>
             </div>`;
@@ -356,7 +356,7 @@ function renderTldsGrid(query) {
                         <div class="flex-between" style="background:rgba(0,0,0,0.1); padding:4px 8px; border-radius:4px;">
                             <span style="font-size: 0.85em; font-family:monospace;">.${escapeHTML(t)}</span>
                             <label class="switch" style="transform: scale(0.75); margin: 0;">
-                                <input type="checkbox" id="toggle-tld-${t}" class="api-toggle" data-cat="security/tlds" data-id="${t}" data-type="list" ${active ? 'checked' : ''}>
+                                <input type="checkbox" id="toggle-tld-${escapeHTML(t)}" class="api-toggle" data-cat="security/tlds" data-id="${escapeHTML(t)}" data-type="list" ${active ? 'checked' : ''} aria-label="Block TLD .${escapeHTML(t)}">
                                 <span class="slider round"></span>
                             </label>
                         </div>`;
@@ -384,7 +384,7 @@ function renderToggleRow(item, cat, isActive, type) {
                 ${item.note ? `<div style="font-size:0.7em; color:var(--text-muted);">${escapeHTML(item.note)}</div>` : ''}
             </div>
             <label class="switch">
-                <input type="checkbox" id="toggle-${item.id}" class="api-toggle" data-cat="${cat}" data-id="${item.id}" data-type="${type}" ${isActive ? 'checked' : ''}>
+                <input type="checkbox" id="toggle-${escapeHTML(item.id)}" class="api-toggle" data-cat="${escapeHTML(cat)}" data-id="${escapeHTML(item.id)}" data-type="${escapeHTML(type)}" ${isActive ? 'checked' : ''} aria-label="Toggle ${escapeHTML(item.label || item.name || item.id)}">
                 <span class="slider round"></span>
             </label>
         </div>

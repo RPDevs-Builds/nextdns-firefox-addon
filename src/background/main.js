@@ -66,7 +66,28 @@ export async function initializeBackground() {
         console.warn("[Background] webRequestBlocking not supported on this platform (e.g. Android):", e);
     }
 
+    const CONTENT_SCRIPT_ALLOWED_MESSAGES = new Set([
+        'MANAGE_DOMAIN',
+        'SAVE_SCRAPED_META',
+        'GET_PROFILES_LIST',
+        'GET_PROFILE',
+        'GET_PROFILE_DATA'
+    ]);
+
     browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+        // Enforce extension sender identity if sender.id is present
+        if (sender?.id && typeof browser !== 'undefined' && browser.runtime?.id && sender.id !== browser.runtime.id) {
+            sendResponse({ success: false, error: "Unauthorized sender" });
+            return false;
+        }
+
+        // Restrict content script callers (messages originating from a web tab)
+        if (sender?.tab && !CONTENT_SCRIPT_ALLOWED_MESSAGES.has(msg?.type)) {
+            console.warn(`[Security] Blocked privileged message '${msg?.type}' from web tab content script:`, sender.url);
+            sendResponse({ success: false, error: "Unauthorized action from web tab" });
+            return false;
+        }
+
         if (messageHandlers[msg.type]) {
             messageHandlers[msg.type](msg, sender)
                 .then(sendResponse)
