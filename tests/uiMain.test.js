@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { jest, beforeEach, describe, test, expect } from '@jest/globals';
+import { jest, beforeEach, afterEach, afterAll, describe, test, expect } from '@jest/globals';
 import fs from 'fs';
 import path from 'path';
 
@@ -136,6 +136,20 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
     });
 
     afterEach(() => {
+        if (stateModule?.state) {
+            if (stateModule.state.tabTrackingIntervalId) {
+                clearInterval(stateModule.state.tabTrackingIntervalId);
+                stateModule.state.tabTrackingIntervalId = null;
+            }
+            if (stateModule.state.autoRefreshInterval) {
+                clearInterval(stateModule.state.autoRefreshInterval);
+                stateModule.state.autoRefreshInterval = null;
+            }
+        }
+        jest.clearAllTimers();
+    });
+
+    afterAll(() => {
         if (stateModule?.state) {
             if (stateModule.state.tabTrackingIntervalId) {
                 clearInterval(stateModule.state.tabTrackingIntervalId);
@@ -827,9 +841,13 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
 
             // Trigger DOMContentLoaded
             document.dispatchEvent(new Event('DOMContentLoaded'));
-            await new Promise(r => setTimeout(r, 100));
+            await new Promise(r => setTimeout(r, 200));
 
             expect(document.getElementById('profile-status')).not.toBeNull();
+            if (stateModule?.state?.tabTrackingIntervalId) {
+                clearInterval(stateModule.state.tabTrackingIntervalId);
+                stateModule.state.tabTrackingIntervalId = null;
+            }
         });
     });
 });
