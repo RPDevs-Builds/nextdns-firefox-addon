@@ -47,14 +47,33 @@ export async function manageDomain(profileId, listType, domain, action) {
     } catch (error) { return { success: false, error: error.message || "Network Error" }; }
 }
 
+let detectInFlight = null;
+
+export function _resetDetectInFlight() {
+    detectInFlight = null;
+}
+
 /**
  * Detects the currently active NextDNS profile.
  * Prioritizes a user-defined override, then diagnostic tests, and finally the account profile list.
+ * Deduplicates in-flight calls to avoid racing and duplicate network roundtrips.
  * Updates the storage with the identified profile ID and name.
  * @async
  * @returns {Promise<{id: string, name: string}|null>} The detected profile object or null.
  */
 export async function detectActiveProfile() {
+    if (detectInFlight) return detectInFlight;
+    detectInFlight = (async () => {
+        try {
+            return await _detectActiveProfile();
+        } finally {
+            detectInFlight = null;
+        }
+    })();
+    return detectInFlight;
+}
+
+async function _detectActiveProfile() {
     const overrideSetting = await storage.get("overrideProfileId");
     const storedActive = await storage.get("activeProfile");
     const apiKey = await storage.get("apiKey");
@@ -103,16 +122,24 @@ export async function detectActiveProfile() {
 
     // 1. Try test.nextdns.io to identify active network profile
     try {
-        const res = await apiClient.fetchWithRetry(TEST_URL, { cache: 'no-store' }, 2, 500);
+        const res = await apiClient.fetchWithRetry(TEST_URL, { 
+            cache: 'no-store',
+            headers: { 'Accept': 'application/json' }
+        }, 2, 500);
         if (res.success) {
-            const data = await res.response.json().catch(() => ({}));
+            let data = {};
+            try {
+                data = await res.response.json();
+            } catch (_) {
+                data = {};
+            }
             const networkProfile = data?.profile;
             const isConnected = data?.status === 'ok';
             if (state.networkStatus) {
                 state.networkStatus = {
                     ...state.networkStatus,
                     isConnected,
-                    status: data?.status || 'unconfigured',
+                    status: data?.status || (isConnected ? 'ok' : 'unconfigured'),
                     protocol: data?.protocol || 'Unknown',
                     popServer: data?.server || 'Unknown',
                     clientIp: data?.client || data?.srcIP || '',
@@ -128,12 +155,38 @@ export async function detectActiveProfile() {
                     if (matched) {
                         detectedId = matched.id;
                         detectedName = `${matched.name} (${detectedId})`;
+                    } else if (accountProfiles.length === 1 && isConnected) {
+                        detectedId = accountProfiles[0].id;
+                        detectedName = `${accountProfiles[0].name} (${detectedId})`;
                     }
                 } else if (!networkProfile.startsWith('fp')) {
                     detectedId = networkProfile;
                     detectedName = networkProfile;
                 }
             }
+        } else {
+            // Fallback probe to NextDNS edge Anycast info if test.nextdns.io was unreachable
+            try {
+                const infoRes = await apiClient.fetchWithRetry("https://dns.nextdns.io/info", {
+                    cache: 'no-store',
+                    headers: { 'Accept': 'application/json' }
+                }, 1, 400);
+                if (infoRes.success) {
+                    const infoData = await infoRes.response.json().catch(() => ({}));
+                    if (infoData.pop && state.networkStatus) {
+                        state.networkStatus = {
+                            ...state.networkStatus,
+                            isConnected: true,
+                            status: 'ok',
+                            protocol: 'HTTPS',
+                            popServer: infoData.pop,
+                            clientIp: infoData.ip || infoData.client || state.networkStatus.clientIp || '',
+                            lastChecked: Date.now()
+                        };
+                        await storage.set("networkStatus", state.networkStatus);
+                    }
+                }
+            } catch (_) {}
         }
     } catch (e) {
         console.warn("[ProfileDetect] Test URL detection failed:", e);
@@ -262,8 +315,17 @@ export async function runNetworkDiagnostics() {
     let rtt = null;
 
     try {
-        const testRes = await apiClient.fetchWithRetry(TEST_URL, { cache: 'no-store' }, 1, 500);
-        if (testRes.success) testData = await testRes.response.json().catch(() => ({}));
+        const testRes = await apiClient.fetchWithRetry(TEST_URL, { 
+            cache: 'no-store',
+            headers: { 'Accept': 'application/json' }
+        }, 1, 500);
+        if (testRes.success) {
+            try {
+                testData = await testRes.response.json();
+            } catch (_) {
+                testData = {};
+            }
+        }
     } catch (_) {}
 
     try {

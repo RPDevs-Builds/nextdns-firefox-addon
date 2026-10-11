@@ -151,8 +151,48 @@ describe('Background Script - Full Coverage Suite', () => {
     mockStorage.overrideProfileId = '';
     global.storage.cache = { ...mockStorage };
     await detectActiveProfile();
-    expect(fetchMock).toHaveBeenCalledWith('https://test.nextdns.io/', expect.any(Object));
+    expect(fetchMock).toHaveBeenCalledWith('https://test.nextdns.io/', expect.objectContaining({
+      headers: expect.objectContaining({ 'Accept': 'application/json' })
+    }));
     expect(mockStorage.activeProfile).toBe('profile123');
+  });
+
+  test('Profile Detection - Deduplicates concurrent in-flight requests', async () => {
+    const { detectActiveProfile, _resetDetectInFlight } = await import('../src/background/api.js');
+    _resetDetectInFlight();
+    mockStorage.activeProfile = '';
+    mockStorage.overrideProfileId = '';
+    global.storage.cache = { ...mockStorage };
+    fetchMock.mockClear();
+
+    const [p1, p2] = await Promise.all([detectActiveProfile(), detectActiveProfile()]);
+    expect(p1).toEqual(p2);
+    // test.nextdns.io should only be fetched once despite concurrent calls
+    const testCalls = fetchMock.mock.calls.filter(c => c[0] === 'https://test.nextdns.io/');
+    expect(testCalls.length).toBe(1);
+  });
+
+  test('Profile Detection - Single profile matches fp fingerprint when connected', async () => {
+    const { detectActiveProfile, _resetDetectInFlight } = await import('../src/background/api.js');
+    _resetDetectInFlight();
+    mockStorage.activeProfile = '';
+    mockStorage.overrideProfileId = '';
+    global.storage.cache = { ...mockStorage };
+
+    // Mock test.nextdns.io returning a random fingerprint string
+    fetchMock.mockImplementation(async (url, options) => {
+      if (url.includes('/profiles') && !url.includes('profile123') && (!options?.method || options?.method === 'GET')) {
+        return { ok: true, json: async () => ({ data: [{ id: 'singleProf', name: 'Home Network' }] }) };
+      }
+      if (url === 'https://test.nextdns.io/') {
+        return { ok: true, json: async () => ({ status: 'ok', profile: 'fp9988776655443322' }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const prof = await detectActiveProfile();
+    expect(prof.id).toBe('singleProf');
+    expect(prof.name).toBe('Home Network (singleProf)');
   });
 
   test('Message Handler - MANAGE_DOMAIN (Add)', async () => {

@@ -955,16 +955,16 @@ export async function refreshActiveProfileAndUI() {
         if (profile && profile.id) {
             state.activeProfile = profile.id;
             if (profStatus) {
-                const isConn = netStatus.isConnected;
-                const dotColor = isConn ? 'var(--success)' : (profile.manual ? 'var(--warning)' : 'var(--danger)');
+                const isConn = Boolean(netStatus.isConnected);
+                const dotColor = isConn ? 'var(--success)' : 'var(--warning)';
                 const statusBadge = isConn 
-                    ? `<span style="font-size: 0.7em; background: rgba(34, 197, 94, 0.15); color: var(--success); border: 1px solid var(--success); padding: 1px 5px; border-radius: 4px; font-weight: 700;">🟢 ${escapeHTML(netStatus.protocol || 'DoH')}${netStatus.popServer ? ` (${escapeHTML(netStatus.popServer)})` : ''}</span>`
+                    ? `<span style="font-size: 0.7em; background: rgba(34, 197, 94, 0.15); color: var(--success); border: 1px solid var(--success); padding: 1px 5px; border-radius: 4px; font-weight: 700;" title="DNS queries are actively routed through NextDNS via ${escapeHTML(netStatus.protocol || 'DoH')}">🟢 ${escapeHTML(netStatus.protocol || 'DoH')}${netStatus.popServer ? ` (${escapeHTML(netStatus.popServer)})` : ''}</span>`
                     : (profile.manual 
-                        ? `<span style="font-size: 0.7em; background: rgba(243, 156, 18, 0.15); color: var(--warning); border: 1px solid var(--warning); padding: 1px 5px; border-radius: 4px; font-weight: 700;">🟡 Override</span>`
-                        : `<span style="font-size: 0.7em; background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid var(--danger); padding: 1px 5px; border-radius: 4px; font-weight: 700;">🔴 Unconfigured</span>`);
+                        ? `<span style="font-size: 0.7em; background: rgba(243, 156, 18, 0.15); color: var(--warning); border: 1px solid var(--warning); padding: 1px 5px; border-radius: 4px; font-weight: 700;" title="Manual profile override is active, but DNS queries are not currently routing through NextDNS">🟡 Override (DNS Inactive)</span>`
+                        : `<span style="font-size: 0.7em; background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid var(--danger); padding: 1px 5px; border-radius: 4px; font-weight: 700;" title="Profile is configured in DNS Forge, but this browser is not currently routing DNS through NextDNS">🔴 DNS Inactive</span>`);
 
                 const html = `
-                    <span style="display:inline-block; width:8px; height:8px; background:${dotColor}; border-radius:50%; box-shadow: 0 0 6px ${dotColor};"></span>
+                    <span style="display:inline-block; width:8px; height:8px; background:${dotColor}; border-radius:50%; box-shadow: 0 0 6px ${dotColor};" title="Profile configured and active"></span>
                     <span>Profile: ${escapeHTML(profile.name)}</span>
                     ${statusBadge}
                 `;
@@ -981,7 +981,7 @@ export async function refreshActiveProfileAndUI() {
                 setSafeHTML(profStatus, `
                     <span style="display:inline-block; width:8px; height:8px; background:var(--danger); border-radius:50%;"></span>
                     <span>Profile: Not Detected</span>
-                    <span style="font-size: 0.7em; background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid var(--danger); padding: 1px 5px; border-radius: 4px; font-weight: 700;">🔴 Leaking / Inactive</span>
+                    <span style="font-size: 0.7em; background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid var(--danger); padding: 1px 5px; border-radius: 4px; font-weight: 700;" title="No active NextDNS profile could be detected. Check your API key in Settings.">🔴 Unconfigured / Leaking</span>
                 `);
             }
             return null;

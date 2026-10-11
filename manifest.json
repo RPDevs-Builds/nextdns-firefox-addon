@@ -24,6 +24,9 @@
   "host_permissions": [
     "https://api.nextdns.io/*",
     "https://test.nextdns.io/*",
+    "https://*.test.nextdns.io/*",
+    "https://dns.nextdns.io/*",
+    "https://router.nextdns.io/*",
     "<all_urls>"
   ],
   "action": {

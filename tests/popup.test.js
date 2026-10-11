@@ -279,5 +279,44 @@ describe('Popup UI - Advanced Coverage Suite', () => {
         domainText.click();
         expect(document.getElementById('domain-input').value).toBe('neutral.io');
     });
+
+    test('refreshActiveProfileAndUI displays DNS Inactive when profile is configured but DNS is unrouted', async () => {
+        const { refreshActiveProfileAndUI } = await import('../src/ui/main.js');
+
+        // Case 1: Configured profile, DNS inactive
+        global.browser.runtime.sendMessage = jest.fn().mockImplementation((msg) => {
+            if (msg.type === 'GET_PROFILE') return Promise.resolve({ id: 'p1', name: 'Default (p1)', autoDetected: true });
+            if (msg.type === 'GET_NETWORK_STATUS') return Promise.resolve({ success: true, networkStatus: { isConnected: false, status: 'unconfigured' } });
+            return Promise.resolve({ success: true });
+        });
+
+        await refreshActiveProfileAndUI();
+        const profStatus = document.getElementById('profile-status');
+        expect(profStatus.textContent).toContain('Profile: Default (p1)');
+        expect(profStatus.textContent).toContain('🔴 DNS Inactive');
+        expect(profStatus.textContent).not.toContain('🔴 Unconfigured');
+
+        // Case 2: Configured profile, DNS connected via DoH
+        global.browser.runtime.sendMessage = jest.fn().mockImplementation((msg) => {
+            if (msg.type === 'GET_PROFILE') return Promise.resolve({ id: 'p1', name: 'Default (p1)', autoDetected: true });
+            if (msg.type === 'GET_NETWORK_STATUS') return Promise.resolve({ success: true, networkStatus: { isConnected: true, protocol: 'DoH', popServer: 'cloudzy-pit-1' } });
+            return Promise.resolve({ success: true });
+        });
+
+        await refreshActiveProfileAndUI();
+        expect(profStatus.textContent).toContain('Profile: Default (p1)');
+        expect(profStatus.textContent).toContain('🟢 DoH (cloudzy-pit-1)');
+
+        // Case 3: No profile detected at all
+        global.browser.runtime.sendMessage = jest.fn().mockImplementation((msg) => {
+            if (msg.type === 'GET_PROFILE') return Promise.resolve(null);
+            if (msg.type === 'GET_NETWORK_STATUS') return Promise.resolve({ success: true, networkStatus: { isConnected: false } });
+            return Promise.resolve({ success: true });
+        });
+
+        await refreshActiveProfileAndUI();
+        expect(profStatus.textContent).toContain('Profile: Not Detected');
+        expect(profStatus.textContent).toContain('🔴 Unconfigured / Leaking');
+    });
 });
 

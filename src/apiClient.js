@@ -33,9 +33,11 @@ export class APIClient {
             apiKey = await this.storage.get("apiKey", "");
         }
         const headers = { 
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Accept": "application/json"
         };
-        if (!url.includes('test.nextdns.io')) {
+        const isPublicEndpoint = url.includes('test.nextdns.io') || url.includes('dns.nextdns.io') || url.includes('router.nextdns.io');
+        if (!isPublicEndpoint) {
             headers["X-Api-Key"] = apiKey || "";
         }
         return headers;

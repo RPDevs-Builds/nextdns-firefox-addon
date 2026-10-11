@@ -24,10 +24,11 @@ describe('APIClient Unit Tests', () => {
         expect(clientCustom.baseURL).toBe("https://custom.dns.io");
     });
 
-    test('getHeaders injects apiKey from storage if available', async () => {
+    test('getHeaders injects apiKey from storage if available and sets Accept application/json', async () => {
         const client = new APIClient();
         const headersNoStorage = await client.getHeaders();
         expect(headersNoStorage['Content-Type']).toBe("application/json");
+        expect(headersNoStorage['Accept']).toBe("application/json");
         expect(headersNoStorage['X-Api-Key']).toBe("");
 
         const mockStorage = {
@@ -37,7 +38,19 @@ describe('APIClient Unit Tests', () => {
 
         const headersWithStorage = await client.getHeaders();
         expect(headersWithStorage['X-Api-Key']).toBe("test-secret-key-123");
+        expect(headersWithStorage['Accept']).toBe("application/json");
         expect(mockStorage.get).toHaveBeenCalledWith("apiKey", "");
+
+        // Verify public endpoints never receive X-Api-Key
+        const testHeaders = await client.getHeaders("https://test.nextdns.io/");
+        expect(testHeaders['X-Api-Key']).toBeUndefined();
+        expect(testHeaders['Accept']).toBe("application/json");
+
+        const infoHeaders = await client.getHeaders("https://dns.nextdns.io/info");
+        expect(infoHeaders['X-Api-Key']).toBeUndefined();
+
+        const routerHeaders = await client.getHeaders("https://router.nextdns.io");
+        expect(routerHeaders['X-Api-Key']).toBeUndefined();
     });
 
     test('fetchWithRetry succeeds on first attempt for 200 OK', async () => {
