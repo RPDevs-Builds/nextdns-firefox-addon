@@ -103,8 +103,9 @@ export function renderLists(queryOverride = null) {
  * Loads and renders the block settings toggles based on the current sub-tab and search query.
  * @async
  * @param {string|null} [queryOverride=null] - Optional search query override.
+ * @param {boolean} [force=false] - Whether to force a re-fetch of settings.
  */
-export async function loadToggles(queryOverride = null) {
+export async function loadToggles(queryOverride = null, force = false) {
     if (!state.activeProfile) return;
 
     const container = document.getElementById("toggles-container");
@@ -138,9 +139,17 @@ export async function loadToggles(queryOverride = null) {
         state.blocksMeta = await loadMetadata();
     }
 
-    if (!state.lastBlocksData) {
+    const activeSection = state.activeBlocksSubTab === 'parental' ? 'parentalcontrol'
+        : (state.activeBlocksSubTab === 'performance' ? 'settings'
+        : (['security', 'tlds'].includes(state.activeBlocksSubTab) ? 'security' : 'privacy'));
+
+    if (force || !state.lastBlocksData || !state.lastBlocksData[activeSection]) {
         const res = await browser.runtime.sendMessage({ type: "GET_ALL_SETTINGS", profileId: state.activeProfile });
-        state.lastBlocksData = res?.data || {};
+        if (res?.success && res.data) {
+            state.lastBlocksData = { ...(state.lastBlocksData || {}), ...res.data };
+        } else if (!state.lastBlocksData) {
+            state.lastBlocksData = {};
+        }
     }
 
     let html = '';
@@ -211,8 +220,16 @@ function renderPerformanceToggles() {
  */
 function renderPrivacyToggles() {
     const TRACKING = [
-        { id: 'disguisedTrackers', label: 'Block Disguised Trackers' },
-        { id: 'allowAffiliate', label: 'Allow Affiliate Links' }
+        { 
+            id: 'disguisedTrackers', 
+            label: 'Block Disguised Third-Party Trackers', 
+            note: 'Block third-party trackers disguising as first-party by using CNAME records.' 
+        },
+        { 
+            id: 'allowAffiliate', 
+            label: 'Allow Affiliate Links', 
+            note: 'Allow affiliate and tracking domains in search results and shopping sites.' 
+        }
     ];
     const NATIVES = [
         { id: 'windows', label: 'Windows' },
@@ -225,7 +242,8 @@ function renderPrivacyToggles() {
         { id: 'alexa', label: 'Alexa' }
     ];
 
-    let html = TRACKING.map(i => renderToggleRow(i, 'privacy', !!state.lastBlocksData.privacy?.[i.id], 'boolean')).join('');
+    const privacyData = state.lastBlocksData?.privacy || {};
+    let html = TRACKING.map(i => renderToggleRow(i, 'privacy', !!privacyData[i.id], 'boolean')).join('');
     const privacyUrl = state.activeProfile ? `https://my.nextdns.io/${state.activeProfile}/privacy` : '#';
     
     html += `<hr style="border-top:1px solid var(--border-color); border-bottom:0; margin:10px 0;">
@@ -235,7 +253,7 @@ function renderPrivacyToggles() {
              </div>`;
 
     html += NATIVES.map(i => {
-        const isActive = state.lastBlocksData.privacy?.natives?.some(n => n.id === i.id);
+        const isActive = privacyData.natives?.some(n => n.id === i.id);
         return renderToggleRow(i, 'privacy/natives', isActive, 'list');
     }).join('');
     return html;

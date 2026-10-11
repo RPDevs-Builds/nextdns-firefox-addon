@@ -82,8 +82,18 @@ export async function initializeBackground() {
         }
 
         // Restrict content script callers (messages originating from a web tab)
-        if (sender?.tab && !CONTENT_SCRIPT_ALLOWED_MESSAGES.has(msg?.type)) {
-            console.warn(`[Security] Blocked privileged message '${msg?.type}' from web tab content script:`, sender.url);
+        const senderUrl = sender?.url || sender?.tab?.url || '';
+        const isInternalExtension = Boolean(
+            senderUrl && (
+                senderUrl.startsWith('moz-extension://') ||
+                senderUrl.startsWith('chrome-extension://') ||
+                (typeof browser !== 'undefined' && browser.runtime?.getURL && senderUrl.startsWith(browser.runtime.getURL('')))
+            )
+        );
+        const isWebTab = Boolean(sender?.tab && !isInternalExtension);
+
+        if (isWebTab && !CONTENT_SCRIPT_ALLOWED_MESSAGES.has(msg?.type)) {
+            console.warn(`[Security] Blocked privileged message '${msg?.type}' from web tab content script:`, senderUrl);
             sendResponse({ success: false, error: "Unauthorized action from web tab" });
             return false;
         }

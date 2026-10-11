@@ -324,6 +324,39 @@ describe('Background Script - Full Coverage Suite', () => {
     });
     expect(srvAddRes.success).toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/parentalcontrol/services'), expect.objectContaining({ method: 'POST' }));
+
+    // Internal extension page in a tab (e.g. Android or tab mode) should succeed
+    const tabExtRes = await new Promise(resolve => {
+      messageHandlerRef(
+        { type: 'TOGGLE_SETTING', profileId: 'profile123', category: 'privacy', id: 'disguisedTrackers', action: 'delete', settingType: 'boolean' },
+        { tab: { id: 5 }, url: 'moz-extension://test-uuid/src/popup.html?mode=tab' },
+        resolve
+      );
+    });
+    expect(tabExtRes.success).toBe(true);
+
+    // Untrusted web tab content script should be blocked
+    const webTabRes = await new Promise(resolve => {
+      messageHandlerRef(
+        { type: 'TOGGLE_SETTING', profileId: 'profile123', category: 'privacy', id: 'disguisedTrackers', action: 'add', settingType: 'boolean' },
+        { tab: { id: 5 }, url: 'https://my.nextdns.io/setup' },
+        resolve
+      );
+    });
+    expect(webTabRes.success).toBe(false);
+    expect(webTabRes.error).toBe('Unauthorized action from web tab');
+
+    // Fallback profile resolution from storage if msg.profileId is omitted
+    await storage.set('activeProfile', 'storedProfile99');
+    const fallbackRes = await new Promise(resolve => {
+      messageHandlerRef(
+        { type: 'TOGGLE_SETTING', category: 'privacy', id: 'disguisedTrackers', action: 'add', settingType: 'boolean' },
+        {},
+        resolve
+      );
+    });
+    expect(fallbackRes.success).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/profiles/storedProfile99/privacy'), expect.anything());
   });
 
   test('Message Handler - TEMP_ALLOW with custom duration', async () => {

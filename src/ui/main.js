@@ -604,9 +604,13 @@ function initGlobalEventListeners() {
             const action = e.target.checked ? 'add' : 'delete';
             e.target.disabled = true;
             try {
+                const targetProfile = state.activeProfile || (await storage.get('activeProfile')) || (await storage.get('overrideProfileId'));
+                if (targetProfile && !state.activeProfile) {
+                    state.activeProfile = targetProfile;
+                }
                 const res = await browser.runtime.sendMessage({
                     type: "TOGGLE_SETTING",
-                    profileId: state.activeProfile,
+                    profileId: targetProfile,
                     category: cat,
                     id,
                     action,
@@ -614,7 +618,7 @@ function initGlobalEventListeners() {
                 });
                 if (!res || !res.success) {
                     e.target.checked = !e.target.checked;
-                    showToast("Failed to update setting.", 'error');
+                    showToast(`Failed to update setting: ${res?.error || 'Unknown error'}`, 'error');
                 } else {
                     updateLocalBlocksCache(cat, id, action);
                 }
@@ -635,9 +639,13 @@ function initGlobalEventListeners() {
             
             btn.disabled = true;
             try {
+                const targetProfile = state.activeProfile || (await storage.get('activeProfile')) || (await storage.get('overrideProfileId'));
+                if (targetProfile && !state.activeProfile) {
+                    state.activeProfile = targetProfile;
+                }
                 const res = await browser.runtime.sendMessage({
                     type: "TOGGLE_SETTING",
-                    profileId: state.activeProfile,
+                    profileId: targetProfile,
                     category: cat,
                     id,
                     action,
@@ -651,7 +659,7 @@ function initGlobalEventListeners() {
                     btn.classList.toggle('btn-deny', action === 'add');
                     updateLocalBlocksCache(cat, id, action);
                 } else {
-                    showToast("Failed to update.", 'error');
+                    showToast(`Failed to update: ${res?.error || 'Unknown error'}`, 'error');
                 }
             } catch (err) {
                 showToast("Failed to update: " + (err.message || err), 'error');
@@ -670,7 +678,9 @@ function initGlobalEventListeners() {
  * @param {string} action - 'add' or 'delete'
  */
 export function updateLocalBlocksCache(cat, id, action) {
-    if (!state.lastBlocksData) return;
+    if (!state.lastBlocksData) {
+        state.lastBlocksData = {};
+    }
     if (cat && cat.includes('/')) {
         const [parentCat, subCat] = cat.split('/');
         if (!state.lastBlocksData[parentCat]) {

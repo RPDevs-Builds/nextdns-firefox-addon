@@ -119,6 +119,8 @@ describe('Popup UI - Blocks Expansion Suite', () => {
         expect(disguisedInput).not.toBeNull();
         expect(disguisedInput.dataset.cat).toBe('privacy');
         expect(disguisedInput.checked).toBe(true);
+        expect(disguisedInput.closest('.flex-between').textContent).toContain('Block Disguised Third-Party Trackers');
+        expect(disguisedInput.closest('.flex-between').textContent).toContain('CNAME records');
 
         const affiliateInput = document.querySelector('input[data-id="allowAffiliate"]');
         expect(affiliateInput).not.toBeNull();
@@ -129,6 +131,24 @@ describe('Popup UI - Blocks Expansion Suite', () => {
         expect(appleInput).not.toBeNull();
         expect(appleInput.dataset.cat).toBe('privacy/natives');
         expect(appleInput.checked).toBe(true);
+    });
+
+    test('Blocks UI - Privacy Toggles re-fetches when privacy section is missing in cache', async () => {
+        state.activeBlocksSubTab = 'privacy';
+        state.lastBlocksData = { security: {} }; // Missing privacy!
+        global.browser.runtime.sendMessage.mockResolvedValueOnce({
+            success: true,
+            data: {
+                privacy: { disguisedTrackers: true, allowAffiliate: true, natives: [] }
+            }
+        });
+
+        await blocks.loadToggles();
+
+        const disguisedInput = document.querySelector('input[data-id="disguisedTrackers"]');
+        expect(disguisedInput).not.toBeNull();
+        expect(disguisedInput.checked).toBe(true);
+        expect(state.lastBlocksData.privacy.disguisedTrackers).toBe(true);
     });
 
     test('Blocks UI - Parental Services Unified Toggle and Category Binding', async () => {

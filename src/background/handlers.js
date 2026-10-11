@@ -229,7 +229,11 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId, category, id, and action.
      */
     TOGGLE_SETTING: async (msg) => {
-        const { profileId, category, id, action, value, settingType } = msg;
+        let { profileId, category, id, action, value, settingType } = msg || {};
+
+        if (!profileId) {
+            profileId = (await storage.get("activeProfile")) || (await storage.get("overrideProfileId"));
+        }
 
         // Input validation & path traversal guard
         if (!profileId || typeof profileId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(profileId)) {
@@ -292,7 +296,10 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId.
      */
     GET_ALL_SETTINGS: async (msg) => {
-        const { profileId } = msg || {};
+        let { profileId } = msg || {};
+        if (!profileId) {
+            profileId = (await storage.get("activeProfile")) || (await storage.get("overrideProfileId"));
+        }
         if (!isValidProfileId(profileId)) return { success: false, data: {}, error: "Invalid profile ID" };
         const categories = ['security', 'privacy', 'parentalcontrol', 'settings', 'settings/performance'];
         const results = await Promise.all(categories.map(c => apiClient.fetchWithRetry(`/profiles/${profileId}/${c}`, { cache: 'no-store' })));
