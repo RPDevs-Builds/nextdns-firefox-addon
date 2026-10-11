@@ -1,11 +1,11 @@
 # 🛡️ DNS Forge (for NextDNS)
 
-[![Version: 1.2.0](https://img.shields.io/badge/Version-1.2.0-blue)](https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases)
+[![Version: 1.2.1](https://img.shields.io/badge/Version-1.2.1-blue)](https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases)
 [![AMO Compliance: 100%](https://img.shields.io/badge/AMO_Compliance-100%25-success)](https://addons.mozilla.org)
 [![Security: Hardened](https://img.shields.io/badge/Security-Hardened-blue)](https://nextdns.io)
 [![CodeQL: Passing](https://img.shields.io/badge/CodeQL-Passing-brightgreen)](https://github.com/RPDevs-Builds/nextdns-firefox-addon/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard: Passing](https://img.shields.io/badge/OpenSSF_Scorecard-Passing-brightgreen)](https://github.com/RPDevs-Builds/nextdns-firefox-addon/actions/workflows/scorecard.yml)
-[![Tests: 128 Passing](https://img.shields.io/badge/Tests-128%20Passing-brightgreen)](https://github.com/RPDevs-Builds/nextdns-firefox-addon)
+[![Tests: 131 Passing](https://img.shields.io/badge/Tests-131%20Passing-brightgreen)](https://github.com/RPDevs-Builds/nextdns-firefox-addon)
 
 DNS Forge is a high-performance, modular Firefox extension designed for advanced [NextDNS](https://nextdns.io) users. It provides real-time Server-Sent Events (SSE) query monitoring, edge PoP diagnostic probing, bounded concurrency snapshot restorations, and automated blocklist correlation.
 
@@ -107,7 +107,7 @@ npm run build
 ## 📦 Build Pipeline
 
 Every push to `main` triggers automated GitHub Actions workflows:
-1. **Extension Pipeline:** Executes all 128 tests across 17 suites, builds production `.xpi`, and validates AMO compliance via `addons-linter`.
+1. **Extension Pipeline:** Executes all 131 tests across 17 suites, builds production `.xpi`, and validates AMO compliance via `addons-linter`.
 2. **CodeQL:** Performs static application security testing (SAST) on all JavaScript code.
 3. **OpenSSF Scorecard:** Scans repository supply-chain posture, dependencies, and token permissions.
 4. **Automated Releases:** Automatically tags and publishes signed releases with distribution packages on version bumps.
@@ -126,7 +126,7 @@ Explore our in-depth documentation, architecture diagrams, and technical referen
 ## ⚙️ Setup & Installation
 
 ### Option 1: Install Signed Package (Recommended)
-1. Download `dns_forge-1.2.0.xpi` from the [Latest Release](https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases/latest) or the [Sovereign Repository Hub](https://firefox.repo.iamrp.dev/).
+1. Download `dns_forge-1.2.1.xpi` from the [Latest Release](https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases/latest) or the [Sovereign Repository Hub](https://firefox.repo.iamrp.dev/).
 2. In Firefox, navigate to `about:addons`.
 3. Click the gear icon (⚙️) and select **"Install Add-on From File..."**.
 4. Choose the downloaded `.xpi` file and confirm installation.

@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.2.1] - 2026-10-11
+
+### Fixed
+- **NextDNS Public Diagnostic Accept Header:** Enforced explicit `"Accept": "application/json"` header on all API client requests. Without this header, `https://test.nextdns.io` responded with HTML containing a client-side execution script rather than JSON, which broke background status parsing and incorrectly caused the profile status indicator to report `🔴 Unconfigured`.
+- **Diagnostic Subdomain Redirect Permissions:** Added `"https://*.test.nextdns.io/*"` wildcard pattern to `manifest.json` host permissions. This permits the browser to follow HTTP 302 redirects issued by NextDNS's diagnostic leak tests to dynamic verification subdomains (e.g. `*.test.nextdns.io`).
+- **Profile Configuration vs. DNS Routing State Disambiguation:** Redesigned the Overview UI connection indicator badge and dot to cleanly separate profile management state from local DNS routing state:
+  - Displays `🟢 DoH (<popServer>)` with a green indicator dot when both the profile is configured and browser DNS is successfully routing through NextDNS.
+  - Displays `🔴 DNS Inactive` with an amber warning dot and a descriptive tooltip when the profile is valid and detected in DNS Forge, but the browser or operating system is not actively routing queries through NextDNS.
+  - Displays `🟡 Override (DNS Inactive)` with an amber dot when a manual override profile is active but DNS traffic is not yet routed through NextDNS.
+  - Displays `Profile: Not Detected 🔴 Unconfigured / Leaking` with a red danger dot only when no API key or profile is detected at all.
+- **Concurrent In-Flight Profile Detection Deduplication:** Implemented in-flight promise deduplication (`detectInFlight`) in `detectActiveProfile()` to eliminate race conditions between simultaneous `GET_PROFILE` and `GET_NETWORK_STATUS` message calls during popup initialization.
+- **Single-Profile Account Fallback:** Added graceful account fallback matching fingerprint (`fp...`) to an account's solitary profile when NextDNS is connected, preventing false unconfigured warnings for single-profile users.
+- **Credential Isolation for Diagnostic Endpoints:** Restricted `X-Api-Key` authorization headers strictly to management API endpoints (`api.nextdns.io`), preventing unnecessary transmission of API keys to public diagnostic endpoints (`test.nextdns.io`, `dns.nextdns.io`, `router.nextdns.io`).
+
+### Tests
+- Added unit tests covering `Accept: application/json` enforcement, in-flight detection promise deduplication, and DNS Inactive UI indicator rendering, expanding the test suite to 131 tests across 17 suites with 100% pass rate.
+
 ## [1.2.0] - 2026-10-10
 
 ### Major Features & Additions
