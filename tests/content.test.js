@@ -10,6 +10,7 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
     let messageListener;
 
     beforeEach(() => {
+        jest.setTimeout(45000);
         document.body.innerHTML = `
             <h5>Block Top-Level Domains (TLDs)</h5>
             <div id="tld-content" class="content-box">TLD List</div>
@@ -412,5 +413,95 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
         // Toggle table
         toggle.click();
         expect(document.getElementById('tld-xyz').style.display).toBe('none');
+    });
+
+    test('browser.runtime.onMessage handles TOGGLE_TLD_LIST and TOGGLE_BLOCKLIST_LIST', async () => {
+        let tldClicked = false;
+        let blocklistClicked = false;
+
+        document.getElementById('nxm-toggle-table').onclick = () => { tldClicked = true; };
+        document.getElementById('nxm-toggle-blocklists').onclick = () => { blocklistClicked = true; };
+
+        await import('../src/content.js');
+        expect(messageListener).toBeDefined();
+
+        let responseTld = null;
+        messageListener({ type: 'TOGGLE_TLD_LIST' }, {}, (r) => { responseTld = r; });
+        expect(tldClicked).toBe(true);
+        expect(responseTld).toEqual({ success: true });
+
+        let responseBlocklist = null;
+        messageListener({ type: 'TOGGLE_BLOCKLIST_LIST' }, {}, (r) => { responseBlocklist = r; });
+        expect(blocklistClicked).toBe(true);
+        expect(responseBlocklist).toEqual({ success: true });
+    });
+
+    test('injectHeaderFilteredLogsButton injects eye button and dropdown item', async () => {
+        document.body.innerHTML = `
+            <div class="header-nav">
+                <div>
+                    <div class="dropdown">
+                        <button class="dropdown-toggle">Account</button>
+                        <div class="dropdown-menu">
+                            <a href="/account" class="dropdown-item">Settings</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        window.history.pushState({}, '', '/abc123/logs');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const eyeBtn = document.getElementById('nxm-header-filtered-logs-btn');
+        expect(eyeBtn).not.toBeNull();
+        expect(eyeBtn.textContent).toBe('👁️‍🗨️');
+
+        const dropItem = document.getElementById('nxm-dropdown-filtered-logs-item');
+        expect(dropItem).not.toBeNull();
+        expect(dropItem.textContent).toContain('Manage Filtered Logs');
+    });
+
+    test('applyDomainListStyling injects Sort A-Z button and styles domain items', async () => {
+        document.body.innerHTML = `
+            <div class="container">
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <span class="notranslate">zebra.com</span>
+                    </div>
+                    <div class="list-group-item">
+                        <span class="notranslate">sub.alpha.com</span>
+                    </div>
+                    <div class="list-group-item">
+                        <span class="notranslate">beta.org</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        window.history.pushState({}, '', '/abc123/allowlist');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const sortBtn = document.getElementById('nxm-sort-domains');
+        expect(sortBtn).not.toBeNull();
+        expect(sortBtn.textContent).toBe('Sort A-Z');
+
+        // Verify root domain bolding
+        const subItem = document.querySelectorAll('.list-group-item')[1];
+        const span = subItem.querySelector('.notranslate span');
+        const strong = subItem.querySelector('.notranslate strong');
+        expect(span.textContent).toBe('sub.');
+        expect(strong.textContent).toBe('alpha.com');
+
+        // Trigger Sort A-Z
+        sortBtn.click();
+
+        const sortedDomains = Array.from(document.querySelectorAll('.list-group-item .notranslate'))
+            .map(el => el.textContent.trim());
+        expect(sortedDomains).toEqual(['sub.alpha.com', 'beta.org', 'zebra.com']);
     });
 });

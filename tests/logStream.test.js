@@ -125,4 +125,95 @@ describe('LogStreamManager', () => {
         startSpy.mockRestore();
         jest.useRealTimers();
     });
+
+    test('avoids restart if already streaming for identical profile and key', async () => {
+        logStreamManager.currentProfileId = 'p12345';
+        logStreamManager.currentApiKey = 'test-api-key-12345';
+        logStreamManager.abortController = new AbortController();
+
+        const res = await logStreamManager.start('p12345');
+        expect(res.success).toBe(true);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    test('falls back to EventSource if fetch streaming is unsupported or returns not ok', async () => {
+        fetchMock.mockResponseOnce(() => Promise.resolve({ ok: false, status: 500 }));
+
+        const originalEventSource = global.EventSource;
+        let eventSourceInstance = null;
+        global.EventSource = jest.fn().mockImplementation((url) => {
+            eventSourceInstance = {
+                url,
+                close: jest.fn(),
+                onmessage: null,
+                onerror: null
+            };
+            return eventSourceInstance;
+        });
+
+        const res = await logStreamManager.start('p12345');
+        expect(res.success).toBe(true);
+        expect(global.EventSource).toHaveBeenCalledWith(
+            expect.stringContaining('/profiles/p12345/logs/stream?raw=1&api_key=test-api-key-12345')
+        );
+
+        // Test EventSource onmessage handling
+        const sendSpy = jest.spyOn(browser.runtime, 'sendMessage').mockResolvedValue({});
+        eventSourceInstance.onmessage({
+            data: JSON.stringify({ domain: 'event.example.com', status: 'allowed' })
+        });
+        expect(sendSpy).toHaveBeenCalledWith({
+            type: 'LIVE_LOG',
+            log: expect.objectContaining({ domain: 'event.example.com' })
+        });
+
+        // Test EventSource onerror triggers reconnect
+        const reconnectSpy = jest.spyOn(logStreamManager, '_scheduleReconnect').mockImplementation(() => {});
+        eventSourceInstance.onerror();
+        expect(eventSourceInstance.close).toHaveBeenCalled();
+        expect(reconnectSpy).toHaveBeenCalledWith('p12345');
+
+        reconnectSpy.mockRestore();
+        sendSpy.mockRestore();
+        global.EventSource = originalEventSource;
+    });
+
+    test('returns error when streaming is completely unsupported in environment', async () => {
+        fetchMock.mockResponseOnce(() => Promise.resolve({ ok: false }));
+        const originalEventSource = global.EventSource;
+        delete global.EventSource;
+
+        const res = await logStreamManager.start('p12345');
+        expect(res.success).toBe(false);
+        expect(res.error).toBe('Streaming unsupported in environment');
+
+        global.EventSource = originalEventSource;
+    });
+
+    test('handleLogPayload ignores invalid or non-object payloads', () => {
+        const sendSpy = jest.spyOn(browser.runtime, 'sendMessage');
+        logStreamManager.handleLogPayload(null);
+        logStreamManager.handleLogPayload("string");
+        logStreamManager.handleLogPayload(123);
+        expect(sendSpy).not.toHaveBeenCalled();
+    });
+
+    test('parseSSEChunk gracefully handles empty or non-string inputs', () => {
+        expect(() => logStreamManager.parseSSEChunk(null)).not.toThrow();
+        expect(() => logStreamManager.parseSSEChunk('')).not.toThrow();
+        expect(() => logStreamManager.parseSSEChunk(123)).not.toThrow();
+    });
+
+    test('stop cancels active reader and eventSource safely', () => {
+        const cancelMock = jest.fn();
+        const closeMock = jest.fn();
+        logStreamManager.currentReader = { cancel: cancelMock };
+        logStreamManager.eventSource = { close: closeMock, onmessage: () => {}, onerror: () => {} };
+
+        logStreamManager.stop();
+        expect(cancelMock).toHaveBeenCalled();
+        expect(closeMock).toHaveBeenCalled();
+        expect(logStreamManager.currentReader).toBeNull();
+        expect(logStreamManager.eventSource).toBeNull();
+    });
 });

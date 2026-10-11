@@ -11,6 +11,8 @@ describe('Background Script - Full Coverage Suite', () => {
   let messageHandlerRef;
   let menuClickListenerRef;
   let storageListenerRef;
+  let actionClickListenerRef;
+  let alarmListenerRef;
   let mockStorage;
   let fetchMock;
   let bg;
@@ -56,10 +58,13 @@ describe('Background Script - Full Coverage Suite', () => {
       },
       action: {
         setPopup: jest.fn(),
-        onClicked: { addListener: jest.fn() }
+        onClicked: { addListener: jest.fn(cb => actionClickListenerRef = cb) }
       },
       sidebarAction: {
         open: jest.fn()
+      },
+      windows: {
+        create: jest.fn()
       },
       storage: {
         sync: {
@@ -98,6 +103,8 @@ describe('Background Script - Full Coverage Suite', () => {
         }
       },
       runtime: {
+        id: 'dns-forge-extension-id',
+        getURL: jest.fn(path => `moz-extension://dns-forge-extension-id/${path}`),
         onInstalled: { addListener: jest.fn() },
         onStartup: { addListener: jest.fn() },
         openOptionsPage: jest.fn(),
@@ -107,7 +114,7 @@ describe('Background Script - Full Coverage Suite', () => {
       },
       alarms: {
         create: jest.fn(),
-        onAlarm: { addListener: jest.fn() }
+        onAlarm: { addListener: jest.fn(cb => alarmListenerRef = cb) }
       },
       webRequest: {
         onBeforeRequest: {
@@ -117,6 +124,7 @@ describe('Background Script - Full Coverage Suite', () => {
         }
       },
       tabs: {
+        create: jest.fn(),
         onUpdated: { addListener: jest.fn(cb => tabUpdatedListenerRef = cb) },
         onRemoved: { addListener: jest.fn(cb => tabRemovedListenerRef = cb) }
       }
@@ -896,5 +904,173 @@ describe('Background Script - Full Coverage Suite', () => {
     const diag = await runNetworkDiagnostics();
     expect(diag.isConnected).toBe(true);
     expect(diag.popServer).toBe('cdg-1');
+  });
+
+  test('Alarms listener triggers snooze expiry, rule engine, and ddns check', async () => {
+    await bg.initializeBackground();
+    expect(alarmListenerRef).toBeDefined();
+
+    // 1. Snooze alarm expiry
+    let deletedDomain = null;
+    fetchMock.mockImplementation(async (url, opts) => {
+      if (url.includes('/profiles/pSnooze/allowlist/snooze.com') && opts?.method === 'DELETE') {
+        deletedDomain = 'snooze.com';
+        return { ok: true };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    await alarmListenerRef({ name: 'tempAllow?p=pSnooze&d=snooze.com' });
+    expect(deletedDomain).toBe('snooze.com');
+
+    // 2. Rule engine alarm
+    const { checkAutomationRules } = await import('../src/background/scheduler.js');
+    expect(() => alarmListenerRef({ name: 'rule-engine' })).not.toThrow();
+
+    // 3. DDNS check alarm
+    expect(() => alarmListenerRef({ name: 'ddns-check' })).not.toThrow();
+  });
+
+  test('Tabs onRemoved listener prunes in-flight tab request caches', async () => {
+    await bg.initializeBackground();
+    const { state } = await import('../src/background/state.js');
+
+    state.tabRequests[999] = { 'example.com': { count: 1 } };
+    state.blockedTabRequests[999] = { 'bad.com': { count: 2 } };
+
+    tabRemovedListenerRef(999);
+
+    expect(state.tabRequests[999]).toBeUndefined();
+    expect(state.blockedTabRequests[999]).toBeUndefined();
+  });
+
+  test('Action onClicked listener routes to sidebar, popout, or fallback tabs', async () => {
+    await bg.initializeBackground();
+    expect(actionClickListenerRef).toBeDefined();
+
+    // 1. Sidebar mode with sidebarAction.open available
+    await global.storage.set('iconClickAction', 'sidebar');
+    await actionClickListenerRef();
+    expect(browser.sidebarAction.open).toHaveBeenCalled();
+
+    // 2. Sidebar mode fallback to tab
+    delete browser.sidebarAction.open;
+    await actionClickListenerRef();
+    expect(browser.tabs.create).toHaveBeenCalledWith(
+      expect.objectContaining({ url: expect.stringContaining('mode=tab') })
+    );
+
+    // 3. Popout mode with windows.create
+    await global.storage.set('iconClickAction', 'popout');
+    await actionClickListenerRef();
+    expect(browser.windows.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'popup',
+        width: 380,
+        height: 600,
+        url: expect.stringContaining('mode=popout')
+      })
+    );
+
+    // 4. Popout mode fallback to tab
+    delete browser.windows.create;
+    await actionClickListenerRef();
+    expect(browser.tabs.create).toHaveBeenCalledWith(
+      expect.objectContaining({ url: expect.stringContaining('mode=popout') })
+    );
+
+    // 5. Error handling in onClicked
+    global.storage.get = jest.fn().mockRejectedValue(new Error('Storage failure'));
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    await actionClickListenerRef();
+    expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('[Background] onClicked handler failed:'), expect.any(Error));
+    errSpy.mockRestore();
+  });
+
+  test('Context menus onClicked listener handles validation, allow/deny actions, and errors', async () => {
+    await bg.initializeBackground();
+    expect(menuClickListenerRef).toBeDefined();
+    fetchMock.mockClear();
+
+    // 1. No URL provided
+    await menuClickListenerRef({}, {});
+    expect(fetchMock.mock.calls.some(([url, opts]) => opts?.method === 'POST')).toBe(false);
+
+    // 2. Invalid URL string
+    await menuClickListenerRef({ linkUrl: 'not_a_valid_url' }, {});
+    expect(fetchMock.mock.calls.some(([url, opts]) => opts?.method === 'POST')).toBe(false);
+
+    // 3. Non-http/https URL (e.g. ftp or about:)
+    await menuClickListenerRef({ linkUrl: 'ftp://ftp.example.org/file.iso' }, {});
+    expect(fetchMock.mock.calls.some(([url, opts]) => opts?.method === 'POST')).toBe(false);
+
+    // 4. Profile not valid (starts with fp or auto)
+    await global.storage.set('overrideProfileId', 'fp-unconfigured');
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await menuClickListenerRef({ linkUrl: 'https://testdomain.com' }, {});
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Cannot apply menu action'));
+    warnSpy.mockRestore();
+
+    // 5. Valid allow action
+    await global.storage.set('overrideProfileId', 'profile123');
+    let allowManaged = null;
+    fetchMock.mockImplementation(async (url, opts) => {
+      if (url.includes('/profiles/profile123/allowlist') && opts?.method === 'POST') {
+        allowManaged = JSON.parse(opts.body);
+        return { ok: true };
+      }
+      return { ok: true, json: async () => ({ data: [] }) };
+    });
+    await menuClickListenerRef({ menuItemId: 'dns-forge-allow', linkUrl: 'https://allowme.com/sub' }, {});
+    expect(allowManaged).toEqual({ id: 'allowme.com' });
+
+    // 6. Valid deny action
+    let denyManaged = null;
+    fetchMock.mockImplementation(async (url, opts) => {
+      if (url.includes('/profiles/profile123/denylist') && opts?.method === 'POST') {
+        denyManaged = JSON.parse(opts.body);
+        return { ok: true };
+      }
+      return { ok: true, json: async () => ({ data: [] }) };
+    });
+    await menuClickListenerRef({ menuItemId: 'dns-forge-deny', pageUrl: 'https://denyme.com' }, {});
+    expect(denyManaged).toEqual({ id: 'denyme.com' });
+
+    // 7. Click error handling
+    global.storage.get = jest.fn().mockRejectedValue(new Error('Storage crash'));
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    await menuClickListenerRef({ menuItemId: 'dns-forge-allow', linkUrl: 'https://crash.com' }, {});
+    expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('[ContextMenus] Error handling click:'), expect.any(Error));
+    errSpy.mockRestore();
+  });
+
+  test('Runtime onMessage security filter enforces sender ID and restrictions on web tabs', async () => {
+    await bg.initializeBackground();
+    expect(messageHandlerRef).toBeDefined();
+
+    // 1. Foreign sender ID rejected
+    let res = null;
+    messageHandlerRef({ type: 'GET_PROFILE' }, { id: 'imposter-extension-id' }, r => res = r);
+    expect(res).toEqual({ success: false, error: 'Unauthorized sender' });
+
+    // 2. Web tab sender attempting privileged action blocked
+    res = null;
+    messageHandlerRef(
+      { type: 'TOGGLE_SETTING', profileId: 'profile123' },
+      { tab: { id: 1, url: 'https://example.com' } },
+      r => res = r
+    );
+    expect(res).toEqual({ success: false, error: 'Unauthorized action from web tab' });
+
+    // 3. Web tab sender allowed safe message (e.g. MANAGE_DOMAIN)
+    let handlerExecuted = false;
+    res = null;
+    messageHandlerRef(
+      { type: 'MANAGE_DOMAIN', profileId: 'profile123', listType: 'allowlist', domain: 'web.com', action: 'add' },
+      { tab: { id: 1, url: 'https://example.com' } },
+      r => res = r
+    );
+    // Asynchronous channel returns true
+    expect(res).toBeNull(); // Will be fulfilled asynchronously by messageHandlers
   });
 });

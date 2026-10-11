@@ -404,7 +404,10 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             await uiMain.importFullConfiguration(event);
 
             // Wait for FileReader onload
-            await new Promise(r => setTimeout(r, 60));
+            for (let i = 0; i < 20; i++) {
+                if (event.target.value === '') break;
+                await new Promise(r => setTimeout(r, 25));
+            }
 
             expect(browser.storage.sync.set).toHaveBeenCalledWith({
                 apiKey: 'restored-key',
@@ -427,9 +430,14 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             };
 
             await uiMain.importFullConfiguration(event);
-            await new Promise(r => setTimeout(r, 60));
+            
+            let toast = null;
+            for (let i = 0; i < 20; i++) {
+                toast = document.querySelector('.toast');
+                if (toast) break;
+                await new Promise(r => setTimeout(r, 25));
+            }
 
-            const toast = document.querySelector('.toast');
             expect(toast).not.toBeNull();
             expect(toast.textContent).toContain('Invalid backup file format');
         });

@@ -175,6 +175,9 @@ function evaluatePage() {
         if (webGuiConfig.logs) injectLogActions();
         if (webGuiConfig.filter) applyLogFilters();
         injectLogsSettingsControls();
+    } else if (path.includes('/allowlist') || path.includes('/denylist')) {
+        injectBulkAddDomains();
+        applyDomainListStyling();
     }
 }
 
@@ -805,6 +808,7 @@ function matchPattern(domain, pattern) {
 
 async function injectDomainDescriptions() {
   injectBulkAddDomains();
+  applyDomainListStyling();
   const items = Array.from(document.querySelectorAll('.list-group-item'));
   const { domainDescriptions = {} } = await browser.storage.sync.get("domainDescriptions");
 
