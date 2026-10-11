@@ -120,4 +120,27 @@ describe('Background Scheduler & Automation Rules', () => {
 
         expect(handlersMock.TOGGLE_SETTING).not.toHaveBeenCalled();
     });
+
+    test('Uses overrideProfileId over activeProfile when set', async () => {
+        const now = new Date();
+        const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+        storedData.activeProfile = 'profile-123';
+        storedData.overrideProfileId = 'profile-override-999';
+        storedData.forgeRules = [{
+            id: 'rule-override',
+            name: 'Override Profile Rule',
+            trigger: currentTime,
+            action: 'enable',
+            category: 'security',
+            targetId: 'block-dga',
+            active: true
+        }];
+
+        await checkAutomationRules();
+
+        expect(handlersMock.TOGGLE_SETTING).toHaveBeenCalledWith(expect.objectContaining({
+            profileId: 'profile-override-999'
+        }));
+    });
 });

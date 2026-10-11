@@ -718,6 +718,25 @@ function initTabNavigation() {
 async function initializeApp() {
     console.log("[Init] Starting fault-tolerant app bootstrap...");
     
+    // Load device hostname aliases and listen for dynamic updates
+    try {
+        state.hostnameAliases = (await storage.get("hostnameAliases")) || {};
+    } catch (e) {
+        console.warn("[Init] Failed to load hostnameAliases:", e);
+    }
+
+    if (typeof browser !== 'undefined' && browser.storage?.onChanged && !window._hasAliasStorageListener) {
+        window._hasAliasStorageListener = true;
+        browser.storage.onChanged.addListener((changes) => {
+            if (changes.hostnameAliases) {
+                state.hostnameAliases = changes.hostnameAliases.newValue || {};
+                if (state.activeTab === 'logs') {
+                    renderLogs();
+                }
+            }
+        });
+    }
+
     // 1. Settings & Profile Detection (Critical)
     let settings = {};
     try {

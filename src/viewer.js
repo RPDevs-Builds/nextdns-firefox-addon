@@ -622,6 +622,7 @@ async function handleExportProfile() {
         a.href = url;
         a.download = `dns-forge-backup-${activeProfile}-${new Date().toISOString().slice(0,10)}.json`;
         a.click();
+        URL.revokeObjectURL(url);
         showToast("Profile configuration exported.", "success");
     } catch (e) {
         showToast("Export failed: " + e.message, "error");
@@ -989,6 +990,34 @@ async function handleSave() {
     try {
         if (activeTab === 'rewrites') {
             if (!activeProfile) throw new Error('Profile not detected.');
+            if (!note) throw new Error('Please enter a target IP or domain for the rewrite.');
+
+            // Validate domain name format: allow standard hostnames, domains, wildcard domains (e.g. *.example.com)
+            const domainRegex = /^[a-zA-Z0-9*_-]+(\.[a-zA-Z0-9*_-]+)*$/;
+            if (!domainRegex.test(key)) {
+                throw new Error('Invalid domain format for rewrite.');
+            }
+
+            // Check if editing an existing rewrite
+            const existingMeta = rewritesMeta[key];
+            if (inputKey.disabled && existingMeta) {
+                // If content hasn't changed, close modal without unnecessary requests
+                if (existingMeta.content === note) {
+                    editModal.style.display = 'none';
+                    return;
+                }
+                // NextDNS API doesn't support PUT/PATCH for rewrites; delete the previous entry before POSTing
+                const delRes = await browser.runtime.sendMessage({
+                    type: "DELETE_REWRITE",
+                    profileId: activeProfile,
+                    name: key,
+                    id: existingMeta.id || key
+                });
+                if (!delRes?.success) {
+                    throw new Error(delRes?.error || 'Failed to update existing rewrite.');
+                }
+            }
+
             const res = await browser.runtime.sendMessage({ type: "SAVE_REWRITE", profileId: activeProfile, name: key, content: note });
             if (!res?.success) throw new Error(res?.error || 'Failed to save rewrite.');
         } else {

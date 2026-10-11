@@ -43,14 +43,19 @@ export async function checkAutomationRules() {
             rule.lastRunDate = todayStr;
             rulesChanged = true;
 
+            const overrideProfileId = await storage.get("overrideProfileId");
             const activeProfile = await storage.get("activeProfile");
-            if (!activeProfile) continue;
+            const detectedProfileId = await storage.get("detectedProfileId");
+            const targetProfile = (overrideProfileId && overrideProfileId !== 'auto')
+                ? overrideProfileId
+                : (activeProfile || detectedProfileId || null);
+            if (!targetProfile) continue;
 
             const isService = (rule.category || '').toLowerCase().includes('services');
             const settingType = rule.settingType || (isService ? 'list' : 'boolean');
 
             await messageHandlers.TOGGLE_SETTING({
-                profileId: activeProfile,
+                profileId: targetProfile,
                 category: rule.category,
                 id: rule.targetId,
                 action: rule.action === 'enable' ? 'add' : 'delete',

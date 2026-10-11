@@ -255,11 +255,19 @@ export async function loadAnalytics() {
         ]);
 
         if (summary?.data && container) {
+            const queries = Number(summary.data.queries) || 0;
+            const blockedQueries = Number(summary.data.blockedQueries) || 0;
+            let rawBlockedPercent = summary.data.blockedPercent;
+            if (typeof rawBlockedPercent !== 'number' || isNaN(rawBlockedPercent)) {
+                rawBlockedPercent = queries > 0 ? (blockedQueries / queries) * 100 : 0;
+            }
+            const blockedPercent = Math.max(0, Math.min(100, Math.round(rawBlockedPercent * 10) / 10));
+
             const sData = series?.data || [];
             let trendHtml = "";
             if (sData.length > 5) {
-                const recent = sData.slice(-5).reduce((acc, curr) => acc + curr.queries, 0);
-                const previous = sData.slice(-10, -5).reduce((acc, curr) => acc + curr.queries, 0);
+                const recent = sData.slice(-5).reduce((acc, curr) => acc + (Number(curr.queries) || 0), 0);
+                const previous = sData.slice(-10, -5).reduce((acc, curr) => acc + (Number(curr.queries) || 0), 0);
                 const diff = recent - previous;
                 const percent = previous > 0 ? Math.round((diff / previous) * 100) : 0;
                 const color = diff > 0 ? 'var(--danger)' : 'var(--success)';
@@ -272,16 +280,16 @@ export async function loadAnalytics() {
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
                     <div style="text-align:center; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px;">
                         <div style="font-size:0.7em; text-transform:uppercase; opacity:0.6;">Total Queries</div>
-                        <div style="font-size:1.3em; font-weight:700; color:var(--accent);">${summary.data.queries.toLocaleString()}</div>
+                        <div style="font-size:1.3em; font-weight:700; color:var(--accent);">${queries.toLocaleString()}</div>
                     </div>
                     <div style="text-align:center; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px;">
                         <div style="font-size:0.7em; text-transform:uppercase; opacity:0.6;">Blocked</div>
-                        <div style="font-size:1.3em; font-weight:700; color:var(--danger);">${summary.data.blockedQueries.toLocaleString()}</div>
+                        <div style="font-size:1.3em; font-weight:700; color:var(--danger);">${blockedQueries.toLocaleString()}</div>
                     </div>
                 </div>
-                <div style="font-size:0.85em; margin-bottom:5px;">Block Rate: <strong>${summary.data.blockedPercent}%</strong></div>
+                <div style="font-size:0.85em; margin-bottom:5px;">Block Rate: <strong>${blockedPercent}%</strong></div>
                 <div style="width:100%; height:8px; background:rgba(255,255,255,0.1); border-radius:4px; overflow:hidden;">
-                    <div style="width:${summary.data.blockedPercent}%; height:100%; background:var(--danger);"></div>
+                    <div style="width:${blockedPercent}%; height:100%; background:var(--danger);"></div>
                 </div>
                 ${trendHtml}
             `;

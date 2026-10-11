@@ -119,4 +119,36 @@ describe('APIClient Unit Tests', () => {
         expect(res.response.status).toBe(200);
         expect(global.fetch).toHaveBeenCalledTimes(2);
     });
+
+    test('fetchWithRetry extracts detailed message from JSON errors array on 400 Bad Request', async () => {
+        const client = new APIClient();
+        global.fetch.mockResolvedValueOnce({
+            status: 400,
+            statusText: 'Bad Request',
+            ok: false,
+            clone: () => ({
+                json: async () => ({ errors: [{ message: "Domain name is invalid" }] })
+            })
+        });
+
+        const res = await client.fetchWithRetry("/profiles/xyz/rewrites", { method: 'POST' }, 1, 10);
+        expect(res.success).toBe(false);
+        expect(res.error).toBe("Domain name is invalid");
+    });
+
+    test('fetchWithRetry extracts error string from JSON error field on 403 Forbidden', async () => {
+        const client = new APIClient();
+        global.fetch.mockResolvedValueOnce({
+            status: 403,
+            statusText: 'Forbidden',
+            ok: false,
+            clone: () => ({
+                json: async () => ({ error: "Invalid API key" })
+            })
+        });
+
+        const res = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(res.success).toBe(false);
+        expect(res.error).toBe("Invalid API key");
+    });
 });

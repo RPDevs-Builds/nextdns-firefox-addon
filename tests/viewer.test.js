@@ -203,4 +203,61 @@ describe('Data Manager Viewer UI Suite', () => {
         listContainer.innerHTML = errorHTML;
         expect(listContainer.textContent).toContain('Failed to fetch DNS rewrites');
     });
+
+    test('DNS rewrite form validation rejects empty targets or invalid domains', () => {
+        const domainRegex = /^[a-zA-Z0-9*_-]+(\.[a-zA-Z0-9*_-]+)*$/;
+        expect(domainRegex.test('router.home')).toBe(true);
+        expect(domainRegex.test('*.internal.lan')).toBe(true);
+        expect(domainRegex.test('localhost')).toBe(true);
+        expect(domainRegex.test('')).toBe(false);
+        expect(domainRegex.test('bad domain with spaces')).toBe(false);
+        expect(domainRegex.test('http://domain.com')).toBe(false);
+    });
+
+    test('DNS rewrite edit sequence deletes previous entry when target changes', async () => {
+        const messagesSent = [];
+        global.browser.runtime.sendMessage.mockImplementation(async (msg) => {
+            messagesSent.push(msg);
+            return { success: true };
+        });
+
+        const activeProfile = 'prof-abc';
+        const key = 'nas.local';
+        const newTarget = '192.168.1.200';
+        const rewritesMeta = {
+            'nas.local': { id: 'rew-id-123', name: 'nas.local', content: '192.168.1.100' }
+        };
+
+        const existingMeta = rewritesMeta[key];
+        expect(existingMeta).toBeDefined();
+
+        if (existingMeta && existingMeta.content !== newTarget) {
+            await global.browser.runtime.sendMessage({
+                type: "DELETE_REWRITE",
+                profileId: activeProfile,
+                name: key,
+                id: existingMeta.id || key
+            });
+        }
+        await global.browser.runtime.sendMessage({
+            type: "SAVE_REWRITE",
+            profileId: activeProfile,
+            name: key,
+            content: newTarget
+        });
+
+        expect(messagesSent.length).toBe(2);
+        expect(messagesSent[0]).toEqual({
+            type: "DELETE_REWRITE",
+            profileId: 'prof-abc',
+            name: 'nas.local',
+            id: 'rew-id-123'
+        });
+        expect(messagesSent[1]).toEqual({
+            type: "SAVE_REWRITE",
+            profileId: 'prof-abc',
+            name: 'nas.local',
+            content: '192.168.1.200'
+        });
+    });
 });

@@ -441,4 +441,55 @@ describe('Background Script - Full Coverage Suite', () => {
       expect.objectContaining({ method: 'DELETE' })
     );
   });
+
+  test('Message Handler - TOGGLE_SETTING error propagation on failure', async () => {
+    await bg.initializeBackground();
+
+    fetchMock.mockImplementation(async (url, options) => {
+      if (url.includes('/profiles/profile123/security') && options?.method === 'PATCH') {
+        return {
+          ok: false,
+          status: 400,
+          statusText: 'Bad Request',
+          clone: () => ({
+            json: async () => ({ errors: [{ message: "Setting not supported" }] })
+          })
+        };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const res = await new Promise(resolve => {
+      messageHandlerRef({
+        type: 'TOGGLE_SETTING',
+        profileId: 'profile123',
+        category: 'security',
+        id: 'bad-setting',
+        action: 'add',
+        settingType: 'boolean'
+      }, {}, resolve);
+    });
+
+    expect(res.success).toBe(false);
+    expect(res.error).toBe("Setting not supported");
+  });
+
+  test('Message Handler - GET_ALL_SETTINGS succeeds even if one category has empty/malformed json', async () => {
+    await bg.initializeBackground();
+
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/security')) {
+        return { ok: true, json: async () => { throw new Error("Malformed JSON"); } };
+      }
+      return { ok: true, json: async () => ({ data: { test: true } }) };
+    });
+
+    const res = await new Promise(resolve => {
+      messageHandlerRef({ type: 'GET_ALL_SETTINGS', profileId: 'profile123' }, {}, resolve);
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.data).toBeDefined();
+    expect(res.data.security).toEqual({});
+  });
 });

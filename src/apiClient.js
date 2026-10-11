@@ -66,7 +66,18 @@ export class APIClient {
 
                 // If Rate Limited (429) or Server Error (50x), retry
                 if (response.status === 429 || response.status >= 500) {
-                    if (i === retries - 1) return { success: false, response, error: `HTTP ${response.status}` };
+                    if (i === retries - 1) {
+                        let errMsg = `HTTP ${response.status}`;
+                        try {
+                            const cloned = typeof response.clone === 'function' ? response.clone() : response;
+                            if (typeof cloned.json === 'function') {
+                                const errData = await cloned.json();
+                                if (errData?.errors?.[0]?.message) errMsg = String(errData.errors[0].message);
+                                else if (errData?.error) errMsg = String(typeof errData.error === 'object' ? errData.error.message : errData.error);
+                            }
+                        } catch (_) {}
+                        return { success: false, response, error: errMsg };
+                    }
                     
                     const retryAfter = response.headers?.get ? response.headers.get("Retry-After") : null;
                     const delay = retryAfter ? parseInt(retryAfter) * 1000 : backoffMs * Math.pow(2, i);
@@ -78,7 +89,26 @@ export class APIClient {
 
                 if (!response.ok) {
                     const statusText = response.statusText ? ` ${response.statusText}` : '';
-                    return { success: false, response, error: `HTTP ${response.status}${statusText}` };
+                    let errMsg = `HTTP ${response.status}${statusText}`;
+                    try {
+                        const cloned = typeof response.clone === 'function' ? response.clone() : response;
+                        if (typeof cloned.json === 'function') {
+                            const errData = await cloned.json();
+                            if (errData) {
+                                if (Array.isArray(errData.errors) && errData.errors.length > 0) {
+                                    const first = errData.errors[0];
+                                    const detail = typeof first === 'object' && first ? (first.message || first.detail) : first;
+                                    if (detail) errMsg = String(detail);
+                                } else if (errData.error) {
+                                    const detail = typeof errData.error === 'object' && errData.error ? errData.error.message : errData.error;
+                                    if (detail) errMsg = String(detail);
+                                } else if (errData.message) {
+                                    errMsg = String(errData.message);
+                                }
+                            }
+                        }
+                    } catch (_) {}
+                    return { success: false, response, error: errMsg };
                 }
 
                 return { success: true, response };

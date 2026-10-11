@@ -234,8 +234,7 @@ export const messageHandlers = {
         
         console.log(`[Handler] TOGGLE_SETTING Result: ${r.success ? 'Success' : 'Failed'}`);
         if (!r.success) {
-            const errorText = await r.response?.text().catch(() => 'No response body');
-            console.error(`[Handler] TOGGLE_SETTING Error: ${errorText}`);
+            console.error(`[Handler] TOGGLE_SETTING Error: ${r.error || 'Unknown error'}`);
         }
         
         // --- Mirror Mode Logic ---
@@ -255,7 +254,9 @@ export const messageHandlers = {
             }
         }
 
-        return { success: r.success };
+        const out = { success: r.success };
+        if (r.error) out.error = r.error;
+        return out;
     },
     /**
      * Fetches all configuration categories (security, privacy, etc.) for a profile.
@@ -269,7 +270,7 @@ export const messageHandlers = {
         const data = {};
         for (let i = 0; i < categories.length; i++) {
             if (results[i].success) {
-                const json = await results[i].response.json();
+                const json = await results[i].response.json().catch(() => ({}));
                 data[categories[i]] = json.data || json;
             }
         }
@@ -301,7 +302,7 @@ export const messageHandlers = {
 
         const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/logs?raw=1`, { cache: 'no-store' });
         if (!r.success) return { success: false, error: "Failed to fetch logs" };
-        const logsData = await r.response.json();
+        const logsData = await r.response.json().catch(() => ({}));
         const logs = logsData.data || [];
 
         const correlations = [];

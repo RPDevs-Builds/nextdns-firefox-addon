@@ -1,7 +1,30 @@
 const INTERNAL_API = "https://api.nextdns.io/profiles";
 
 let webGuiConfig = { master: true, tlds: true, blocklists: true, logs: true, desc: true, notes: true, filter: true, forcedTheme: 'default' };
-let domSelectors = null;
+const DEFAULT_DOM_SELECTORS = {
+  dashboard: {
+    tldHeader: {
+      selector: "h5",
+      textMatches: "Block Top-Level Domains (TLDs)"
+    },
+    blocklistHeader: {
+      selector: "h5",
+      textMatches: "Blocklists"
+    },
+    logsHeader: {
+      selector: ".Logs .list-group-item.bg-2 .d-md-flex"
+    },
+    logRows: {
+      selector: ".list-group-item"
+    },
+    apiInputKey: {
+      selector: "input.api-key, code, input[type='text']",
+      patternMatches: "^[a-f0-9]{24}$"
+    }
+  }
+};
+
+let domSelectors = DEFAULT_DOM_SELECTORS;
 let hostnameAliases = {};
 
 // Initialize config and listen for live changes
@@ -10,9 +33,14 @@ async function initConfig() {
   try {
     const url = browser.runtime.getURL("src/domSelectors.json");
     const res = await fetch(url);
-    domSelectors = await res.json();
+    if (res.ok) {
+      const loaded = await res.json();
+      if (loaded && typeof loaded === 'object') {
+        domSelectors = loaded;
+      }
+    }
   } catch (e) {
-    console.error("[DNS Forge] Failed to load domSelectors.json", e);
+    console.warn("[DNS Forge] Using default fallback selectors (domSelectors.json load bypassed):", e);
   }
 
   const sync = await browser.storage.sync.get(["webGuiMaster", "webGuiTlds", "webGuiBlocklists", "webGuiLogActions", "webGuiDesc", "webGuiProfileNotes", "webGuiFilter", "webGuiForcedTheme", "hostnameAliases"]);
