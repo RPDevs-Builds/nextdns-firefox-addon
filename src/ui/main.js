@@ -1073,7 +1073,7 @@ export async function initSettingsUI() {
         return data;
     } catch (e) { 
         console.error("[Init] Settings UI core failed:", e); 
-        return {};
+        throw e;
     }
 }
 

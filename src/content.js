@@ -632,7 +632,6 @@ async function injectLogsSettingsControls() {
   textWrapper.appendChild(manageBtn);
   group.appendChild(switchWrapper);
   group.appendChild(textWrapper);
-  updateFilterCountBadge();
   
   // Phase 2.5: Compact Mode, Highlighting, and Search
   const extraControls = document.createElement('div');
@@ -691,6 +690,7 @@ async function injectLogsSettingsControls() {
   group.appendChild(extraControls);
 
   headerContainer.appendChild(group);
+  updateFilterCountBadge();
 
   const applyLogStyles = () => {
       const isCompact = document.getElementById('nxm-logs-compact')?.checked;

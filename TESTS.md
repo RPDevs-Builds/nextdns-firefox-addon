@@ -4,19 +4,19 @@
 
 - **Test Framework**: Jest v30.5.2 with `jest-environment-jsdom`, `jest-webextension-mock`, and `jest-fetch-mock`.
 - **Total Test Suites**: **24 passed, 24 total** (100% Suite Pass Rate).
-- **Total Unit Tests**: **347 passed, 347 total** (100% Test Pass Rate, 0 failures).
-- **Global Coverage**: **98.66% Lines** | **96.25% Statements** | **94.26% Functions** | **82.04% Branches**.
-- **100% Line Coverage Modules**: **19 of 20 Source Modules** at 100.0% line coverage (including all 8 background modules and 8 of 9 UI modules).
+- **Total Unit Tests**: **348 passed, 348 total** (100% Test Pass Rate, 0 failures).
+- **Global Coverage**: **100.0% Lines** | **97.79% Statements** | **95.98% Functions** | **83.42% Branches**.
+- **100% Line Coverage Modules**: **All 20 Source Modules** at **100.0% line coverage** (100% across `src/`, `src/background/`, and `src/ui/`).
 - **Mozilla AMO Compliance**: 0 errors, 0 warnings, 0 notices via `addons-linter`.
 
 ### Enforced Coverage Thresholds (`package.json`)
 
 | Metric | Enforced Threshold | Achieved Level | Margin |
 | :--- | :---: | :---: | :---: |
-| **Lines** | `98%` | **98.66%** | +0.66% |
-| **Statements** | `96%` | **96.25%** | +0.25% |
-| **Functions** | `93%` | **94.26%** | +1.26% |
-| **Branches** | `80%` | **82.04%** | +2.04% |
+| **Lines** | `98%` | **100.0%** | +2.00% |
+| **Statements** | `96%` | **97.79%** | +1.79% |
+| **Functions** | `93%` | **95.98%** | +2.98% |
+| **Branches** | `80%` | **83.42%** | +3.42% |
 
 ### Test Execution Commands
 
@@ -40,11 +40,11 @@ npm run test:watch
 
 | File / Subdirectory | % Lines | % Statements | % Functions | % Branches | Status |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **All Files Combined** | **98.66%** | **96.25%** | **94.26%** | **82.04%** | 🏆 **Peak Quality** |
+| **All Files Combined** | **100.0%** | **97.79%** | **95.98%** | **83.42%** | 🏆 **100% Line Coverage Milestone** |
 | [`src/apiClient.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/apiClient.js) | **100.0%** | **100.0%** | **100.0%** | 87.77% | 🎯 100% Lines & Functions |
+| [`src/content.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/content.js) | **100.0%** | 96.90% | 96.75% | 81.28% | 🎯 100% Lines |
 | [`src/metadataManager.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/metadataManager.js) | **100.0%** | **100.0%** | **100.0%** | **100.0%** | 🎯 100% Everywhere |
 | [`src/storage.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/storage.js) | **100.0%** | 97.56% | 94.11% | 90.90% | 🎯 100% Lines |
-| [`src/content.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/content.js) | 96.44% | 92.81% | 90.90% | 75.37% | High Coverage |
 | **`src/background/` (All 8 Modules)** | **100.0%** | **97.49%** | **93.45%** | **82.33%** | 🏆 **100% Lines Across Directory** |
 | [`src/background/api.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/api.js) | **100.0%** | 96.56% | 79.16% | 84.23% | 🎯 100% Lines |
 | [`src/background/handlers.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/handlers.js) | **100.0%** | 96.11% | 96.00% | 75.00% | 🎯 100% Lines |
@@ -54,14 +54,14 @@ npm run test:watch
 | [`src/background/scheduler.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/scheduler.js) | **100.0%** | **100.0%** | **100.0%** | 95.91% | 🎯 100% Lines & Functions |
 | [`src/background/state.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/state.js) | **100.0%** | **100.0%** | **100.0%** | **100.0%** | 🎯 100% Everywhere |
 | [`src/background/utils.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/utils.js) | **100.0%** | **100.0%** | **100.0%** | 95.00% | 🎯 100% Lines & Functions |
-| **`src/ui/` (9 Modules)** | **99.48%** | **97.87%** | **96.55%** | **83.66%** | 🏆 **Near-Perfect Coverage** |
+| **`src/ui/` (All 8 Modules)** | **100.0%** | **98.49%** | **96.55%** | **84.16%** | 🏆 **100% Lines Across Directory** |
 | [`src/ui/blocks.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/blocks.js) | **100.0%** | 98.42% | 97.72% | 83.62% | 🎯 100% Lines |
 | [`src/ui/dashboard.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/dashboard.js) | **100.0%** | 97.94% | 96.87% | 85.16% | 🎯 100% Lines |
-| [`src/ui/main.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/main.js) | **98.75%** | 97.84% | 93.47% | 83.20% | High Coverage |
-| [`src/ui/notifications.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/notifications.js) | **100.0%** | 96.07% | **100.0%** | 89.13% | 🎯 100% Lines & Functions |
+| [`src/ui/main.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/main.js) | **100.0%** | 98.92% | 93.47% | 83.99% | 🎯 100% Lines |
+| [`src/ui/notifications.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/notifications.js) | **100.0%** | **100.0%** | **100.0%** | 93.47% | 🎯 100% Lines & Functions |
 | [`src/ui/scheduler.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/scheduler.js) | **100.0%** | **100.0%** | **100.0%** | 78.94% | 🎯 100% Lines & Functions |
 | [`src/ui/state.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/state.js) | **100.0%** | **100.0%** | **100.0%** | **100.0%** | 🎯 100% Everywhere |
-| [`src/ui/theme.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/theme.js) | **100.0%** | 95.78% | **100.0%** | 76.98% | 🎯 100% Lines & Functions |
+| [`src/ui/theme.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/theme.js) | **100.0%** | 96.31% | **100.0%** | 77.77% | 🎯 100% Lines & Functions |
 | [`src/ui/tools.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/tools.js) | **100.0%** | **100.0%** | **100.0%** | 81.15% | 🎯 100% Lines & Functions |
 | [`src/ui/utils.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/utils.js) | **100.0%** | 98.18% | **100.0%** | 94.54% | 🎯 100% Lines & Functions |
 
@@ -200,39 +200,40 @@ npm run test:watch
 
 - **Target File(s)**: `src/content.js, src/content.css`
 - **Category**: **Content Scripts & Web GUI**
-- **Total Tests**: **28 tests**
+- **Total Tests**: **29 tests**
 - **Overview**: DOM injections into NextDNS console (my.nextdns.io), forced dark mode log border highlight preservation, TLD bulk actions, log filtering modals, live search exclusions, and metadata scrapers.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
 | :--- | :--- | :--- | :---: |
-| 1 | Initializes content script, loads selectors, and configures collapsible headers | *Content Script (NextDNS Web Console Enhancements)* | [L88](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L88) |
-| 2 | runtime.onMessage handles TOGGLE_TLD_LIST and TOGGLE_BLOCKLIST_LIST | *Content Script (NextDNS Web Console Enhancements)* | [L111](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L111) |
-| 3 | Extracts API key when on account page | *Content Script (NextDNS Web Console Enhancements)* | [L131](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L131) |
-| 4 | Storage onChanged listener updates live config and cleans up UI when master disabled | *Content Script (NextDNS Web Console Enhancements)* | [L146](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L146) |
-| 5 | Device Aliases replaces spans with friendly names and detailed tooltips | *Content Script (NextDNS Web Console Enhancements)* | [L176](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L176) |
-| 6 | Blocklist Modal Sort button sorts modal list items alphabetically | *Content Script (NextDNS Web Console Enhancements)* | [L198](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L198) |
-| 7 | Network Error modal suppression hides modal and presents reconnecting toast | *Content Script (NextDNS Web Console Enhancements)* | [L227](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L227) |
-| 8 | Privacy controls filter blocklists and toggle list rollup | *Content Script (NextDNS Web Console Enhancements)* | [L245](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L245) |
-| 9 | Bulk Add button on allowlist/denylist page splits domains and dispatches messages | *Content Script (NextDNS Web Console Enhancements)* | [L283](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L283) |
-| 10 | Profile note and switcher are injected into header | *Content Script (NextDNS Web Console Enhancements)* | [L319](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L319) |
-| 11 | Logs page controls and filter toggle are injected into logs view | *Content Script (NextDNS Web Console Enhancements)* | [L367](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L367) |
-| 12 | TLD page buttons enable search filtering and list toggling | *Content Script (NextDNS Web Console Enhancements)* | [L394](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L394) |
-| 13 | browser.runtime.onMessage handles TOGGLE_TLD_LIST and TOGGLE_BLOCKLIST_LIST | *Content Script (NextDNS Web Console Enhancements)* | [L428](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L428) |
-| 14 | injectHeaderFilteredLogsButton injects eye button and dropdown item | *Content Script (NextDNS Web Console Enhancements)* | [L449](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L449) |
-| 15 | applyDomainListStyling injects Sort A-Z button and styles domain items | *Content Script (NextDNS Web Console Enhancements)* | [L477](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L477) |
-| 16 | Domain notes and bulk management checkboxes on allowlist | *Content Script (NextDNS Web Console Enhancements)* | [L518](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L518) |
-| 17 | Log row actions (Allow, Deny, Hide) and live timestamps | *Content Script (NextDNS Web Console Enhancements)* | [L595](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L595) |
-| 18 | Filtered logs modal manager: adding, searching, deleting, and clearing filters | *Content Script (NextDNS Web Console Enhancements)* | [L652](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L652) |
-| 19 | Scrapes parental services, blocklists, and TLDs when visiting respective pages | *Content Script (NextDNS Web Console Enhancements)* | [L738](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L738) |
-| 20 | TLD bulk modal buttons: Enable All, Disable All, and Restore | *Content Script (NextDNS Web Console Enhancements)* | [L804](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L804) |
-| 21 | Profile note click in header prompts user and saves to storage | *Content Script (NextDNS Web Console Enhancements)* | [L852](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L852) |
-| 22 | Forced dark mode preserves NextDNS allowed, denied, and relayed log border highlights and applies high-contrast row tints | *Content Script (NextDNS Web Console Enhancements)* | [L883](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L883) |
-| 23 | Logs search with negative syntax and compact mode toggle | *Content Script (NextDNS Web Console Enhancements)* | [L934](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L934) |
-| 24 | Log filters regex, wildcard, and subdomain pattern matching | *Content Script (NextDNS Web Console Enhancements)* | [L981](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L981) |
-| 25 | Header profile switcher and dropdown manage filtered logs button | *Content Script (NextDNS Web Console Enhancements)* | [L1020](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1020) |
-| 26 | Root domain equality sorting and bulk add input validations | *Content Script (NextDNS Web Console Enhancements)* | [L1057](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1057) |
-| 27 | Content Script - comprehensive coverage for profile switcher, TLD restore, and account dropdown | *Content Script (NextDNS Web Console Enhancements)* | [L1106](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1106) |
-| 28 | Content Script - Section collapsing, log actions, search exclusions, and scraping edge cases | *Content Script (NextDNS Web Console Enhancements)* | [L1183](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1183) |
+| 1 | Initializes content script, loads selectors, and configures collapsible headers | *Content Script (NextDNS Web Console Enhancements)* | [L91](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L91) |
+| 2 | runtime.onMessage handles TOGGLE_TLD_LIST and TOGGLE_BLOCKLIST_LIST | *Content Script (NextDNS Web Console Enhancements)* | [L114](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L114) |
+| 3 | Extracts API key when on account page | *Content Script (NextDNS Web Console Enhancements)* | [L134](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L134) |
+| 4 | Storage onChanged listener updates live config and cleans up UI when master disabled | *Content Script (NextDNS Web Console Enhancements)* | [L149](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L149) |
+| 5 | Device Aliases replaces spans with friendly names and detailed tooltips | *Content Script (NextDNS Web Console Enhancements)* | [L179](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L179) |
+| 6 | Blocklist Modal Sort button sorts modal list items alphabetically | *Content Script (NextDNS Web Console Enhancements)* | [L201](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L201) |
+| 7 | Network Error modal suppression hides modal and presents reconnecting toast | *Content Script (NextDNS Web Console Enhancements)* | [L230](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L230) |
+| 8 | Privacy controls filter blocklists and toggle list rollup | *Content Script (NextDNS Web Console Enhancements)* | [L248](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L248) |
+| 9 | Bulk Add button on allowlist/denylist page splits domains and dispatches messages | *Content Script (NextDNS Web Console Enhancements)* | [L286](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L286) |
+| 10 | Profile note and switcher are injected into header | *Content Script (NextDNS Web Console Enhancements)* | [L322](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L322) |
+| 11 | Logs page controls and filter toggle are injected into logs view | *Content Script (NextDNS Web Console Enhancements)* | [L370](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L370) |
+| 12 | TLD page buttons enable search filtering and list toggling | *Content Script (NextDNS Web Console Enhancements)* | [L397](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L397) |
+| 13 | browser.runtime.onMessage handles TOGGLE_TLD_LIST and TOGGLE_BLOCKLIST_LIST | *Content Script (NextDNS Web Console Enhancements)* | [L431](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L431) |
+| 14 | injectHeaderFilteredLogsButton injects eye button and dropdown item | *Content Script (NextDNS Web Console Enhancements)* | [L452](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L452) |
+| 15 | applyDomainListStyling injects Sort A-Z button and styles domain items | *Content Script (NextDNS Web Console Enhancements)* | [L480](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L480) |
+| 16 | Domain notes and bulk management checkboxes on allowlist | *Content Script (NextDNS Web Console Enhancements)* | [L521](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L521) |
+| 17 | Log row actions (Allow, Deny, Hide) and live timestamps | *Content Script (NextDNS Web Console Enhancements)* | [L598](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L598) |
+| 18 | Filtered logs modal manager: adding, searching, deleting, and clearing filters | *Content Script (NextDNS Web Console Enhancements)* | [L655](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L655) |
+| 19 | Scrapes parental services, blocklists, and TLDs when visiting respective pages | *Content Script (NextDNS Web Console Enhancements)* | [L741](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L741) |
+| 20 | TLD bulk modal buttons: Enable All, Disable All, and Restore | *Content Script (NextDNS Web Console Enhancements)* | [L807](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L807) |
+| 21 | Profile note click in header prompts user and saves to storage | *Content Script (NextDNS Web Console Enhancements)* | [L855](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L855) |
+| 22 | Forced dark mode preserves NextDNS allowed, denied, and relayed log border highlights and applies high-contrast row tints | *Content Script (NextDNS Web Console Enhancements)* | [L886](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L886) |
+| 23 | Logs search with negative syntax and compact mode toggle | *Content Script (NextDNS Web Console Enhancements)* | [L937](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L937) |
+| 24 | Log filters regex, wildcard, and subdomain pattern matching | *Content Script (NextDNS Web Console Enhancements)* | [L984](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L984) |
+| 25 | Header profile switcher and dropdown manage filtered logs button | *Content Script (NextDNS Web Console Enhancements)* | [L1023](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1023) |
+| 26 | Root domain equality sorting and bulk add input validations | *Content Script (NextDNS Web Console Enhancements)* | [L1060](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1060) |
+| 27 | Content Script - comprehensive coverage for profile switcher, TLD restore, and account dropdown | *Content Script (NextDNS Web Console Enhancements)* | [L1109](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1109) |
+| 28 | Content Script - Section collapsing, log actions, search exclusions, and scraping edge cases | *Content Script (NextDNS Web Console Enhancements)* | [L1345](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1345) |
+| 29 | Content Script - fallback selectors when domSelectors fetch fails or lacks definitions | *Content Script (NextDNS Web Console Enhancements)* | [L1534](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1534) |
 
 ---
 
@@ -632,10 +633,10 @@ npm run test:watch
 | 48 | loadProfiles and refreshActiveProfileAndUI error handling branches | *Global Event Listeners and Delegations* | [L925](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L925) |
 | 49 | header controls, web GUI customize toggles, and live listeners | *Global Event Listeners and Delegations* | [L937](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L937) |
 | 50 | initSettingsUI debounced apiKey input and error recovery | *Global Event Listeners and Delegations* | [L985](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L985) |
-| 51 | UI Main Module - comprehensive branch and error recovery coverage | *Global Event Listeners and Delegations* | [L1021](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1021) |
-| 52 | Exhaustive coverage of UI Main edge cases, listeners, filters, and fallbacks | *Global Event Listeners and Delegations* | [L1105](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1105) |
-| 53 | UI Main - handleAddDomain empty, handleBulkAdd, sub-tabs, alerts, and mirror UI | *Global Event Listeners and Delegations* | [L1332](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1332) |
-| 54 | UI Main - alerts settings listeners, web GUI toggles, and profile status catch blocks | *Global Event Listeners and Delegations* | [L1409](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1409) |
+| 51 | UI Main Module - comprehensive branch and error recovery coverage | *Global Event Listeners and Delegations* | [L1020](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1020) |
+| 52 | Exhaustive coverage of UI Main edge cases, listeners, filters, and fallbacks | *Global Event Listeners and Delegations* | [L1104](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1104) |
+| 53 | UI Main - handleAddDomain empty, handleBulkAdd, sub-tabs, alerts, and mirror UI | *Global Event Listeners and Delegations* | [L1331](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1331) |
+| 54 | UI Main - alerts settings listeners, web GUI toggles, and profile status catch blocks | *Global Event Listeners and Delegations* | [L1430](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1430) |
 
 ---
 

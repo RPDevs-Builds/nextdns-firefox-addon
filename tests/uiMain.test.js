@@ -1008,8 +1008,7 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             const { storage } = await import('../src/storage.js');
             const origGet = storage.get;
             storage.get = jest.fn().mockRejectedValueOnce(new Error('Storage unreadable'));
-            const res = await uiMain.initSettingsUI();
-            expect(res).toEqual({});
+            await expect(uiMain.initSettingsUI()).rejects.toThrow('Storage unreadable');
             storage.get = origGet;
 
             // 3. loadAlertSettings error catch
@@ -1348,6 +1347,14 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             browser.runtime.sendMessage.mockResolvedValue({ success: true });
             await uiMain.handleBulkAdd();
 
+            // handleBulkAdd error catch (line 210)
+            document.getElementById('list-bulk-domains').value = 'faildomain.com';
+            const bulkContainer = document.getElementById('list-bulk-container');
+            Object.defineProperty(bulkContainer, 'classList', {
+                get() { throw new Error('Bulk container DOM error'); }
+            });
+            await uiMain.handleBulkAdd();
+
             // 3. Sub-tab switching for settings customize, alerts, and schedules (lines 357-367)
             document.body.innerHTML = `
                 <div class="tab-content" id="tab-settings">
@@ -1400,9 +1407,23 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             const savedMirror = await storageMod.get('mirrorProfiles');
             expect(savedMirror).toEqual(['prof-2']);
 
+            // Test initMirrorModeUI catch block (line 880)
+            browser.runtime.sendMessage.mockImplementationOnce(() => { throw new Error('Mirror UI error'); });
+            await uiMain.initMirrorModeUI();
+
             // 5. refreshActiveProfileAndUI failure catch (lines 1012-1013)
-            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Fatal background error'));
+            const logsLink = document.createElement('a');
+            logsLink.id = 'web-gui-logs-link';
+            Object.defineProperty(logsLink, 'href', {
+                set() { throw new Error('Forced error in updateDynamicLinks href setter'); }
+            });
+            document.body.appendChild(logsLink);
+
+            browser.runtime.sendMessage.mockResolvedValueOnce({ id: 'prof-err', name: 'Error Prof' });
+            browser.runtime.sendMessage.mockResolvedValueOnce({ networkStatus: { isConnected: true } });
+            
             const res = await uiMain.refreshActiveProfileAndUI();
+            logsLink.remove();
             expect(res).toBeNull();
         });
 
@@ -1438,6 +1459,28 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             await new Promise(r => setTimeout(r, 20));
             expect(document.getElementById('web-gui-features').style.opacity).toBe('0.5');
 
+            // Color inputs event listeners (lines 519-520)
+            const bgInput = document.createElement('input');
+            bgInput.id = 'color-bg-main';
+            bgInput.type = 'color';
+            document.body.appendChild(bgInput);
+            uiMain.initGlobalEventListeners();
+            bgInput.value = '#112233';
+            bgInput.dispatchEvent(new Event('input'));
+            bgInput.dispatchEvent(new Event('change'));
+            expect(document.body.style.getPropertyValue('--bg-main')).toBe('#112233');
+
+            // Sub-tab toggles click (lines 348-349)
+            const togglesTab = document.createElement('div');
+            togglesTab.id = 'tab-toggles';
+            togglesTab.className = 'tab-content';
+            togglesTab.innerHTML = `<button class="sub-tab-btn" data-sub="subcat1">Sub 1</button>`;
+            document.body.appendChild(togglesTab);
+            uiMain.initGlobalEventListeners();
+            const subToggleBtn = togglesTab.querySelector('.sub-tab-btn');
+            subToggleBtn.onclick();
+            expect(stateModule.state.activeBlocksSubTab).toBe('subcat1');
+
             const forcedThemeSelect = document.getElementById('web-gui-forced-theme');
             forcedThemeSelect.dispatchEvent(new Event('change'));
             await new Promise(r => setTimeout(r, 20));
@@ -1452,6 +1495,58 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             const unconfProf = await uiMain.refreshActiveProfileAndUI();
             expect(unconfProf).toBeNull();
             expect(document.getElementById('profile-status').textContent).toContain('Unconfigured');
+
+            // Delegated dynamic toggles without state.activeProfile (lines 610 and 644)
+            const { storage: realStorage } = await import('../src/storage.js');
+            await realStorage.set('activeProfile', 'stored-prof-99');
+            stateModule.state.activeProfile = '';
+            browser.runtime.sendMessage.mockResolvedValue({ success: true });
+
+            document.body.innerHTML = `
+                <input type="checkbox" class="api-toggle" data-cat="security" data-id="ai_threats" data-type="toggle" />
+                <button class="api-toggle-btn" data-cat="privacy" data-id="native_tracking" data-type="btn" data-active="false">Enable</button>
+            `;
+            uiMain.initGlobalEventListeners();
+
+            const dynToggle = document.querySelector('.api-toggle');
+            dynToggle.checked = true;
+            dynToggle.dispatchEvent(new Event('change', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 60));
+            expect(stateModule.state.activeProfile).toBe('stored-prof-99');
+
+            stateModule.state.activeProfile = '';
+            const dynBtn = document.querySelector('.api-toggle-btn');
+            dynBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 60));
+            expect(stateModule.state.activeProfile).toBe('stored-prof-99');
+
+            // initializeApp service failures (lines 760 and 791)
+            const { storage: uiStorage } = await import('../src/storage.js');
+            const origStorageGet = uiStorage.get;
+            uiStorage.get = jest.fn().mockRejectedValueOnce(new Error('initSettingsUI fail'));
+            // Cause service to fail (line 791)
+            const badLink = document.createElement('a');
+            badLink.id = 'web-gui-profile-link';
+            Object.defineProperty(badLink, 'href', {
+                set() { throw new Error('Service failure in updateDynamicLinks'); }
+            });
+            document.body.appendChild(badLink);
+
+            const cleanupApp = await uiMain.initializeApp();
+            uiStorage.get = origStorageGet;
+            badLink.remove();
+            if (typeof cleanupApp === 'function') cleanupApp();
+
+            // Sync UI setup catch (line 66)
+            const origQSA = document.querySelectorAll;
+            document.querySelectorAll = function(sel) {
+                if (sel === '.tab-btn') throw new Error('Sync UI crash');
+                return origQSA.apply(this, arguments);
+            };
+            // Trigger DOMContentLoaded
+            window.document.dispatchEvent(new Event('DOMContentLoaded'));
+            await new Promise(r => setTimeout(r, 60));
+            document.querySelectorAll = origQSA;
         });
     });
 });

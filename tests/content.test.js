@@ -4,6 +4,9 @@
  */
 
 import { jest, beforeEach, describe, test, expect } from '@jest/globals';
+import { TextEncoder, TextDecoder } from 'util';
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
 
 describe('Content Script (NextDNS Web Console Enhancements)', () => {
     let storageChangedListener;
@@ -1104,41 +1107,206 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
     });
 
     test('Content Script - comprehensive coverage for profile switcher, TLD restore, and account dropdown', async () => {
-        // 1. Profile Switcher navigation
+        // Set up DOM with navbar, TLD list, and mock window navigation
+        document.body.innerHTML = `
+            <nav class="navbar">
+                <div class="container-fluid">
+                    <a class="navbar-brand">NextDNS</a>
+                </div>
+            </nav>
+            <div class="list-group">
+                <div class="list-group-item">
+                    <h5>Block Top-Level Domains (TLDs)</h5>
+                </div>
+                <div class="list-group-item">.xyz</div>
+                <div class="list-group-item">.top</div>
+            </div>
+            <div class="modal-dialog">
+                <div class="list-group-item">.xyz</div>
+                <div class="list-group-item">.top</div>
+                <div class="list-group-item">.online</div>
+            </div>
+        `;
         window.history.pushState({}, '', '/abc123/security');
+
+        global.browser.runtime.sendMessage = jest.fn().mockImplementation((msg) => {
+            if (msg.type === 'GET_PROFILES_LIST') {
+                return Promise.resolve({
+                    success: true,
+                    data: [
+                        { id: 'abc123', name: 'Profile 1' },
+                        { id: 'def456', name: 'Profile 2' }
+                    ]
+                });
+            }
+            return Promise.resolve({ success: true });
+        });
+
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // 1. Profile Switcher navigation (lines 1485-1492)
         const switcher = document.getElementById('nxm-profile-switcher');
-        if (switcher) {
-            delete window.location;
-            window.location = { pathname: '/abc123/security', assign: jest.fn() };
-            switcher.value = 'def456';
-            switcher.onchange({ target: { value: 'def456' } });
-            expect(window.location.assign).toHaveBeenCalledWith('/def456/security');
-        }
+        expect(switcher).not.toBeNull();
 
-        // 2. TLD Restore handler with and without backup
+        // Non-string value
+        switcher.onchange({ target: { value: null } });
+
+        // Non-matching regex ID
+        switcher.onchange({ target: { value: 'invalid_id_with_symbols!' } });
+
+        // Pathname mismatch
+        window.history.pushState({}, '', '/invalidpath');
+        switcher.onchange({ target: { value: 'def456' } });
+
+        // Valid navigation (line 1492)
+        window.history.pushState({}, '', '/abc123/security');
+        switcher.value = 'def456';
+        switcher.onchange({ target: { value: 'def456' } });
+
+        // 2. TLD toggle list collapse / uncollapse (lines 525-526)
+        const toggleBtn = document.getElementById('nxm-toggle-table');
+        expect(toggleBtn).not.toBeNull();
+        toggleBtn.click(); // first click: collapse
+        toggleBtn.click(); // second click: uncollapse (lines 525-526)
+
+        // 3. TLD Restore handler with and without backup (lines 1385-1392, 1360, 1411)
         const restoreBtn = document.getElementById('nxm-restore');
-        if (restoreBtn) {
-            global.browser.storage.sync.get.mockResolvedValueOnce({});
-            await restoreBtn.onclick();
-            expect(document.getElementById('nxm-toast')?.textContent).toContain('No backup found.');
+        expect(restoreBtn).not.toBeNull();
 
-            global.browser.storage.sync.get.mockResolvedValueOnce({
-                'tldBackup_abc123': ['.xyz', '.top']
-            });
-            global.fetch = jest.fn()
-                .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: '.com' }] }) })
-                .mockResolvedValue({ ok: true, json: async () => ({}) });
-            await restoreBtn.onclick();
+        // Without backup
+        global.browser.storage.sync.get.mockResolvedValueOnce({});
+        await restoreBtn.onclick();
+        expect(document.getElementById('nxm-toast')?.textContent).toContain('No backup found.');
+
+        // With backup: covers lines 1385-1392, line 1360 (catch in getCurrentActiveTLDs), and line 1411 (catch in processTLDs)
+        global.browser.storage.sync.get.mockResolvedValueOnce({
+            'tldBackup_abc123': ['.xyz', '.top']
+        });
+        // First fetch fails in getCurrentActiveTLDs (line 1360 catch)
+        global.fetch = jest.fn()
+            .mockRejectedValueOnce(new Error('Network error on getCurrentActiveTLDs'))
+            // Then in processTLDs, one request rejects (line 1411 catch)
+            .mockRejectedValueOnce(new Error('TLD update HTTP error'))
+            .mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+
+        await restoreBtn.onclick();
+        await new Promise(r => setTimeout(r, 60));
+
+        // 4. Feature UI restore (lines 207-209)
+        const ownerItem = document.createElement('div');
+        ownerItem.dataset.nxmOwner = 'nxm-tld-controls';
+        ownerItem.dataset.nxmHidden = 'true';
+        ownerItem.style.display = 'none';
+        document.body.appendChild(ownerItem);
+
+        // Navigate away from security page to trigger feature cleanup
+        window.history.pushState({}, '', '/abc123/logs');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+        expect(ownerItem.style.display).toBe('');
+        expect(ownerItem.dataset.nxmHidden).toBeUndefined();
+        ownerItem.remove();
+
+        // 5. Allowlist without domain descriptions (lines 181-182)
+        document.body.innerHTML = `
+            <form><button type="submit">Add</button></form>
+            <div class="list-group">
+                <div class="list-group-item"><span class="notranslate">domain.com</span></div>
+            </div>
+        `;
+        storageChangedListener({ webGuiDesc: { newValue: false } }, 'sync');
+        window.history.pushState({}, '', '/abc123/allowlist');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+        expect(document.getElementById('nxm-bulk-add-btn')).not.toBeNull();
+
+        // 6. Logs settings controls, toggle change, manage filters click, and badge update (lines 599, 627-628, 994-995)
+        document.body.innerHTML = `
+            <div class="Logs">
+                <div class="list-group-item bg-2">
+                    <div class="d-md-flex"></div>
+                </div>
+                <div class="list-group-item" data-nxm-filtered="true" style="display:none;"><span class="notranslate">clean-domain.org</span></div>
+            </div>
+        `;
+        global.browser.storage.sync.get.mockResolvedValue({
+            webGuiMaster: true,
+            webGuiLogs: true,
+            webGuiFilter: true,
+            logFilters: { 'badtracker.com': 'tracker' }
+        });
+        window.history.pushState({}, '', '/abc123/logs');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // Checkbox change (line 599)
+        const filterCheck = document.getElementById('nxm-filtered-logs-toggle');
+        if (filterCheck) {
+            filterCheck.checked = true;
+            filterCheck.onchange({ target: { checked: true } });
+            expect(global.browser.storage.sync.set).toHaveBeenCalledWith({ webGuiFilter: true });
         }
 
-        // 3. findAccountDropdown Strategy 2 (svg.fa-user) and Strategy 3 (.notranslate)
+        // Manage button click (lines 627-628) and backdrop click (line 1029)
+        const manageBtn = document.getElementById('nxm-manage-filters-btn');
+        if (manageBtn) {
+            manageBtn.onclick(new MouseEvent('click'));
+            await new Promise(r => setTimeout(r, 20));
+            const backdrop = document.getElementById('nxm-filter-modal-backdrop');
+            expect(backdrop).not.toBeNull();
+            backdrop.onclick({ target: backdrop });
+            expect(document.getElementById('nxm-filter-modal-backdrop')).toBeNull();
+        }
+
+        // 7. Log filter unhide and matchPattern non-match (lines 804-806, 830)
+        const cleanRow = document.querySelector('.Logs .list-group-item[style*="display: none"]');
+        expect(cleanRow).toBeNull();
+
+        // 8. Log action error response (line 1274)
+        document.body.innerHTML = `
+            <div class="Logs">
+                <div class="list-group-item">
+                    <span class="notranslate">test-blocked.com</span>
+                </div>
+            </div>
+        `;
+        global.confirm = jest.fn(() => true);
+        global.browser.storage.sync.get.mockResolvedValue({
+            webGuiMaster: true,
+            webGuiLogs: true,
+            webGuiLogActions: true
+        });
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false, error: 'API Error' });
+        window.history.pushState({}, '', '/abc123/logs');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const actionBtn = document.querySelector('.nxm-log-actions button');
+        if (actionBtn) {
+            actionBtn.click();
+            await new Promise(r => setTimeout(r, 60));
+            expect(document.getElementById('nxm-toast')?.textContent).toContain('Error: API Error');
+        }
+
+        // 9. Theme observer when master is false (line 1535)
+        storageChangedListener({ webGuiMaster: { newValue: false } }, 'sync');
+        await new Promise(r => setTimeout(r, 40));
+        document.documentElement.setAttribute('data-bs-theme', 'alternate');
+        await new Promise(r => setTimeout(r, 60));
+        storageChangedListener({ webGuiMaster: { newValue: true } }, 'sync');
+        await new Promise(r => setTimeout(r, 40));
+
+        // 10. findAccountDropdown Strategy 2 (svg.fa-user) and Strategy 3 (.notranslate)
         document.querySelectorAll('a.dropdown-item[href="/account"], a[href="/account"]').forEach(a => a.remove());
 
         // Strategy 2 (svg.fa-user)
-        const strat2Container = document.createElement('div');
+        const strat2Container = document.createElement('nav');
+        strat2Container.className = 'navbar';
         strat2Container.innerHTML = `
             <div class="dropdown">
                 <button class="dropdown-toggle"><svg class="fa-user"></svg></button>
+                <div class="dropdown-menu"><a href="/settings">Settings</a></div>
             </div>
         `;
         document.body.appendChild(strat2Container);
@@ -1151,10 +1319,12 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
         document.getElementById('nxm-dropdown-filtered-logs-item')?.remove();
 
         // Strategy 3 (span.notranslate)
-        const strat3Container = document.createElement('div');
+        const strat3Container = document.createElement('nav');
+        strat3Container.className = 'navbar';
         strat3Container.innerHTML = `
             <div class="dropdown">
                 <button class="dropdown-toggle"><span class="notranslate">user@example.com</span></button>
+                <div class="dropdown-menu"><a href="/settings">Settings</a></div>
             </div>
         `;
         document.body.appendChild(strat3Container);
@@ -1167,17 +1337,9 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
         expect(document.getElementById('nxm-header-filtered-logs-btn')).toBeNull();
         strat3Container.remove();
 
-        // 4. Modal backdrop click closes modal
-        const modalBtn = document.getElementById('nxm-manage-filters-btn');
-        if (modalBtn) {
-            modalBtn.click();
-            await new Promise(r => setTimeout(r, 20));
-            const backdrop = document.getElementById('nxm-filter-modal-backdrop');
-            if (backdrop) {
-                backdrop.onclick({ target: backdrop });
-                expect(document.getElementById('nxm-filter-modal-backdrop')).toBeNull();
-            }
-        }
+        // Restore webGuiMaster to true for subsequent tests
+        storageChangedListener({ webGuiMaster: { newValue: true } }, 'sync');
+        await new Promise(r => setTimeout(r, 40));
     });
 
     test('Content Script - Section collapsing, log actions, search exclusions, and scraping edge cases', async () => {
@@ -1317,6 +1479,127 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
             type: 'SAVE_SCRAPED_META',
             payload: expect.objectContaining({ metaType: 'parental_services' })
         }));
+
+        // 6. Theme Observer mutation triggers (lines 1535-1550)
+        // Set master with dark theme
+        storageChangedListener({
+            webGuiMaster: { newValue: true },
+            webGuiForcedTheme: { newValue: 'dark' }
+        }, 'sync');
+        await new Promise(r => setTimeout(r, 40));
+
+        // Trigger mutation callback with data-bs-theme attribute change
+        document.documentElement.setAttribute('data-bs-theme', 'light');
+        document.documentElement.classList.remove('nxm-forced-dark');
+        await new Promise(r => setTimeout(r, 60));
+
+        // Switch to forcedTheme 'light'
+        storageChangedListener({
+            webGuiMaster: { newValue: true },
+            webGuiForcedTheme: { newValue: 'light' }
+        }, 'sync');
+        await new Promise(r => setTimeout(r, 40));
+        document.documentElement.setAttribute('data-bs-theme', 'dark');
+        document.documentElement.classList.remove('nxm-forced-light');
+        await new Promise(r => setTimeout(r, 60));
+
+        // 7. Account dropdown prepend fallback (line 1643)
+        // If accountLink doesn't have nextSibling or isn't present
+        const testDropdownMenu = document.createElement('div');
+        testDropdownMenu.className = 'dropdown-menu';
+        // Add child without account link
+        const otherLink = document.createElement('a');
+        otherLink.textContent = 'Help';
+        testDropdownMenu.appendChild(otherLink);
+        
+        const testDropdownBtn = document.createElement('button');
+        testDropdownBtn.className = 'dropdown-toggle';
+        testDropdownBtn.appendChild(document.createElement('span')).className = 'notranslate';
+        
+        const dropdownWrap = document.createElement('div');
+        dropdownWrap.className = 'dropdown';
+        dropdownWrap.appendChild(testDropdownBtn);
+        dropdownWrap.appendChild(testDropdownMenu);
+        document.body.appendChild(dropdownWrap);
+
+        // Remove existing injected button to allow re-injection
+        document.getElementById('nxm-header-filtered-logs-btn')?.remove();
+        document.getElementById('nxm-dropdown-filtered-logs-item')?.remove();
+        storageChangedListener({ webGuiFilter: { newValue: true } }, 'sync');
+        await new Promise(r => setTimeout(r, 60));
+        expect(testDropdownMenu.querySelector('#nxm-dropdown-filtered-logs-item')).not.toBeNull();
+        dropdownWrap.remove();
+    });
+
+    test('Content Script - fallback selectors when domSelectors fetch fails or lacks definitions', async () => {
+        // 1. Line 43: fetch domSelectors rejects
+        const origFetch = global.fetch;
+        global.fetch = jest.fn().mockImplementation((url) => {
+            if (url.includes('domSelectors.json')) {
+                return Promise.reject(new Error('Network error on domSelectors'));
+            }
+            return Promise.resolve({ ok: true, json: async () => ({}) });
+        });
+
+        await jest.isolateModulesAsync(async () => {
+            await import('../src/content.js');
+        });
+
+        // 2. Lines 380, 466, 575: fetch returns empty object without dashboard selectors
+        global.fetch = jest.fn().mockImplementation((url) => {
+            if (url.includes('domSelectors.json')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: async () => ({})
+                });
+            }
+            return Promise.resolve({ ok: true, json: async () => ({}) });
+        });
+
+        // Test privacy fallback (line 380)
+        await jest.isolateModulesAsync(async () => {
+            document.body.innerHTML = `
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <h5>Blocklists</h5>
+                    </div>
+                </div>
+            `;
+            window.history.pushState({}, '', '/abc123/privacy');
+            await import('../src/content.js');
+            await new Promise(r => setTimeout(r, 80));
+        });
+
+        // Test security fallback (line 466)
+        await jest.isolateModulesAsync(async () => {
+            document.body.innerHTML = `
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <h5>Block Top-Level Domains (TLDs)</h5>
+                    </div>
+                </div>
+            `;
+            window.history.pushState({}, '', '/abc123/security');
+            await import('../src/content.js');
+            await new Promise(r => setTimeout(r, 80));
+        });
+
+        // Test logs fallback (line 575)
+        await jest.isolateModulesAsync(async () => {
+            document.body.innerHTML = `
+                <div class="Logs">
+                    <div class="list-group-item bg-2">
+                        <div class="d-md-flex"></div>
+                    </div>
+                </div>
+            `;
+            window.history.pushState({}, '', '/abc123/logs');
+            await import('../src/content.js');
+            await new Promise(r => setTimeout(r, 80));
+        });
+
+        global.fetch = origFetch;
     });
 });
+
 

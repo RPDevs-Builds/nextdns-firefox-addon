@@ -242,5 +242,10 @@ describe('Action Center (Phase 8.1)', () => {
         delete document.__alertsClickListenerAdded;
         uiNotifications.initNotifications();
         await new Promise(r => setTimeout(r, 10));
+
+        // Guards when alerts-badge or notifications-container are missing (lines 14, 28)
+        document.body.innerHTML = '';
+        uiNotifications.updateAlertsBadge();
+        uiNotifications.renderNotifications();
     });
 });
