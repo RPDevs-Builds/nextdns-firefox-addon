@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.2.3] - 2026-10-12
+
+### Fixed
+- **Forced Dark Mode Log Border Highlights:** Fixed an issue where enabling Forced Dark Mode in Web GUI customizations overwrote NextDNS's native inline border indicators on the query logs page (`my.nextdns.io/<profile>/logs`). Replaced generic `.list-group-item { border-color: #374151 !important; }` with directional borders (`border-top-color`, `border-right-color`, `border-bottom-color: #374151 !important;`) and added explicit high-contrast rules for Blocked (4px red border + 12% red tint), Allowed (4px green border + 10% green tint), and Relayed (4px purple border + 10% purple tint) queries across RGB strings, hex strings, and Bootstrap state classes.
+- **Block Disguised Trackers Toggle:** Resolved Block Disguised Trackers toggle failure by fixing web tab content script sender checks, adding storage profile fallback in `TOGGLE_SETTING` and `GET_ALL_SETTINGS`, ensuring `updateLocalBlocksCache` initializes empty categories, and aligning toggle metadata with the upstream NextDNS web console.
+- **DOM Bootstrap Recovery:** Hardened `DOMContentLoaded` bootstrap sequence in `src/ui/main.js` to ensure the retry UI card cleanly recovers on transient initialization exceptions without throwing JSDOM location mutation errors.
+
+### Tests & Quality
+- **Global Coverage Expansion:** Boosted global line coverage to **98.64% Lines**, **96.23% Statements**, **94.07% Functions**, and **81.84% Branches** across 344 passing unit tests in 24 test suites (+143 unit tests added).
+- **Sub-Module Mastery:** Achieved **100% line coverage across all 8 background modules** (`api.js`, `handlers.js`, `logStream.js`, `main.js`, `requestListener.js`, `scheduler.js`, `state.js`, `utils.js`) and **8 of 9 UI modules** (`blocks.js`, `dashboard.js`, `notifications.js`, `scheduler.js`, `state.js`, `theme.js`, `tools.js`, `utils.js`).
+- **Raised Thresholds:** Elevated Jest coverage enforcement thresholds in `package.json` to 98% lines, 96% statements, 93% functions, and 80% branches.
+- **Mozilla AMO Compliance:** Validated 0 errors, 0 warnings, and 0 notices on Mozilla `addons-linter`.
+
+
 ## [1.2.2] - 2026-10-11
 
 ### Security & Hardening
