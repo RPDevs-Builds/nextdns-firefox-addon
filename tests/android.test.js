@@ -102,4 +102,47 @@ describe('Firefox for Android (Fenix) Compatibility Suite', () => {
         await openSidebarOrTab();
         expect(tabsCreateMock).toHaveBeenCalledWith({ url: 'chrome://src/popup.html?mode=tab' });
     });
+
+    test('initWindowMode and handleIconClickModeRedirect under popout and sidebar modes', async () => {
+        window.history.pushState({}, '', '/src/popup.html?mode=popout');
+        const popoutMain = await import('../src/ui/main.js');
+        popoutMain.initWindowMode();
+        expect(document.body.classList.contains('mode-popout')).toBe(true);
+        expect(await popoutMain.handleIconClickModeRedirect()).toBe(false);
+
+        jest.resetModules();
+        window.history.pushState({}, '', '/src/popup.html?mode=sidebar');
+        const sidebarMain = await import('../src/ui/main.js');
+        sidebarMain.initWindowMode();
+        expect(document.body.classList.contains('mode-sidebar')).toBe(true);
+        expect(await sidebarMain.handleIconClickModeRedirect()).toBe(false);
+
+        jest.resetModules();
+        window.history.pushState({}, '', '/src/popup.html?mode=tab');
+        const tabMain = await import('../src/ui/main.js');
+        tabMain.initWindowMode();
+        expect(document.body.classList.contains('mode-tab')).toBe(true);
+        expect(await tabMain.handleIconClickModeRedirect()).toBe(false);
+    });
+
+    test('handleIconClickModeRedirect falls back to browser.tabs.create and sidebarAction.open', async () => {
+        window.history.pushState({}, '', '/src/popup.html');
+        const { storage } = await import('../src/storage.js');
+        await storage.set('iconClickAction', 'popout');
+
+        const origWindows = window.browser?.windows;
+        delete window.browser.windows;
+        const mainMod = await import('../src/ui/main.js');
+        window.close = jest.fn();
+        const resPopout = await mainMod.handleIconClickModeRedirect();
+        expect(resPopout).toBe(true);
+        expect(browser.tabs.create).toHaveBeenCalled();
+
+        await storage.set('iconClickAction', 'sidebar');
+        browser.sidebarAction = { open: jest.fn().mockResolvedValue() };
+        const resSidebar = await mainMod.handleIconClickModeRedirect();
+        expect(resSidebar).toBe(true);
+        expect(browser.sidebarAction.open).toHaveBeenCalled();
+        window.browser.windows = origWindows;
+    });
 });

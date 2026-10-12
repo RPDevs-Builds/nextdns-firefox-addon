@@ -180,13 +180,17 @@ describe('Storage Persistence & Auto-Heal', () => {
         await storage.init();
         expect(storage.initialized).toBe(true);
 
-        // set handles rejection gracefully
+        // set handles rejection gracefully (both single key and object batch)
         await expect(storage.set('singleKey', 'singleVal')).resolves.not.toThrow();
         expect(await storage.get('singleKey')).toBe('singleVal');
+        await expect(storage.set({ objKey: 'objVal' })).resolves.not.toThrow();
+        expect(await storage.get('objKey')).toBe('objVal');
 
-        // remove handles rejection gracefully
+        // remove handles rejection gracefully (both single key and array)
         await expect(storage.remove('singleKey')).resolves.not.toThrow();
         expect(await storage.get('singleKey')).toBeNull();
+        await expect(storage.remove(['objKey'])).resolves.not.toThrow();
+        expect(await storage.get('objKey')).toBeNull();
 
         // array get with default object
         const defResult = await storage.get(['nonExistent'], { nonExistent: 'fallbackVal' });

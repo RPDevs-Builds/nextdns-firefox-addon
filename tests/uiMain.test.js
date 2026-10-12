@@ -1405,6 +1405,54 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             const res = await uiMain.refreshActiveProfileAndUI();
             expect(res).toBeNull();
         });
+
+        test('UI Main - alerts settings listeners, web GUI toggles, and profile status catch blocks', async () => {
+            document.body.innerHTML = `
+                <button id="alert-save-btn">Save</button>
+                <button id="alert-test-btn">Test</button>
+                <input type="checkbox" id="alert-setting-enabled" />
+                <input type="checkbox" id="web-gui-master-toggle" />
+                <div id="web-gui-features"></div>
+                <select id="web-gui-forced-theme"><option value="dark">Dark</option></select>
+            `;
+            uiMain.initGlobalEventListeners();
+
+            // Alerts settings listeners (lines 484, 485, 490)
+            const alertSaveBtn = document.getElementById('alert-save-btn');
+            alertSaveBtn.click();
+            const alertTestBtn = document.getElementById('alert-test-btn');
+            alertTestBtn.click();
+            const alertToggle = document.getElementById('alert-setting-enabled');
+            alertToggle.checked = true;
+            alertToggle.dispatchEvent(new Event('change'));
+
+            // Web GUI master toggle & forced theme (lines 572-588)
+            const masterToggle = document.getElementById('web-gui-master-toggle');
+            masterToggle.checked = true;
+            masterToggle.dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 20));
+            expect(document.getElementById('web-gui-features').style.opacity).toBe('1');
+
+            masterToggle.checked = false;
+            masterToggle.dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 20));
+            expect(document.getElementById('web-gui-features').style.opacity).toBe('0.5');
+
+            const forcedThemeSelect = document.getElementById('web-gui-forced-theme');
+            forcedThemeSelect.dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 20));
+
+            // refreshActiveProfileAndUI catch block on individual messages (line 973)
+            document.body.innerHTML = '<div id="profile-status"></div>';
+            browser.runtime.sendMessage.mockImplementation(async (msg) => {
+                if (msg.type === 'GET_PROFILE') throw new Error('GET_PROFILE rejected');
+                if (msg.type === 'GET_NETWORK_STATUS') throw new Error('GET_NETWORK_STATUS rejected');
+                return { success: true };
+            });
+            const unconfProf = await uiMain.refreshActiveProfileAndUI();
+            expect(unconfProf).toBeNull();
+            expect(document.getElementById('profile-status').textContent).toContain('Unconfigured');
+        });
     });
 });
 
