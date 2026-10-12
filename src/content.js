@@ -176,8 +176,11 @@ function evaluatePage() {
         if (webGuiConfig.filter) applyLogFilters();
         injectLogsSettingsControls();
     } else if (path.includes('/allowlist') || path.includes('/denylist')) {
-        injectBulkAddDomains();
-        applyDomainListStyling();
+        if (webGuiConfig.desc) injectDomainDescriptions();
+        else {
+            injectBulkAddDomains();
+            applyDomainListStyling();
+        }
     }
 }
 
@@ -703,8 +706,29 @@ async function injectLogsSettingsControls() {
       let css = "";
       if (isCompact) css += `.Logs .list-group-item { padding-top: 4px !important; padding-bottom: 4px !important; min-height: 0 !important; }`;
       if (isHighlight) css += `
-        .Logs .list-group-item:has(.text-danger) { background-color: rgba(220, 53, 69, 0.08) !important; }
-        .Logs .list-group-item:has(.text-success) { background-color: rgba(40, 167, 69, 0.05) !important; }
+        .Logs .list-group-item.log[style*="255, 65, 54"],
+        .Logs .list-group-item.log[style*="#ff4136"],
+        .Logs .list-group-item:has([style*="255, 65, 54"]),
+        .Logs .list-group-item:has([style*="#ff4136"]),
+        .Logs .list-group-item:has(.text-danger) {
+            border-left: 4px solid #ff4136 !important;
+            background-color: rgba(220, 53, 69, 0.12) !important;
+        }
+        .Logs .list-group-item.log[style*="46, 204, 64"],
+        .Logs .list-group-item.log[style*="#2ecc40"],
+        .Logs .list-group-item:has([style*="46, 204, 64"]),
+        .Logs .list-group-item:has([style*="#2ecc40"]),
+        .Logs .list-group-item:has(.text-success) {
+            border-left: 4px solid #2ecc40 !important;
+            background-color: rgba(40, 167, 69, 0.10) !important;
+        }
+        .Logs .list-group-item.log[style*="174, 0, 255"],
+        .Logs .list-group-item.log[style*="#ae00ff"],
+        .Logs .list-group-item:has([style*="174, 0, 255"]),
+        .Logs .list-group-item:has([style*="#ae00ff"]) {
+            border-left: 4px solid #ae00ff !important;
+            background-color: rgba(174, 0, 255, 0.10) !important;
+        }
       `;
       styleEl.textContent = css;
   };

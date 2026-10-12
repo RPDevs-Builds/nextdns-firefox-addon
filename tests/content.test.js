@@ -56,6 +56,9 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
             }
         };
 
+        global.confirm = jest.fn(() => true);
+        global.prompt = jest.fn(() => 'Test Note');
+
         global.fetch = jest.fn().mockImplementation((url) => {
             if (url.includes('domSelectors.json')) {
                 return Promise.resolve({
@@ -71,7 +74,14 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
                     })
                 });
             }
-            return Promise.resolve({ ok: true, json: async () => ({}) });
+            if (url.includes('/security/tlds')) {
+                return Promise.resolve({
+                    ok: true,
+                    status: 200,
+                    json: async () => ({ data: [{ id: 'xyz' }, { id: 'top' }] })
+                });
+            }
+            return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
         });
     });
 
@@ -503,5 +513,421 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
         const sortedDomains = Array.from(document.querySelectorAll('.list-group-item .notranslate'))
             .map(el => el.textContent.trim());
         expect(sortedDomains).toEqual(['sub.alpha.com', 'beta.org', 'zebra.com']);
+    });
+
+    test('Domain notes and bulk management checkboxes on allowlist', async () => {
+        document.body.innerHTML = `
+            <div class="container">
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <span class="notranslate">note-domain.com</span>
+                        <button class="btn-danger">Delete</button>
+                    </div>
+                    <div class="list-group-item">
+                        <span class="notranslate">other-domain.com</span>
+                        <button class="btn-danger">Delete</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        global.browser.storage.sync.get.mockImplementation(async (keys) => {
+            if (keys === 'domainDescriptions') {
+                return { domainDescriptions: { 'note-domain.com': 'Critical server' } };
+            }
+            return {
+                webGuiMaster: true,
+                webGuiDesc: true,
+                domainDescriptions: { 'note-domain.com': 'Critical server' }
+            };
+        });
+
+        window.history.pushState({}, '', '/abc123/allowlist');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // Verify note rendered
+        const descContainer = document.querySelector('.nxm-domain-desc');
+        expect(descContainer).not.toBeNull();
+        expect(descContainer.textContent).toContain('Critical server');
+
+        // Verify bulk checkboxes and header
+        const checkboxes = document.querySelectorAll('.nxm-bulk-cb');
+        expect(checkboxes.length).toBe(2);
+
+        const bulkHeader = document.getElementById('nxm-bulk-header');
+        expect(bulkHeader).not.toBeNull();
+
+        // Select All toggle
+        const selectAllCb = bulkHeader.querySelector('input[type="checkbox"]');
+        selectAllCb.checked = true;
+        selectAllCb.onchange({ target: { checked: true } });
+        expect(checkboxes[0].checked).toBe(true);
+        expect(checkboxes[1].checked).toBe(true);
+
+        // Edit note via prompt
+        global.prompt = jest.fn(() => 'Updated note');
+        const editBtn = descContainer.querySelector('button');
+        editBtn.click();
+        await new Promise(r => setTimeout(r, 60));
+
+        expect(global.prompt).toHaveBeenCalledWith('Note for note-domain.com:', 'Critical server');
+        expect(global.browser.storage.sync.set).toHaveBeenCalledWith({
+            domainDescriptions: expect.objectContaining({ 'note-domain.com': 'Updated note' })
+        });
+
+        // Delete note when prompt returns empty string
+        global.prompt = jest.fn(() => '');
+        editBtn.click();
+        await new Promise(r => setTimeout(r, 60));
+        expect(global.browser.storage.sync.set).toHaveBeenCalled();
+
+        // Delete selected bulk domains
+        const delBtn = bulkHeader.querySelector('.btn-danger');
+        await delBtn.onclick();
+        expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'MANAGE_DOMAIN',
+            action: 'delete'
+        }));
+    });
+
+    test('Log row actions (Allow, Deny, Hide) and live timestamps', async () => {
+        document.body.innerHTML = `
+            <div class="list-group">
+                <div class="list-group-item">
+                    <time datetime="2026-10-11T12:34:56Z">12:34</time>
+                    <span class="notranslate">telemetry.service.io</span>
+                </div>
+            </div>
+        `;
+
+        global.browser.storage.sync.get.mockResolvedValue({
+            webGuiMaster: true,
+            webGuiLogActions: true,
+            logFilters: {}
+        });
+
+        window.history.pushState({}, '', '/abc123/logs');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const actionsContainer = document.querySelector('.nxm-log-actions');
+        expect(actionsContainer).not.toBeNull();
+
+        const buttons = actionsContainer.querySelectorAll('button');
+        expect(buttons.length).toBe(3); // Allow, Deny, Hide
+
+        // Test Allow action
+        buttons[0].click();
+        expect(global.confirm).toHaveBeenCalledWith(expect.stringContaining('telemetry.service.io to allowlist'));
+        expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'MANAGE_DOMAIN',
+            profileId: 'abc123',
+            listType: 'allowlist',
+            action: 'add',
+            domain: 'telemetry.service.io'
+        });
+
+        // Test Deny action
+        buttons[1].click();
+        expect(global.confirm).toHaveBeenCalledWith(expect.stringContaining('telemetry.service.io to denylist'));
+        expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'MANAGE_DOMAIN',
+            profileId: 'abc123',
+            listType: 'denylist',
+            action: 'add',
+            domain: 'telemetry.service.io'
+        });
+
+        // Test Hide action (opens filter modal)
+        buttons[2].click();
+        await new Promise(r => setTimeout(r, 60));
+        const modalBackdrop = document.getElementById('nxm-filter-modal-backdrop');
+        expect(modalBackdrop).not.toBeNull();
+        expect(document.getElementById('nxm-new-filter-pattern').value).toBe('telemetry.service.io');
+    });
+
+    test('Filtered logs modal manager: adding, searching, deleting, and clearing filters', async () => {
+        document.body.innerHTML = `
+            <div class="header-nav">
+                <div>
+                    <div class="dropdown">
+                        <button class="dropdown-toggle">Account</button>
+                        <div class="dropdown-menu">
+                            <a href="/account" class="dropdown-item">Settings</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="nxm-manage-filters-btn">⚙️ Manage (0)</div>
+        `;
+
+        const mockFilters = {
+            '*.metrics.com': 'Analytics',
+            'api.track.org': 'Tracker'
+        };
+
+        global.browser.storage.sync.get.mockImplementation(async (keys) => {
+            if (keys === 'logFilters') return { logFilters: { ...mockFilters } };
+            return { webGuiMaster: true, logFilters: { ...mockFilters } };
+        });
+
+        window.history.pushState({}, '', '/abc123/logs');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // Click eye button to open modal
+        const headerBtn = document.getElementById('nxm-header-filtered-logs-btn');
+        expect(headerBtn).not.toBeNull();
+        headerBtn.click();
+        await new Promise(r => setTimeout(r, 60));
+
+        const modalBackdrop = document.getElementById('nxm-filter-modal-backdrop');
+        expect(modalBackdrop).not.toBeNull();
+
+        // Check active badge
+        const badge = document.getElementById('nxm-modal-badge');
+        expect(badge.textContent).toBe('2 Active');
+
+        // Search rules
+        const searchInput = modalBackdrop.querySelector('input[type="search"]');
+        searchInput.value = 'track';
+        searchInput.oninput({ target: { value: 'track' } });
+
+        const items = modalBackdrop.querySelectorAll('.nxm-filter-item');
+        expect(items.length).toBe(1);
+        expect(items[0].textContent).toContain('api.track.org');
+
+        // Clear search
+        searchInput.value = '';
+        searchInput.oninput({ target: { value: '' } });
+
+        // Add new filter
+        const patInput = document.getElementById('nxm-new-filter-pattern');
+        const noteInput = document.getElementById('nxm-new-filter-note');
+        const addBtn = modalBackdrop.querySelector('.btn-primary');
+
+        patInput.value = 'new-tracker.net';
+        noteInput.value = 'New Telemetry';
+        await addBtn.onclick();
+
+        expect(global.browser.storage.sync.set).toHaveBeenCalledWith({
+            logFilters: expect.objectContaining({
+                'new-tracker.net': 'New Telemetry'
+            })
+        });
+
+        // Remove a filter
+        const delBtn = modalBackdrop.querySelector('.nxm-filter-delete-btn');
+        await delBtn.onclick();
+        expect(global.browser.storage.sync.set).toHaveBeenCalled();
+
+        // Clear all filters
+        const clearAllBtn = modalBackdrop.querySelector('.btn-outline-danger');
+        await clearAllBtn.onclick();
+        expect(global.browser.storage.sync.set).toHaveBeenCalledWith({ logFilters: {} });
+
+        // Close modal on Escape
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        expect(document.getElementById('nxm-filter-modal-backdrop')).toBeNull();
+    });
+
+    test('Scrapes parental services, blocklists, and TLDs when visiting respective pages', async () => {
+        // 1. Parental Controls Scraping
+        document.body.innerHTML = `
+            <div class="list-group">
+                <div class="list-group-item"><span style="font-weight: 500;">YouTube</span></div>
+                <div class="list-group-item"><span style="font-weight: 500;">TikTok</span></div>
+                <div class="list-group-item"><span style="font-weight: 500;">Netflix</span></div>
+                <div class="list-group-item"><span style="font-weight: 500;">Facebook</span></div>
+                <div class="list-group-item"><span style="font-weight: 500;">Instagram</span></div>
+                <div class="list-group-item"><span style="font-weight: 500;">Snapchat</span></div>
+                <div class="list-group-item"><span style="font-weight: 500;">Roblox</span></div>
+                <div class="list-group-item"><span style="font-weight: 500;">Discord</span></div>
+                <div class="list-group-item"><span style="font-weight: 500;">Twitch</span></div>
+                <div class="list-group-item"><span style="font-weight: 500;">Steam</span></div>
+                <div class="list-group-item"><span style="font-weight: 500;">Pinterest</span></div>
+                <div class="list-group-item"><span style="font-weight: 500;">Spotify</span></div>
+            </div>
+        `;
+
+        window.history.pushState({}, '', '/abc123/parentalcontrol');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'SAVE_SCRAPED_META',
+            payload: expect.objectContaining({ metaType: 'parental_services' })
+        }));
+
+        // 2. Blocklists Scraping
+        document.body.innerHTML = `
+            <div class="list-group">
+                <div class="list-group-item"><span style="font-weight: 500;">NextDNS Ads & Trackers</span><span style="font-size: 0.9em;">Default</span> 100,000 entries</div>
+                <div class="list-group-item"><span style="font-weight: 500;">AdGuard Base</span><span style="font-size: 0.9em;">List 2</span> 50,000 entries</div>
+                <div class="list-group-item"><span style="font-weight: 500;">EasyList</span><span style="font-size: 0.9em;">List 3</span> 70,000 entries</div>
+                <div class="list-group-item"><span style="font-weight: 500;">OISD Basic</span><span style="font-size: 0.9em;">List 4</span> 200,000 entries</div>
+                <div class="list-group-item"><span style="font-weight: 500;">Steven Black</span><span style="font-size: 0.9em;">List 5</span> 120,000 entries</div>
+                <div class="list-group-item"><span style="font-weight: 500;">Goodbye Ads</span><span style="font-size: 0.9em;">List 6</span> 80,000 entries</div>
+            </div>
+        `;
+
+        window.history.pushState({}, '', '/abc123/privacy');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'SAVE_SCRAPED_META',
+            payload: expect.objectContaining({ metaType: 'blocklists' })
+        }));
+
+        // 3. TLDs Scraping
+        const tldItems = Array.from({ length: 55 }, (_, i) => 
+            `<div class="list-group-item"><span style="font-weight: 500;">.tld${i}</span></div>`
+        ).join('');
+        document.body.innerHTML = `<div class="list-group">${tldItems}</div>`;
+
+        window.history.pushState({}, '', '/abc123/security');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'SAVE_SCRAPED_META',
+            payload: expect.objectContaining({ metaType: 'tlds' })
+        }));
+    });
+
+    test('TLD bulk modal buttons: Enable All, Disable All, and Restore', async () => {
+        document.body.innerHTML = `
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="list-group">
+                    <div class="list-group-item">.xyz</div>
+                    <div class="list-group-item">.top</div>
+                    <div class="list-group-item">.click</div>
+                </div>
+            </div>
+            <button id="nxm-restore" style="display: none;">Restore Backup</button>
+        `;
+
+        global.browser.storage.sync.get.mockImplementation(async (keys) => {
+            if (keys === 'tldBackup_abc123') return { tldBackup_abc123: ['xyz', 'top'] };
+            return { webGuiMaster: true, webGuiTlds: true, tldBackup_abc123: ['xyz', 'top'] };
+        });
+
+        window.history.pushState({}, '', '/abc123/security');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const enableAllBtn = document.getElementById('nxm-modal-enable-all');
+        const disableAllBtn = document.getElementById('nxm-modal-disable-all');
+        expect(enableAllBtn).not.toBeNull();
+        expect(disableAllBtn).not.toBeNull();
+
+        // Enable All TLDs
+        await enableAllBtn.onclick();
+        expect(global.confirm).toHaveBeenCalledWith(expect.stringContaining('enable all TLDs'));
+        expect(global.browser.storage.sync.set).toHaveBeenCalledWith({
+            tldBackup_abc123: expect.any(Array)
+        });
+
+        // Disable All TLDs
+        await disableAllBtn.onclick();
+        expect(global.confirm).toHaveBeenCalledWith(expect.stringContaining('disable ALL active TLD blocks'));
+        expect(global.fetch).toHaveBeenCalled();
+
+        // Restore Backup
+        const restoreBtn = document.getElementById('nxm-restore');
+        restoreBtn.onclick = async () => {
+            const data = await global.browser.storage.sync.get('tldBackup_abc123');
+            expect(data.tldBackup_abc123).toBeDefined();
+        };
+        await restoreBtn.onclick();
+    });
+
+    test('Profile note click in header prompts user and saves to storage', async () => {
+        document.body.innerHTML = `
+            <div class="header">
+                <a class="navbar-brand">NextDNS</a>
+            </div>
+        `;
+
+        global.browser.storage.sync.get.mockResolvedValue({
+            webGuiMaster: true,
+            webGuiProfileNotes: true,
+            profileNotes: { 'abc123': 'Home Router' }
+        });
+
+        window.history.pushState({}, '', '/abc123/setup');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const noteContainer = document.getElementById('nxm-profile-note');
+        expect(noteContainer).not.toBeNull();
+        expect(noteContainer.textContent).toContain('Home Router');
+
+        global.prompt = jest.fn(() => 'Work Laptop');
+        noteContainer.click();
+
+        expect(global.prompt).toHaveBeenCalledWith('Note for Profile abc123:', 'Home Router');
+        expect(global.browser.storage.sync.set).toHaveBeenCalledWith({
+            profileNotes: expect.objectContaining({ 'abc123': 'Work Laptop' })
+        });
+    });
+
+    test('Forced dark mode preserves NextDNS allowed, denied, and relayed log border highlights and applies high-contrast row tints', async () => {
+        document.body.innerHTML = `
+            <div class="Logs">
+                <div class="list-group">
+                    <div class="list-group-item bg-2">Header</div>
+                    <div class="log list-group-item" style="border-left: 4px solid rgb(255, 65, 54);">
+                        <span class="notranslate">malware-site.bad</span>
+                    </div>
+                    <div class="log list-group-item" style="border-left: 4px solid rgb(46, 204, 64);">
+                        <span class="notranslate">friendly-cdn.com</span>
+                    </div>
+                    <div class="log list-group-item" style="border-left: 4px solid rgb(174, 0, 255);">
+                        <span class="notranslate">affiliate-hop.net</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        global.browser.storage.sync.get.mockResolvedValue({
+            webGuiMaster: true,
+            webGuiForcedTheme: 'dark',
+            webGuiLogActions: true,
+            logFilters: {}
+        });
+
+        window.history.pushState({}, '', '/abc123/logs');
+        await import('../src/content.js');
+        if (storageChangedListener) {
+            storageChangedListener({
+                webGuiForcedTheme: { newValue: 'dark' },
+                webGuiMaster: { newValue: true }
+            }, 'sync');
+        }
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // Verify dark theme attributes and classes applied
+        expect(document.documentElement.getAttribute('data-bs-theme')).toBe('dark');
+        expect(document.documentElement.classList.contains('nxm-forced-dark')).toBe(true);
+
+        // Verify style element injected with status-specific rules
+        const styleEl = document.getElementById('nxm-log-styles');
+        expect(styleEl).not.toBeNull();
+        expect(styleEl.textContent).toContain('border-left: 4px solid #ff4136 !important');
+        expect(styleEl.textContent).toContain('border-left: 4px solid #2ecc40 !important');
+        expect(styleEl.textContent).toContain('border-left: 4px solid #ae00ff !important');
+        expect(styleEl.textContent).toContain('rgba(220, 53, 69, 0.12)');
+        expect(styleEl.textContent).toContain('rgba(40, 167, 69, 0.10)');
+        expect(styleEl.textContent).toContain('rgba(174, 0, 255, 0.10)');
     });
 });

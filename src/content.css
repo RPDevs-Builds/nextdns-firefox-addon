@@ -309,8 +309,64 @@ html.nxm-forced-dark .card-footer {
 html[data-bs-theme="dark"] .list-group-item,
 html.nxm-forced-dark .list-group-item {
     background-color: #1f2937 !important;
-    border-color: #374151 !important;
+    border-top-color: #374151 !important;
+    border-right-color: #374151 !important;
+    border-bottom-color: #374151 !important;
+    border-left-color: #374151;
     color: #f3f4f6 !important;
+}
+
+/* Ensure NextDNS logs border-left indicators & status highlights remain distinct in dark mode */
+html[data-bs-theme="dark"] .Logs .list-group-item.log,
+html.nxm-forced-dark .Logs .list-group-item.log,
+html[data-bs-theme="dark"] .Logs .list-group-item[style*="border-left"],
+html.nxm-forced-dark .Logs .list-group-item[style*="border-left"] {
+    border-top-color: #374151 !important;
+    border-right-color: #374151 !important;
+    border-bottom-color: #374151 !important;
+}
+
+/* Blocked queries (red border & red tint) */
+html[data-bs-theme="dark"] .Logs .list-group-item.log[style*="255, 65, 54"],
+html.nxm-forced-dark .Logs .list-group-item.log[style*="255, 65, 54"],
+html[data-bs-theme="dark"] .Logs .list-group-item.log[style*="#ff4136"],
+html.nxm-forced-dark .Logs .list-group-item.log[style*="#ff4136"],
+html[data-bs-theme="dark"] .Logs .list-group-item:has([style*="255, 65, 54"]),
+html.nxm-forced-dark .Logs .list-group-item:has([style*="255, 65, 54"]),
+html[data-bs-theme="dark"] .Logs .list-group-item:has([style*="#ff4136"]),
+html.nxm-forced-dark .Logs .list-group-item:has([style*="#ff4136"]),
+html[data-bs-theme="dark"] .Logs .list-group-item:has(.text-danger),
+html.nxm-forced-dark .Logs .list-group-item:has(.text-danger) {
+    border-left: 4px solid #ff4136 !important;
+    background-color: rgba(255, 65, 54, 0.12) !important;
+}
+
+/* Allowed queries (green border & green tint) */
+html[data-bs-theme="dark"] .Logs .list-group-item.log[style*="46, 204, 64"],
+html.nxm-forced-dark .Logs .list-group-item.log[style*="46, 204, 64"],
+html[data-bs-theme="dark"] .Logs .list-group-item.log[style*="#2ecc40"],
+html.nxm-forced-dark .Logs .list-group-item.log[style*="#2ecc40"],
+html[data-bs-theme="dark"] .Logs .list-group-item:has([style*="46, 204, 64"]),
+html.nxm-forced-dark .Logs .list-group-item:has([style*="46, 204, 64"]),
+html[data-bs-theme="dark"] .Logs .list-group-item:has([style*="#2ecc40"]),
+html.nxm-forced-dark .Logs .list-group-item:has([style*="#2ecc40"]),
+html[data-bs-theme="dark"] .Logs .list-group-item:has(.text-success),
+html.nxm-forced-dark .Logs .list-group-item:has(.text-success) {
+    border-left: 4px solid #2ecc40 !important;
+    background-color: rgba(46, 204, 64, 0.10) !important;
+}
+
+/* Relayed / Proxied queries (purple border & purple tint) */
+html[data-bs-theme="dark"] .Logs .list-group-item.log[style*="174, 0, 255"],
+html.nxm-forced-dark .Logs .list-group-item.log[style*="174, 0, 255"],
+html[data-bs-theme="dark"] .Logs .list-group-item.log[style*="#ae00ff"],
+html.nxm-forced-dark .Logs .list-group-item.log[style*="#ae00ff"],
+html[data-bs-theme="dark"] .Logs .list-group-item:has([style*="174, 0, 255"]),
+html.nxm-forced-dark .Logs .list-group-item:has([style*="174, 0, 255"]),
+html[data-bs-theme="dark"] .Logs .list-group-item:has([style*="#ae00ff"]),
+html.nxm-forced-dark .Logs .list-group-item:has([style*="#ae00ff"]) {
+    border-left: 4px solid #ae00ff !important;
+    background-color: rgba(174, 0, 255, 0.10) !important;
 }
 
 html[data-bs-theme="dark"] .dropdown-menu,
