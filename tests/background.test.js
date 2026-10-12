@@ -1273,4 +1273,275 @@ describe('Background Script - Full Coverage Suite', () => {
     _resetDetectInFlight();
     await detectActiveProfile();
   });
+
+  test('initializeBackground covers Android platform errors, menu fallbacks, and action errors', async () => {
+    const { initializeBackground } = await import('../src/background/main.js');
+    const { state } = await import('../src/background/state.js');
+    const { messageHandlers } = await import('../src/background/handlers.js');
+
+    // 1. Android platform error on webRequestBlocking (line 66)
+    state.isInitialized = false;
+    const origAddListener = browser.webRequest.onBeforeRequest.addListener;
+    browser.webRequest.onBeforeRequest.addListener = jest.fn(() => {
+      throw new Error('webRequestBlocking not supported on Android');
+    });
+    await initializeBackground();
+    expect(state.isInitialized).toBe(true);
+    browser.webRequest.onBeforeRequest.addListener = origAddListener;
+
+    // 2. Context menus not supported on platform (lines 213-214)
+    state.isInitialized = false;
+    const origCreate = browser.menus.create;
+    delete browser.menus.create;
+    await initializeBackground();
+    expect(state.isInitialized).toBe(true);
+    browser.menus.create = origCreate;
+
+    // 3. Failed to setup context menus (line 229)
+    state.isInitialized = false;
+    browser.menus.removeAll = jest.fn().mockRejectedValueOnce(new Error('Menu remove error'));
+    await initializeBackground();
+    expect(state.isInitialized).toBe(true);
+
+    // 4. Failed to apply icon action (line 170)
+    state.isInitialized = false;
+    browser.action.setPopup = jest.fn().mockRejectedValueOnce(new Error('Action setPopup failed'));
+    await initializeBackground();
+    expect(state.isInitialized).toBe(true);
+
+    // 5. Message handler error catch (lines 105-106)
+    const origToggle = messageHandlers.TOGGLE_SETTING;
+    messageHandlers.TOGGLE_SETTING = jest.fn().mockRejectedValueOnce(new Error('Handler toggle failure'));
+    const responsePromise = new Promise(resolve => {
+      messageHandlerRef({ type: 'TOGGLE_SETTING' }, { id: browser.runtime.id }, resolve);
+    });
+    const handlerRes = await responsePromise;
+    expect(handlerRes.success).toBe(false);
+    expect(handlerRes.error).toBe('Handler toggle failure');
+    messageHandlers.TOGGLE_SETTING = origToggle;
+  });
+
+  test('Background API and Handlers comprehensive paths for 100% line coverage', async () => {
+    const { detectActiveProfile, _resetDetectInFlight, checkAndUpdateLinkedIP } = await import('../src/background/api.js');
+    const { messageHandlers } = await import('../src/background/handlers.js');
+
+    // 1. detectActiveProfile matches networkProfile with accountProfiles (lines 156-157)
+    await global.storage.set('overrideProfileId', '');
+    await global.storage.set('activeProfile', 'auto');
+    await global.storage.set('apiKey', 'valid-api-key');
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/profiles') && !url.includes('pMatched123')) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: [{ id: 'pMatched123', name: 'Matched Home Network' }]
+          })
+        };
+      }
+      if (url === 'https://test.nextdns.io/') {
+        return {
+          ok: true,
+          json: async () => ({
+            status: 'ok',
+            profile: 'pMatched123',
+            protocol: 'DOH',
+            server: 'ams-1',
+            client: '198.51.100.1'
+          })
+        };
+      }
+      return { ok: false };
+    });
+    _resetDetectInFlight();
+    const matchedProfile = await detectActiveProfile();
+    expect(matchedProfile.id).toBe('pMatched123');
+    expect(matchedProfile.name).toBe('Matched Home Network (pMatched123)');
+
+    // 2. detectActiveProfile test URL crash catch block (line 192)
+    const { apiClient } = await import('../src/apiClient.js');
+    const origFetchRetry = apiClient.fetchWithRetry;
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url === 'https://test.nextdns.io/') {
+        throw new Error('Test URL connection crashed');
+      }
+      if (url.includes('/profiles')) {
+        return {
+          success: true,
+          response: {
+            json: async () => ({ data: [{ id: 'pFallback99', name: 'Fallback Net' }] })
+          }
+        };
+      }
+      return { success: false };
+    });
+    _resetDetectInFlight();
+    const crashFallback = await detectActiveProfile();
+    expect(crashFallback.id).toBe('pFallback99');
+    apiClient.fetchWithRetry = origFetchRetry;
+
+    // 3. checkAndUpdateLinkedIP catch block (line 314)
+    await global.storage.set('activeProfile', 'pMatched123');
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    apiClient.fetchWithRetry = jest.fn().mockRejectedValueOnce(new Error('DDNS crash'));
+    await checkAndUpdateLinkedIP();
+    expect(warnSpy.mock.calls.some(call => call[0] === '[DDNS] Check failed')).toBe(true);
+    warnSpy.mockRestore();
+    apiClient.fetchWithRetry = origFetchRetry;
+
+    // 4. Handlers: GET_LOGS catch block (lines 115-116)
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValueOnce({
+      success: true,
+      response: { json: async () => { throw new Error('Corrupt logs JSON'); } }
+    });
+    const logsRes = await messageHandlers.GET_LOGS({ profileId: 'pMatched123' });
+    expect(logsRes.success).toBe(false);
+
+    // 5. Handlers: GET_PROFILE_DATA catch block (lines 138-139)
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValueOnce({
+      success: true,
+      response: { json: async () => { throw new Error('Corrupt profile data JSON'); } }
+    });
+    const pDataRes = await messageHandlers.GET_PROFILE_DATA({ profileId: 'pMatched123' });
+    expect(pDataRes.success).toBe(false);
+
+    // 6. Handlers: GET_ANALYTICS status endpoint series=false calculation and catch block (lines 162-164, 173-174)
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValueOnce({
+      success: true,
+      response: {
+        json: async () => ({
+          data: [
+            { status: 'allowed', queries: 80 },
+            { status: 'blocked', queries: 20 }
+          ]
+        })
+      }
+    });
+    const analyticsRes = await messageHandlers.GET_ANALYTICS({
+      profileId: 'pMatched123',
+      endpoint: 'status',
+      series: false
+    });
+    expect(analyticsRes.success).toBe(true);
+    expect(analyticsRes.data.queries).toBe(100);
+    expect(analyticsRes.data.blockedQueries).toBe(20);
+    expect(analyticsRes.data.blockedPercent).toBe(20);
+
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValueOnce({
+      success: true,
+      response: { json: async () => { throw new Error('Corrupt analytics JSON'); } }
+    });
+    const analyticsFail = await messageHandlers.GET_ANALYTICS({
+      profileId: 'pMatched123',
+      endpoint: 'status'
+    });
+    expect(analyticsFail.success).toBe(false);
+
+    // 7. Handlers: GET_PROFILES_LIST catch block (lines 222-223)
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValueOnce({
+      success: true,
+      response: { json: async () => { throw new Error('Corrupt profiles list JSON'); } }
+    });
+    const listFail = await messageHandlers.GET_PROFILES_LIST({});
+    expect(listFail.success).toBe(false);
+
+    // 8. detectActiveProfile account profiles catch and test URL corrupt json (lines 101, 134)
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('/profiles')) {
+        throw new Error('Account profiles crash');
+      }
+      if (url === 'https://test.nextdns.io/') {
+        return {
+          success: true,
+          response: {
+            json: async () => { throw new Error('Bad test URL json'); }
+          }
+        };
+      }
+      return { success: false };
+    });
+    _resetDetectInFlight();
+    await detectActiveProfile();
+    apiClient.fetchWithRetry = origFetchRetry;
+
+    // 9. Handlers: TOGGLE_SETTING with custom value and mirror failure (lines 260, 284)
+    await global.storage.set('mirrorProfiles', ['pMatched123', 'pMirror1']);
+    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => ({}) }));
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const origToggleSetting = messageHandlers.TOGGLE_SETTING;
+    messageHandlers.TOGGLE_SETTING = jest.fn(async (msg) => {
+      if (msg._mirrored) {
+        throw new Error('Mirrored toggle crash');
+      }
+      return origToggleSetting(msg);
+    });
+    const toggleCustom = await messageHandlers.TOGGLE_SETTING({
+      profileId: 'pMatched123',
+      category: 'settings',
+      id: 'customSetting',
+      settingType: 'string',
+      value: 'customValue'
+    });
+    expect(toggleCustom.success).toBe(true);
+    await new Promise(r => setTimeout(r, 30));
+    messageHandlers.TOGGLE_SETTING = origToggleSetting;
+
+    // 9. Handlers: MANAGE_DOMAIN mirror replication rejection (line 46)
+    const bgApi = await import('../src/background/api.js');
+    const origManageDomain = bgApi.manageDomain;
+    const manageDomainSpy = jest.spyOn(bgApi, 'manageDomain').mockImplementation(async (pId, listType, domain, action) => {
+      if (pId === 'pMirror1') {
+        throw new Error('Mirrored domain manage crash');
+      }
+      return origManageDomain(pId, listType, domain, action);
+    });
+    await messageHandlers.MANAGE_DOMAIN({
+      profileId: 'pMatched123',
+      listType: 'denylist',
+      domain: 'sync-mirror.com',
+      action: 'add'
+    });
+    await new Promise(r => setTimeout(r, 30));
+    manageDomainSpy.mockRestore();
+    errSpy.mockRestore();
+
+    // 10. Handlers: CREATE_SNAPSHOT large quota pruning and error catch (lines 405-408, 413-414)
+    const hugeSnapshots = {
+      pMatched123: Array.from({ length: 9 }, (_, i) => ({
+        id: `snap-${i}`,
+        timestamp: Date.now(),
+        data: 'X'.repeat(300 * 1024)
+      }))
+    };
+    await global.storage.set('profileSnapshots', hugeSnapshots);
+    fetchMock.mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ data: [] })
+    }));
+    const snapRes = await messageHandlers.CREATE_SNAPSHOT({ profileId: 'pMatched123' });
+    expect(snapRes.success).toBe(true);
+
+    const origStorageSet = global.storage.set;
+    global.storage.set = jest.fn().mockRejectedValueOnce(new Error('QuotaExceeded'));
+    const snapFail = await messageHandlers.CREATE_SNAPSHOT({ profileId: 'pMatched123' });
+    expect(snapFail.success).toBe(false);
+    expect(snapFail.error).toContain('QuotaExceeded');
+    global.storage.set = origStorageSet;
+
+    // 11. api.js manageDomain catch block (line 47)
+    apiClient.fetchWithRetry = jest.fn().mockRejectedValueOnce(new Error('Hard Network Failure'));
+    const manageDomainErr = await bgApi.manageDomain('pMatched123', 'allowlist', 'fail.com', 'add');
+    expect(manageDomainErr.success).toBe(false);
+    expect(manageDomainErr.error).toBe('Hard Network Failure');
+    apiClient.fetchWithRetry = origFetchRetry;
+
+    // 12. api.js detectActiveProfile storedActive manual override fallback (line 86)
+    await global.storage.set('overrideProfileId', null);
+    await global.storage.set('activeProfile', 'pStoredManualOnly');
+    bgApi._resetDetectInFlight();
+    const storedManualProfile = await bgApi.detectActiveProfile();
+    expect(storedManualProfile.id).toBe('pStoredManualOnly');
+    expect(storedManualProfile.manual).toBe(true);
+  });
 });
+
+

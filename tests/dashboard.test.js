@@ -503,5 +503,51 @@ describe('Dashboard UI Module (src/ui/dashboard.js)', () => {
             warnSpy.mockRestore();
             errorSpy.mockRestore();
         });
+
+        test('handleLiveLog clears placeholder when container displays "No logs"', () => {
+            state.activeTab = 'logs';
+            const container = document.getElementById('logs-container');
+            container.innerHTML = '<div>No logs recorded yet.</div>';
+            handleLiveLog({
+                timestamp: Date.now(),
+                name: 'live.example.com',
+                status: 'allowed',
+                protocol: 'DoH'
+            });
+            expect(container.innerHTML).not.toContain('No logs recorded yet.');
+            expect(container.innerHTML).toContain('live.example.com');
+        });
+
+        test('loadAnalytics calculates rawBlockedPercent when summary data blockedPercent is NaN', async () => {
+            browser.runtime.sendMessage.mockImplementation(async (msg) => {
+                if (msg.type === 'GET_ANALYTICS') {
+                    if (msg.series) return { data: [] };
+                    return {
+                        data: {
+                            queries: 100,
+                            blockedQueries: 25,
+                            blockedPercent: NaN
+                        }
+                    };
+                }
+                return { success: true };
+            });
+
+            await loadAnalytics();
+            const container = document.getElementById('analytics-overview');
+            expect(container.textContent).toContain('25%');
+        });
+
+        test('loadNativeLogs catches exception when sendMessage rejects', async () => {
+            const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Connection dropped'));
+            await loadNativeLogs();
+            expect(errorSpy).toHaveBeenCalledWith(
+                '[Dashboard] sendMessage failed in loadNativeLogs:',
+                expect.any(Error)
+            );
+            errorSpy.mockRestore();
+        });
     });
 });
+

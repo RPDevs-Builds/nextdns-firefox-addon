@@ -216,4 +216,103 @@ describe('LogStreamManager', () => {
         expect(logStreamManager.currentReader).toBeNull();
         expect(logStreamManager.eventSource).toBeNull();
     });
+
+    test('_startFetchStream returns false when fetch or AbortController is missing', async () => {
+        const origFetch = global.fetch;
+        delete global.fetch;
+        const res = await logStreamManager._startFetchStream('p12345', 'key');
+        expect(res).toBe(false);
+        global.fetch = origFetch;
+    });
+
+    test('_startFetchStream handles fetch AbortError and generic network errors', async () => {
+        const abortErr = new Error('Aborted');
+        abortErr.name = 'AbortError';
+        fetchMock.mockRejectOnce(abortErr);
+        const resAbort = await logStreamManager._startFetchStream('p12345', 'key');
+        expect(resAbort).toBe(false);
+
+        fetchMock.mockRejectOnce(new Error('Network offline'));
+        const resNet = await logStreamManager._startFetchStream('p12345', 'key');
+        expect(resNet).toBe(false);
+    });
+
+    test('_startFetchStream stream reader error schedules reconnect', async () => {
+        logStreamManager.isExplicitlyStopped = false;
+        const reconnectSpy = jest.spyOn(logStreamManager, '_scheduleReconnect').mockImplementation(() => {});
+        const mockReader = {
+            read: jest.fn().mockRejectedValue(new Error('Stream interrupted')),
+            cancel: jest.fn()
+        };
+        const origFetch = global.fetch;
+        global.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            body: { getReader: () => mockReader }
+        });
+
+        const started = await logStreamManager._startFetchStream('p12345', 'key');
+        expect(started).toBe(true);
+
+        await new Promise(r => setTimeout(r, 50));
+        expect(reconnectSpy).toHaveBeenCalledWith('p12345');
+        reconnectSpy.mockRestore();
+        global.fetch = origFetch;
+    });
+
+    test('_startEventSourceStream logs warning on invalid JSON', () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        const originalEventSource = global.EventSource;
+        let eventSourceInstance = null;
+        global.EventSource = jest.fn().mockImplementation(() => {
+            eventSourceInstance = {
+                onmessage: null,
+                onerror: null,
+                close: jest.fn()
+            };
+            return eventSourceInstance;
+        });
+
+        logStreamManager._startEventSourceStream('p12345', 'key');
+        eventSourceInstance.onmessage({ data: 'NOT_VALID_JSON{[' });
+        expect(warnSpy).toHaveBeenCalledWith(
+            expect.stringContaining('[SSE] Failed to parse EventSource event data:'),
+            expect.any(Error)
+        );
+
+        warnSpy.mockRestore();
+        global.EventSource = originalEventSource;
+    });
+
+    test('start logs error and returns failure if initialization throws', async () => {
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+        const origStartFetch = logStreamManager._startFetchStream;
+        logStreamManager._startFetchStream = jest.fn().mockImplementation(() => {
+            throw new Error('Fatal stream failure');
+        });
+
+        const res = await logStreamManager.start('p12345');
+        expect(res.success).toBe(false);
+        expect(res.error).toBe('Fatal stream failure');
+        expect(errorSpy).toHaveBeenCalledWith(
+            expect.stringContaining('[SSE] Failed to initialize log stream:'),
+            expect.any(Error)
+        );
+
+        logStreamManager._startFetchStream = origStartFetch;
+        errorSpy.mockRestore();
+    });
+
+    test('handleLogPayload safely swallows rejected sendMessage promises', async () => {
+        const sendSpy = jest.spyOn(browser.runtime, 'sendMessage').mockReturnValue(Promise.reject(new Error('Port closed')));
+        expect(() => {
+            logStreamManager.handleLogPayload({
+                status: 'blocked',
+                category: 'malware',
+                domain: 'bad.example'
+            });
+        }).not.toThrow();
+        await new Promise(r => setTimeout(r, 10));
+        sendSpy.mockRestore();
+    });
 });
+

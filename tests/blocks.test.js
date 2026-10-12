@@ -423,7 +423,15 @@ describe('Popup UI - Blocks Expansion Suite', () => {
         global.browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Sync failed'));
         await expect(blocks.syncLists(true)).resolves.not.toThrow();
     });
+
+    test('Blocks UI - renderLists shows empty state when custom list search yields zero matches', () => {
+        state.currentDenylist = new Set(['malware.test', 'tracker.test']);
+        const container = document.getElementById('list-items-container');
+        blocks.renderLists('xyznonexistent');
+        expect(container.textContent).toContain('No domains match your search.');
+    });
 });
+
 
 
 

@@ -1102,4 +1102,221 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
         bulkBtn.onclick(new Event('click'));
         expect(global.confirm).toHaveBeenCalled();
     });
+
+    test('Content Script - comprehensive coverage for profile switcher, TLD restore, and account dropdown', async () => {
+        // 1. Profile Switcher navigation
+        window.history.pushState({}, '', '/abc123/security');
+        const switcher = document.getElementById('nxm-profile-switcher');
+        if (switcher) {
+            delete window.location;
+            window.location = { pathname: '/abc123/security', assign: jest.fn() };
+            switcher.value = 'def456';
+            switcher.onchange({ target: { value: 'def456' } });
+            expect(window.location.assign).toHaveBeenCalledWith('/def456/security');
+        }
+
+        // 2. TLD Restore handler with and without backup
+        const restoreBtn = document.getElementById('nxm-restore');
+        if (restoreBtn) {
+            global.browser.storage.sync.get.mockResolvedValueOnce({});
+            await restoreBtn.onclick();
+            expect(document.getElementById('nxm-toast')?.textContent).toContain('No backup found.');
+
+            global.browser.storage.sync.get.mockResolvedValueOnce({
+                'tldBackup_abc123': ['.xyz', '.top']
+            });
+            global.fetch = jest.fn()
+                .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: '.com' }] }) })
+                .mockResolvedValue({ ok: true, json: async () => ({}) });
+            await restoreBtn.onclick();
+        }
+
+        // 3. findAccountDropdown Strategy 2 (svg.fa-user) and Strategy 3 (.notranslate)
+        document.querySelectorAll('a.dropdown-item[href="/account"], a[href="/account"]').forEach(a => a.remove());
+
+        // Strategy 2 (svg.fa-user)
+        const strat2Container = document.createElement('div');
+        strat2Container.innerHTML = `
+            <div class="dropdown">
+                <button class="dropdown-toggle"><svg class="fa-user"></svg></button>
+            </div>
+        `;
+        document.body.appendChild(strat2Container);
+        storageChangedListener({ webGuiFilter: { newValue: true } }, 'sync');
+        await new Promise(r => setTimeout(r, 60));
+        expect(document.getElementById('nxm-header-filtered-logs-btn')).not.toBeNull();
+
+        strat2Container.remove();
+        document.getElementById('nxm-header-filtered-logs-btn')?.remove();
+        document.getElementById('nxm-dropdown-filtered-logs-item')?.remove();
+
+        // Strategy 3 (span.notranslate)
+        const strat3Container = document.createElement('div');
+        strat3Container.innerHTML = `
+            <div class="dropdown">
+                <button class="dropdown-toggle"><span class="notranslate">user@example.com</span></button>
+            </div>
+        `;
+        document.body.appendChild(strat3Container);
+        storageChangedListener({ webGuiFilter: { newValue: true } }, 'sync');
+        await new Promise(r => setTimeout(r, 60));
+        expect(document.getElementById('nxm-header-filtered-logs-btn')).not.toBeNull();
+
+        storageChangedListener({ webGuiFilter: { newValue: false } }, 'sync');
+        await new Promise(r => setTimeout(r, 60));
+        expect(document.getElementById('nxm-header-filtered-logs-btn')).toBeNull();
+        strat3Container.remove();
+
+        // 4. Modal backdrop click closes modal
+        const modalBtn = document.getElementById('nxm-manage-filters-btn');
+        if (modalBtn) {
+            modalBtn.click();
+            await new Promise(r => setTimeout(r, 20));
+            const backdrop = document.getElementById('nxm-filter-modal-backdrop');
+            if (backdrop) {
+                backdrop.onclick({ target: backdrop });
+                expect(document.getElementById('nxm-filter-modal-backdrop')).toBeNull();
+            }
+        }
+    });
+
+    test('Content Script - Section collapsing, log actions, search exclusions, and scraping edge cases', async () => {
+        // 1. Section collapsing (lines 66-85)
+        document.body.innerHTML = `
+            <h4>Section One</h4>
+            <div id="content-1">Content 1</div>
+            <h4>Section Two</h4>
+        `;
+        window.history.pushState({}, '', '/abc123/setup');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 50));
+
+        const h4 = document.querySelector('h4');
+        expect(h4).not.toBeNull();
+        const content1 = document.getElementById('content-1');
+        // First click collapses
+        h4.click();
+        expect(content1.style.display).toBe('none');
+        // Second click expands
+        h4.click();
+        expect(content1.style.display).toBe('');
+
+        // 2. Negative log search query (line 747)
+        document.body.innerHTML = `
+            <div class="Logs">
+                <div class="list-group">
+                    <div class="list-group-item bg-2">Header</div>
+                    <div class="list-group-item log" id="log-bad">malware-danger.com</div>
+                    <div class="list-group-item log" id="log-good">clean-cdn.org</div>
+                </div>
+            </div>
+        `;
+        global.browser.storage.sync.get.mockResolvedValue({
+            webGuiMaster: true,
+            webGuiLogActions: true,
+            logFilters: {}
+        });
+        window.history.pushState({}, '', '/abc123/logs');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const searchInput = document.getElementById('nxm-log-search-input');
+        if (searchInput) {
+            searchInput.value = '-danger';
+            searchInput.dispatchEvent(new Event('input'));
+            expect(document.getElementById('log-bad').style.display).toBe('none');
+            expect(document.getElementById('log-good').style.display).toBe('');
+        }
+
+        // 3. Domain note prompt and edit (lines 864-868)
+        document.body.innerHTML = `
+            <div class="list-group">
+                <div class="list-group-item">
+                    <span class="notranslate">example.com</span>
+                </div>
+            </div>
+        `;
+        window.history.pushState({}, '', '/abc123/denylist');
+        global.browser.storage.sync.get.mockResolvedValue({
+            webGuiMaster: true,
+            webGuiDesc: true,
+            domainDescriptions: {}
+        });
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const noteEditBtn = document.querySelector('.nxm-domain-desc button');
+        if (noteEditBtn) {
+            global.prompt = jest.fn(() => 'Test Denylist Note');
+            noteEditBtn.click();
+            expect(global.prompt).toHaveBeenCalledWith('Note for example.com:', '');
+            expect(global.browser.storage.sync.set).toHaveBeenCalledWith(expect.objectContaining({
+                domainDescriptions: expect.objectContaining({ 'example.com': 'Test Denylist Note' })
+            }));
+        }
+
+        // 4. Modal close via Escape, close button, and Done button (lines 1056, 1152, 1256-1258)
+        const openModalBtn = document.getElementById('nxm-manage-filters-btn') || document.getElementById('nxm-header-filtered-logs-btn');
+        if (openModalBtn) {
+            openModalBtn.click();
+            await new Promise(r => setTimeout(r, 20));
+            
+            // Close via close '×' button
+            const closeX = document.querySelector('.nxm-modal-close');
+            if (closeX) {
+                closeX.click();
+                expect(document.getElementById('nxm-filter-modal-backdrop')).toBeNull();
+            }
+
+            // Re-open and close via Escape
+            openModalBtn.click();
+            await new Promise(r => setTimeout(r, 20));
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            expect(document.getElementById('nxm-filter-modal-backdrop')).toBeNull();
+
+            // Re-open and test search mismatch + clear all
+            global.browser.storage.sync.get.mockResolvedValue({
+                logFilters: { 'tracker.bad': 'Tracker note' }
+            });
+            openModalBtn.click();
+            await new Promise(r => setTimeout(r, 20));
+
+            const modalSearch = document.querySelector('.nxm-filter-search-input');
+            if (modalSearch) {
+                modalSearch.value = 'nomatchdomain';
+                modalSearch.dispatchEvent(new Event('input'));
+                expect(document.querySelector('.nxm-filter-item')).toBeNull();
+            }
+
+            const clearBtn = document.querySelector('.nxm-modal-footer .btn-outline-danger');
+            if (clearBtn) {
+                global.confirm = jest.fn(() => true);
+                clearBtn.click();
+                expect(global.confirm).toHaveBeenCalled();
+            }
+
+            const doneBtn = document.querySelector('.nxm-modal-footer .btn-secondary');
+            if (doneBtn) {
+                doneBtn.click();
+                expect(document.getElementById('nxm-filter-modal-backdrop')).toBeNull();
+            }
+        }
+
+        // 5. Parental Services scraping (lines 1317-1319)
+        const serviceItems = Array.from({ length: 15 }, (_, i) => 
+            `<div class="list-group-item"><span style="font-weight: 500;">Service-${i}</span></div>`
+        ).join('');
+        document.body.innerHTML = `<div class="list-group">${serviceItems}</div>`;
+
+        window.history.pushState({}, '', '/abc123/parentalcontrol');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'SAVE_SCRAPED_META',
+            payload: expect.objectContaining({ metaType: 'parental_services' })
+        }));
+    });
 });
+

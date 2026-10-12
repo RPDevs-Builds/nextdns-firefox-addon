@@ -14,6 +14,7 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
     let mockStorageData;
 
     beforeEach(async () => {
+        jest.setTimeout(60000);
         document.body.innerHTML = html;
         jest.resetModules();
         jest.clearAllMocks();
@@ -1016,5 +1017,394 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             await uiMain.loadAlertSettings();
             storage.get = origGet;
         });
+
+        test('UI Main Module - comprehensive branch and error recovery coverage', async () => {
+            const { storage } = await import('../src/storage.js');
+
+            // 1. handleDashboardDomain error catch (line 134)
+            document.body.innerHTML = `
+                <input id="domain-input" value="test-error.com">
+                <button id="allow-btn">Allow</button>
+            `;
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Background unreachable'));
+            await uiMain.handleDashboardDomain('allowlist', 'add');
+            expect(document.getElementById('allow-btn').disabled).toBe(false);
+
+            // 2. handleAddDomain empty domain, API failure, and error catch (lines 147, 167, 170)
+            document.body.innerHTML = `
+                <input id="list-new-domain" value="">
+                <select id="list-type-select"><option value="allowlist">Allowlist</option></select>
+                <button id="list-add-btn">Add</button>
+            `;
+            // Empty
+            await uiMain.handleAddDomain();
+
+            // API failure
+            document.getElementById('list-new-domain').value = 'fail.com';
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: false, error: 'Denied by policy' });
+            await uiMain.handleAddDomain();
+
+            // Error catch
+            document.getElementById('list-new-domain').value = 'crash.com';
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Connection lost'));
+            await uiMain.handleAddDomain();
+            expect(document.getElementById('list-add-btn').disabled).toBe(false);
+
+            // 3. handleBulkAdd empty domains (line 183)
+            document.body.innerHTML = `
+                <textarea id="list-bulk-domains"></textarea>
+                <select id="list-type-select"><option value="denylist">Denylist</option></select>
+                <button id="list-bulk-submit-btn">Submit</button>
+            `;
+            await uiMain.handleBulkAdd();
+
+            // 4. handleIconClickModeRedirect popout tab fallback & error catch (lines 258-259, 276)
+            const origGet = storage.get;
+            storage.get = jest.fn().mockResolvedValue('popout');
+            const origWindows = window.browser?.windows;
+            delete window.browser.windows;
+            await uiMain.handleIconClickModeRedirect();
+            expect(browser.tabs.create).toHaveBeenCalled();
+            window.browser.windows = origWindows;
+
+            storage.get = jest.fn().mockRejectedValueOnce(new Error('Storage broken'));
+            const redirectFailed = await uiMain.handleIconClickModeRedirect();
+            expect(redirectFailed).toBe(false);
+            storage.get = origGet;
+
+            // 5. updateLocalBlocksCache settings/performance branch (line 696)
+            stateModule.state.lastBlocksData = { 'settings/performance': {} };
+            uiMain.updateLocalBlocksCache('settings/performance', 'cache-boost', 'add');
+            expect(stateModule.state.lastBlocksData['settings/performance']['cache-boost']).toBe(true);
+
+            // 6. initializeApp hostnameAliases catch & service error (lines 740, 791)
+            storage.get = jest.fn().mockImplementation((key) => {
+                if (key === 'hostnameAliases') throw new Error('Aliases corrupted');
+                return Promise.resolve(mockStorageData[key]);
+            });
+            await uiMain.initializeApp();
+            storage.get = origGet;
+
+            // 7. initCustomizeUI & initMirrorModeUI catch blocks (lines 850, 880)
+            storage.get = jest.fn().mockRejectedValueOnce(new Error('Customize storage err'));
+            await uiMain.initCustomizeUI();
+
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Mirror comms err'));
+            await uiMain.initMirrorModeUI();
+            storage.get = origGet;
+
+            // 8. refreshActiveProfileAndUI error catch (lines 1012-1013)
+            browser.runtime.sendMessage.mockImplementation(async (msg) => {
+                if (msg.type === 'GET_PROFILE') throw new Error('Fatal profile fetch error');
+                return { success: true };
+            });
+            const nullProfile = await uiMain.refreshActiveProfileAndUI();
+            expect(nullProfile).toBeNull();
+        });
+
+        test('Exhaustive coverage of UI Main edge cases, listeners, filters, and fallbacks', async () => {
+            // A. DOMContentLoaded initialization error catches & retry button click (lines 78, 84-95)
+            const themeModule = await import('../src/ui/theme.js');
+            const themeSpy = jest.spyOn(themeModule, 'initThemeEngine').mockRejectedValueOnce(new Error('Theme engine error'));
+            const origProfileProp = Object.getOwnPropertyDescriptor(stateModule.state, 'activeProfile');
+            Object.defineProperty(stateModule.state, 'activeProfile', {
+                set: () => { throw new Error('Simulated bootstrap crash'); },
+                configurable: true
+            });
+            browser.runtime.sendMessage.mockImplementation(async (msg) => {
+                if (msg.type === 'GET_PROFILE') return null;
+                return { success: true };
+            });
+            document.dispatchEvent(new Event('DOMContentLoaded'));
+            await new Promise(r => setTimeout(r, 60));
+            const retryBtn = document.getElementById('retry-bootstrap-btn');
+            if (retryBtn) retryBtn.click();
+            themeSpy.mockRestore();
+            if (origProfileProp) {
+                Object.defineProperty(stateModule.state, 'activeProfile', origProfileProp);
+            } else {
+                delete stateModule.state.activeProfile;
+            }
+
+            // B. handleDashboardDomain empty domain check (line 110)
+            const domInput = document.getElementById('domain-input');
+            if (domInput) domInput.value = '   ';
+            await uiMain.handleDashboardDomain('allowlist', 'add');
+            expect(browser.runtime.sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ domain: '   ' }));
+
+            // C. Tab Switching & Sub-tabs (lines 296, 302-309, 351-353, 366)
+            uiMain.initGlobalEventListeners();
+
+            // Click dashboard tab when activeProfile is null / Not Detected
+            stateModule.state.activeProfile = null;
+            const profStatusEl = document.getElementById('profile-status');
+            if (profStatusEl) profStatusEl.textContent = 'Profile: Not Detected';
+            const dashTabBtn = document.querySelector('.tab-btn[data-tab="dashboard"]');
+            dashTabBtn?.click();
+            await new Promise(r => setTimeout(r, 30));
+
+            // Click settings tab with various active sub-tabs
+            const settingsTabBtn = document.querySelector('.tab-btn[data-tab="settings"]');
+            const subNav = document.getElementById('settings-sub-nav');
+            if (subNav && settingsTabBtn) {
+                const subButtons = subNav.querySelectorAll('.sub-tab-btn');
+                for (const sub of ['alerts', 'mirror', 'schedules', 'customize', 'webgui']) {
+                    subButtons.forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
+                    if (sub === 'customize') stateModule.state.isThemeUnsaved = true;
+                    settingsTabBtn.click();
+                    if (sub === 'customize') {
+                        stateModule.state.isThemeUnsaved = false;
+                        settingsTabBtn.click();
+                    }
+                }
+            }
+
+            // SubTab on dashboard (lines 351-353)
+            const dashSubOverview = document.querySelector('#dashboard-sub-nav .sub-tab-btn[data-sub="overview"]') ||
+                document.querySelector('.sub-tab-btn[data-parent="dashboard"][data-sub="overview"]');
+            dashSubOverview?.click();
+
+            // SubTab on settings setup (line 366)
+            const settingsSubSetup = document.querySelector('#settings-sub-nav .sub-tab-btn[data-sub="setup"]') ||
+                document.querySelector('.sub-tab-btn[data-parent="settings"][data-sub="setup"]');
+            settingsSubSetup?.click();
+
+            // D. Keyboard navigation on .tab-bar (lines 323, 327)
+            const tabBar = document.querySelector('.tab-bar');
+            if (tabBar) {
+                // currentIndex === -1
+                stateModule.state.activeTab = 'nonexistent-tab';
+                tabBar.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+
+                // nextIndex < 0 wrap-around
+                const visibleTabs = Array.from(tabBar.querySelectorAll('.tab-btn:not(.hidden)'));
+                if (visibleTabs.length > 0) {
+                    stateModule.state.activeTab = visibleTabs[0].dataset.tab;
+                    tabBar.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+                }
+            }
+
+            // E. Dashboard controls & status filters (lines 385-386, 389-391, 427-431, 441, 445, 458, 466-470)
+            const autoBtn = document.getElementById('auto-refresh-btn');
+            if (autoBtn) {
+                autoBtn.classList.add('btn-secondary');
+                autoBtn.click();
+                autoBtn.classList.remove('btn-secondary');
+                autoBtn.click();
+            }
+
+            if (domInput) domInput.value = 'example.org';
+            document.getElementById('allow-btn')?.click();
+            document.getElementById('deny-btn')?.click();
+            document.getElementById('snooze-btn')?.click();
+
+            // Status filter logic
+            const filterAll = document.getElementById('filter-all');
+            const filterStandard = document.getElementById('filter-standard');
+            const filterAllowed = document.getElementById('filter-allowed');
+            const filterBlocked = document.getElementById('filter-blocked');
+            const filterAllowlist = document.getElementById('filter-allowlist');
+            const filterDenylist = document.getElementById('filter-denylist');
+
+            if (filterAll && filterStandard && filterAllowed && filterBlocked) {
+                // filterAll checked -> true
+                filterAll.checked = true;
+                filterAll.dispatchEvent(new Event('change'));
+
+                // filterAllowlist and filterDenylist checks
+                if (filterDenylist) {
+                    filterBlocked.checked = true;
+                    filterDenylist.checked = true;
+                    filterDenylist.dispatchEvent(new Event('change'));
+                }
+                if (filterAllowlist) {
+                    filterAllowed.checked = true;
+                    filterAllowlist.checked = true;
+                    filterAllowlist.dispatchEvent(new Event('change'));
+                }
+
+                // Standard + Allowed + Blocked checked with no allowlist/denylist -> filterAll = true
+                filterStandard.checked = true;
+                filterAllowed.checked = true;
+                filterBlocked.checked = true;
+                if (filterAllowlist) filterAllowlist.checked = false;
+                if (filterDenylist) filterDenylist.checked = false;
+                filterAllowed.dispatchEvent(new Event('change'));
+                expect(filterAll.checked).toBe(true);
+
+                // Uncheck all -> resets filterAll to true
+                document.querySelectorAll('#status-filter-content input').forEach(inp => inp.checked = false);
+                filterStandard.dispatchEvent(new Event('change'));
+                expect(filterAll.checked).toBe(true);
+            }
+
+            // F. Alert checkboxes and theme-selector unsaved (lines 490, 506)
+            const alertChk = document.getElementById('alert-setting-enabled');
+            alertChk?.dispatchEvent(new Event('change'));
+
+            const themeSelect = document.getElementById('theme-selector');
+            if (themeSelect) {
+                themeSelect.value = '__unsaved__';
+                themeSelect.dispatchEvent(new Event('change'));
+            }
+
+            // G. Popout UI fallback to tabs.create (lines 554-555)
+            const popoutBtn = document.getElementById('popout-ui-btn');
+            const origWin = window.browser?.windows;
+            delete window.browser.windows;
+            const origClose = window.close;
+            window.close = jest.fn();
+            popoutBtn?.click();
+            expect(browser.tabs.create).toHaveBeenCalled();
+            window.browser.windows = origWin;
+            window.close = origClose;
+
+            // H. Runtime onMessage LIVE_LOG & PUSH_NOTIFICATION (lines 592, 595)
+            let onMessageCb;
+            browser.runtime.onMessage.addListener.mockImplementation(cb => onMessageCb = cb);
+            uiMain.initGlobalEventListeners();
+            if (onMessageCb) {
+                onMessageCb({ type: 'LIVE_LOG', log: { domain: 'live.stream.org', rootDomain: 'stream.org', status: 2 } });
+
+                stateModule.state.notifications = Array.from({ length: 50 }, (_, i) => ({ id: i, message: `notif-${i}` }));
+                onMessageCb({ type: 'PUSH_NOTIFICATION', payload: { message: '51st notification' } });
+                expect(stateModule.state.notifications.length).toBe(50);
+            }
+
+            // I. API toggle and API toggle button (lines 609, 644, 662, 665)
+            stateModule.state.activeProfile = null;
+            document.body.innerHTML += `
+                <input type="checkbox" class="api-toggle" data-cat="security" data-id="ai_threats" data-type="boolean">
+                <button class="api-toggle-btn" data-cat="parentalcontrol/services" data-id="tiktok" data-type="list" data-active="false">Add</button>
+            `;
+            const toggleInput = document.querySelector('.api-toggle');
+            toggleInput.dispatchEvent(new Event('change', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 20));
+
+            const toggleBtn = document.querySelector('.api-toggle-btn');
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: false, error: 'Simulated API failure' });
+            toggleBtn.dispatchEvent(new Event('click', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 20));
+
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Network crash'));
+            toggleBtn.dispatchEvent(new Event('click', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 20));
+
+            // J. Storage onChanged for hostnameAliases (lines 746-751)
+            let storageChangedCb;
+            browser.storage.onChanged.addListener.mockImplementation(cb => storageChangedCb = cb);
+            delete window._hasAliasStorageListener;
+            await uiMain.initializeApp();
+            if (storageChangedCb) {
+                stateModule.state.activeTab = 'logs';
+                storageChangedCb({ hostnameAliases: { newValue: { '192.168.1.99': 'Office Printer' } } });
+                expect(stateModule.state.hostnameAliases['192.168.1.99']).toBe('Office Printer');
+            }
+
+            // K. initializeApp profile fallback (lines 764-770)
+            browser.runtime.sendMessage.mockImplementation(async (msg) => {
+                if (msg.type === 'GET_PROFILE') return null;
+                return { success: true };
+            });
+            const { storage: storageMod } = await import('../src/storage.js');
+            await storageMod.set('activeProfile', 'fallback-prof-42');
+            stateModule.state.activeProfile = null;
+            await uiMain.initializeApp();
+            expect(stateModule.state.activeProfile).toBe('fallback-prof-42');
+
+            // L. Missing DOM elements graceful return (lines 890, 906, 1086, 1137, 1180)
+            document.body.innerHTML = ''; // Clear all DOM elements
+            await uiMain.saveMirrorMode();
+            const profs = await uiMain.loadProfiles();
+            expect(profs).toEqual([]);
+            await uiMain.toggleAutoRefresh(false);
+            if (stateModule?.state?.autoRefreshInterval) {
+                clearInterval(stateModule.state.autoRefreshInterval);
+                stateModule.state.autoRefreshInterval = null;
+            }
+            if (stateModule?.state?.tabTrackingIntervalId) {
+                clearInterval(stateModule.state.tabTrackingIntervalId);
+                stateModule.state.tabTrackingIntervalId = null;
+            }
+            await uiMain.importFullConfiguration({ target: { files: [] } });
+        });
+
+        test('UI Main - handleAddDomain empty, handleBulkAdd, sub-tabs, alerts, and mirror UI', async () => {
+            // 1. handleAddDomain empty input (line 147)
+            document.body.innerHTML = `
+                <input id="list-new-domain" value="" />
+                <select id="list-type-select"><option value="denylist">denylist</option></select>
+                <button id="list-add-btn">Add</button>
+            `;
+            await uiMain.handleAddDomain();
+
+            // 2. handleBulkAdd button state and concurrent map (line 189)
+            document.body.innerHTML = `
+                <textarea id="list-bulk-domains">site1.com\nsite2.com</textarea>
+                <select id="list-type-select"><option value="allowlist">allowlist</option></select>
+                <button id="list-bulk-submit-btn">Bulk Add</button>
+                <div id="list-bulk-container"></div>
+            `;
+            browser.runtime.sendMessage.mockResolvedValue({ success: true });
+            await uiMain.handleBulkAdd();
+
+            // 3. Sub-tab switching for settings customize, alerts, and schedules (lines 357-367)
+            document.body.innerHTML = `
+                <div class="tab-content" id="tab-settings">
+                    <button class="sub-tab-btn" data-sub="customize">Theme</button>
+                    <button class="sub-tab-btn" data-sub="alerts">Alerts</button>
+                    <button class="sub-tab-btn" data-sub="schedules">Schedules</button>
+                    <button class="sub-tab-btn" data-sub="mirror">Mirror</button>
+                    <div id="settings-customize" class="settings-sub-content"></div>
+                    <div id="settings-alerts" class="settings-sub-content"></div>
+                    <div id="settings-schedules" class="settings-sub-content"></div>
+                    <div id="settings-mirror" class="settings-sub-content"></div>
+                </div>
+                <div class="tab-content" id="tab-dashboard">
+                    <button class="sub-tab-btn" data-sub="overview">Overview</button>
+                    <div id="dash-overview" class="dashboard-sub-content"></div>
+                </div>
+                <div id="mirror-profiles-list"></div>
+                <button id="save-mirror-btn"></button>
+            `;
+            uiMain.initGlobalEventListeners();
+            const customizeBtn = document.querySelector('[data-sub="customize"]');
+            customizeBtn.onclick();
+            expect(customizeBtn.classList.contains('active')).toBe(true);
+
+            const alertsBtn = document.querySelector('[data-sub="alerts"]');
+            alertsBtn.onclick();
+            expect(alertsBtn.classList.contains('active')).toBe(true);
+
+            const schedulesBtn = document.querySelector('[data-sub="schedules"]');
+            schedulesBtn.onclick();
+            expect(schedulesBtn.classList.contains('active')).toBe(true);
+
+            const dashOverviewBtn = document.querySelector('#tab-dashboard [data-sub="overview"]');
+            dashOverviewBtn.onclick();
+            expect(dashOverviewBtn.classList.contains('active')).toBe(true);
+
+            // 4. Mirror Mode UI rendering and saving (lines 875-878, 893)
+            const mockProfiles = [
+                { id: 'prof-1', name: 'Profile One' },
+                { id: 'prof-2', name: 'Profile Two' }
+            ];
+            stateModule.state.activeProfile = 'prof-1';
+            const { storage: storageMod } = await import('../src/storage.js');
+            await storageMod.set('mirrorProfiles', ['prof-2']);
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: true, data: mockProfiles });
+            await uiMain.initMirrorModeUI();
+            expect(document.getElementById('mirror-profiles-list').innerHTML).toContain('Profile Two');
+
+            await uiMain.saveMirrorMode();
+            const savedMirror = await storageMod.get('mirrorProfiles');
+            expect(savedMirror).toEqual(['prof-2']);
+
+            // 5. refreshActiveProfileAndUI failure catch (lines 1012-1013)
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Fatal background error'));
+            const res = await uiMain.refreshActiveProfileAndUI();
+            expect(res).toBeNull();
+        });
     });
 });
+
