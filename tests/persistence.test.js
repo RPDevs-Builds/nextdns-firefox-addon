@@ -166,5 +166,31 @@ describe('Storage Persistence & Auto-Heal', () => {
         expect(await storage.get('k1')).toBeNull();
         expect(await storage.get('k2')).toBeNull();
     });
+
+    test('StorageManager: Safely catches errors in sync/local get, set, remove, and healing', async () => {
+        global.browser.storage.sync.get = jest.fn().mockRejectedValue(new Error('Sync get error'));
+        global.browser.storage.local.get = jest.fn().mockRejectedValue(new Error('Local get error'));
+        global.browser.storage.local.set = jest.fn().mockRejectedValue(new Error('Local set error'));
+        global.browser.storage.sync.set = jest.fn().mockRejectedValue(new Error('Sync set error'));
+        global.browser.storage.local.remove = jest.fn().mockRejectedValue(new Error('Local remove error'));
+        global.browser.storage.sync.remove = jest.fn().mockRejectedValue(new Error('Sync remove error'));
+
+        const { storage } = await import('../src/storage.js');
+        storage.initialized = false;
+        await storage.init();
+        expect(storage.initialized).toBe(true);
+
+        // set handles rejection gracefully
+        await expect(storage.set('singleKey', 'singleVal')).resolves.not.toThrow();
+        expect(await storage.get('singleKey')).toBe('singleVal');
+
+        // remove handles rejection gracefully
+        await expect(storage.remove('singleKey')).resolves.not.toThrow();
+        expect(await storage.get('singleKey')).toBeNull();
+
+        // array get with default object
+        const defResult = await storage.get(['nonExistent'], { nonExistent: 'fallbackVal' });
+        expect(defResult.nonExistent).toBe('fallbackVal');
+    });
 });
 

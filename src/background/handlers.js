@@ -340,7 +340,7 @@ export const messageHandlers = {
         const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/logs?raw=1`, { cache: 'no-store' });
         if (!r.success) return { success: false, error: "Failed to fetch logs" };
         const logsData = await r.response.json().catch(() => ({}));
-        const logs = logsData.data || [];
+        const logs = Array.isArray(logsData?.data) ? logsData.data : [];
 
         const correlations = [];
         const seenDomains = new Set();

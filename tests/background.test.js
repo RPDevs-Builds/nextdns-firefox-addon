@@ -1073,4 +1073,204 @@ describe('Background Script - Full Coverage Suite', () => {
     // Asynchronous channel returns true
     expect(res).toBeNull(); // Will be fulfilled asynchronously by messageHandlers
   });
+
+  test('Background Handlers - Detailed edge case coverage', async () => {
+    const { messageHandlers } = await import('../src/background/handlers.js');
+    const { state } = await import('../src/background/state.js');
+
+    // 1. GET_ANALYTICS validation and endpoints
+    expect(await messageHandlers.GET_ANALYTICS({ profileId: 'invalid..id' })).toEqual({ success: false, error: 'Invalid profile ID' });
+    expect(await messageHandlers.GET_ANALYTICS({ profileId: 'p123', endpoint: 'bad/endpoint/..' })).toEqual({ success: false, error: 'Invalid analytics endpoint' });
+
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/analytics/domains')) {
+        return { ok: true, json: async () => ({ data: [{ domain: 'd1.com', queries: 5 }] }) };
+      }
+      if (url.includes('/analytics/status;series')) {
+        return { ok: true, json: async () => ({ data: [{ timestamp: 100, queries: 10 }] }) };
+      }
+      if (url.includes('/analytics/status')) {
+        throw new Error('Analytics fetch error');
+      }
+      return { ok: true, json: async () => ({ data: [] }) };
+    });
+
+    const domainsRes = await messageHandlers.GET_ANALYTICS({ profileId: 'p123', endpoint: 'domains' });
+    expect(domainsRes.success).toBe(true);
+    expect(domainsRes.data.length).toBe(1);
+
+    const seriesRes = await messageHandlers.GET_ANALYTICS({ profileId: 'p123', series: true });
+    expect(seriesRes.success).toBe(true);
+
+    const errRes = await messageHandlers.GET_ANALYTICS({ profileId: 'p123', endpoint: 'status' });
+    expect(errRes.success).toBe(false);
+
+    // 2. GET_PROFILE and DETECT_PROFILE
+    await global.storage.set('overrideProfileId', 'p123');
+    const prof = await messageHandlers.GET_PROFILE();
+    expect(prof).toBeDefined();
+    const detectProf = await messageHandlers.DETECT_PROFILE();
+    expect(detectProf.success).toBe(true);
+
+    // 3. GET_NETWORK_STATUS
+    state.networkStatus = null;
+    const netRes = await messageHandlers.GET_NETWORK_STATUS();
+    expect(netRes.success).toBe(true);
+
+    // 4. TOGGLE_SETTING input validation & Mirror mode replication
+    expect(await messageHandlers.TOGGLE_SETTING({ profileId: 'invalid..id' })).toEqual({ success: false, error: 'Invalid profile ID' });
+    expect(await messageHandlers.TOGGLE_SETTING({ profileId: 'p123', category: 'bad\\cat' })).toEqual({ success: false, error: 'Invalid setting category' });
+    expect(await messageHandlers.TOGGLE_SETTING({ profileId: 'p123', category: 'security', id: 'bad/id' })).toEqual({ success: false, error: 'Invalid setting ID' });
+
+    await global.storage.set('mirrorProfiles', ['p123', 'pMirror1']);
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/profiles/pMirror1/security')) {
+        throw new Error('Mirror replication failed');
+      }
+      return { ok: true, json: async () => ({ success: true }) };
+    });
+    const toggleRes = await messageHandlers.TOGGLE_SETTING({
+      profileId: 'p123',
+      category: 'security',
+      id: 'block_ai',
+      settingType: 'boolean',
+      value: true
+    });
+    expect(toggleRes.success).toBe(true);
+
+    // 5. GET_ALL_SETTINGS profileId fallback and performance normalization
+    await global.storage.set('activeProfile', 'pFallback');
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/profiles/pFallback/settings/performance')) {
+        return { ok: false };
+      }
+      if (url.includes('/profiles/pFallback/settings')) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: {
+              performance: { ecs: true, cacheBoost: false, cnameFlattening: true }
+            }
+          })
+        };
+      }
+      return { ok: true, json: async () => ({ data: {} }) };
+    });
+    const allSettingsRes = await messageHandlers.GET_ALL_SETTINGS({});
+    expect(allSettingsRes.success).toBe(true);
+    expect(allSettingsRes.data.settings.ecs).toBe(true);
+
+    // 6. DEBUG_TAB validation & failure
+    expect(await messageHandlers.DEBUG_TAB({ profileId: 'invalid..id' })).toEqual({ success: false, error: 'Invalid profile ID', correlations: [] });
+    state.tabRequests[99] = {};
+    expect(await messageHandlers.DEBUG_TAB({ profileId: 'p123', tabId: 99 })).toEqual({ success: true, correlations: [] });
+
+    state.tabRequests[99] = { 'faildomain.com': { status: 'blocked' } };
+    fetchMock.mockImplementation(async () => ({ ok: false, status: 500 }));
+    expect(await messageHandlers.DEBUG_TAB({ profileId: 'p123', tabId: 99 })).toEqual({ success: false, error: 'Failed to fetch logs' });
+
+    // 7. LIST_SNAPSHOTS & DELETE_SNAPSHOT validation
+    expect(await messageHandlers.LIST_SNAPSHOTS({ profileId: 'bad!id' })).toEqual({ success: false, snapshots: [], error: 'Invalid profile ID' });
+    expect(await messageHandlers.DELETE_SNAPSHOT({ profileId: 'bad!id' })).toEqual({ success: false, error: 'Invalid profile ID' });
+
+    // 8. LIST_REWRITES, SAVE_REWRITE, DELETE_REWRITE
+    expect(await messageHandlers.LIST_REWRITES({ profileId: 'bad!id' })).toEqual({ success: false, error: 'Invalid profile ID' });
+    fetchMock.mockImplementation(async () => ({ ok: false, status: 500 }));
+    expect(await messageHandlers.LIST_REWRITES({ profileId: 'p123' })).toEqual({ success: false, error: 'HTTP 500' });
+
+    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => ({ data: [{ name: 'myrouter.local', content: '192.168.1.1' }] }) }));
+    const rewritesRes = await messageHandlers.LIST_REWRITES({ profileId: 'p123' });
+    expect(rewritesRes.success).toBe(true);
+    expect(rewritesRes.data.length).toBe(1);
+
+    expect(await messageHandlers.SAVE_REWRITE({ profileId: 'bad!id' })).toEqual({ success: false, error: 'Invalid profile ID' });
+    expect(await messageHandlers.SAVE_REWRITE({ profileId: 'p123', name: '' })).toEqual({ success: false, error: 'Invalid domain name' });
+    expect(await messageHandlers.SAVE_REWRITE({ profileId: 'p123', name: 'valid.lan', content: '' })).toEqual({ success: false, error: 'Invalid rewrite target' });
+
+    expect(await messageHandlers.DELETE_REWRITE({ profileId: 'bad!id' })).toEqual({ success: false, error: 'Invalid profile ID' });
+    expect(await messageHandlers.DELETE_REWRITE({ profileId: 'p123', name: '' })).toEqual({ success: false, error: 'Invalid domain name' });
+
+    // 9. PUSH_NOTIFICATION triggers
+    await global.storage.set('alertSettings', { enabled: false });
+    expect(await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security', message: 'Test' } })).toEqual({ success: false, reason: 'alerts_disabled' });
+
+    await global.storage.set('alertSettings', { enabled: true, triggerParental: false });
+    expect(await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'parental', message: 'Test' } })).toEqual({ success: false, reason: 'trigger_type_disabled' });
+
+    await global.storage.set('alertSettings', { enabled: true, triggerThreats: true, desktop: true, actionCenter: true });
+    global.browser.notifications = {
+      create: jest.fn().mockRejectedValue(new Error('Desktop notif error'))
+    };
+    expect(await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security', severity: 'high', message: 'Alert!' } })).toEqual({ success: true });
+
+    // 10. SAVE_SCRAPED_META validation
+    expect(await messageHandlers.SAVE_SCRAPED_META(null)).toEqual({ success: false, error: 'Invalid payload' });
+    expect(await messageHandlers.SAVE_SCRAPED_META({ payload: { metaType: 'invalid_type', data: [] } })).toEqual({ success: false, error: 'Invalid metaType or data format' });
+  });
+
+  test('Background API - manageDomain and detectActiveProfile comprehensive paths', async () => {
+    const { manageDomain, _resetDetectInFlight, _resetUpdateCacheInFlight, detectActiveProfile } = await import('../src/background/api.js');
+    _resetDetectInFlight();
+    _resetUpdateCacheInFlight();
+
+    // 1. manageDomain validation & actions
+    expect(await manageDomain('p123', 'allowlist', '', 'add')).toEqual({ success: false, error: 'Invalid domain' });
+    expect(await manageDomain('p123', 'denylist', '', 'delete')).toEqual({ success: false, error: 'Invalid domain' });
+
+    fetchMock.mockImplementationOnce(async () => ({ ok: true }));
+    expect(await manageDomain('p123', 'denylist', 'bad.com', 'delete')).toEqual({ success: true });
+
+    fetchMock.mockImplementation(async () => ({ ok: false, status: 500 }));
+    expect(await manageDomain('p123', 'allowlist', null, 'list')).toEqual({ error: 'HTTP 500' });
+
+    fetchMock.mockImplementation(async () => { throw new Error('API failure'); });
+    expect(await manageDomain('p123', 'allowlist', 'bad.com', 'add')).toEqual({ success: false, error: 'API failure' });
+
+    // 2. detectActiveProfile manual matching accountProfiles name
+    await global.storage.set('overrideProfileId', 'pManual');
+    await global.storage.set('apiKey', 'test-api-key');
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/profiles')) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: [{ id: 'pManual', name: 'Matched Manual Profile' }]
+          })
+        };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    _resetDetectInFlight();
+    const detectedManual = await detectActiveProfile();
+    expect(detectedManual.name).toBe('Matched Manual Profile (pManual)');
+
+    // 3. detectActiveProfile auto-detection fallbacks
+    await global.storage.set('overrideProfileId', 'auto');
+    await global.storage.set('activeProfile', 'auto');
+    fetchMock.mockImplementation(async (url) => {
+      if (url === 'https://test.nextdns.io/') {
+        return { ok: false };
+      }
+      if (url === 'https://dns.nextdns.io/info') {
+        return { ok: true, json: async () => ({ pop: 'lhr-1', ip: '192.0.2.1' }) };
+      }
+      if (url.includes('/profiles')) {
+        return { ok: true, json: async () => ({ data: [{ id: 'pFallback1', name: 'First Account Profile' }] }) };
+      }
+      return { ok: false };
+    });
+    _resetDetectInFlight();
+    const detectedAuto = await detectActiveProfile();
+    expect(detectedAuto.id).toBe('pFallback1');
+
+    // 4. detectActiveProfile account profile fetch warning catch
+    fetchMock.mockImplementation(async (url) => {
+      if (url.includes('/profiles')) {
+        throw new Error('Network failure');
+      }
+      return { ok: false };
+    });
+    _resetDetectInFlight();
+    await detectActiveProfile();
+  });
 });

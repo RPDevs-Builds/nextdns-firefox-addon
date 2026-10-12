@@ -160,6 +160,34 @@ describe('Intelligent Debugger (Phase 4.1)', () => {
         expect(state.tabRequests[888]['newdomain301.com']).toBeDefined();
     });
 
+    test('requestListener: Handles non-array localLogs, timestamps pruning, and sendMessage failure', () => {
+        const { state } = require('../src/background/state.js');
+        state.localLogs = null; // Tests line 58 initialization
+        state.recentLogTimestamps = new Map();
+        const now = Date.now();
+        // Fill 305 timestamps with some older than 10s
+        for (let i = 0; i < 305; i++) {
+            state.recentLogTimestamps.set(`old${i}.com`, now - 15000);
+        }
+
+        // Pre-fill localLogs with 200 items so unshift + pop limits it to 200
+        state.localLogs = Array.from({ length: 200 }, (_, i) => ({ domain: `item${i}.com` }));
+
+        // Make sendMessage reject and throw
+        global.browser.runtime.sendMessage = jest.fn(() => Promise.reject(new Error("Channel closed")));
+
+        const res = bg.requestListener({ url: 'https://streamtest.org/path', tabId: 777, type: 'xmlhttprequest' });
+        expect(res).toEqual({ cancel: false });
+        expect(state.localLogs.length).toBe(200);
+        expect(state.recentLogTimestamps.size).toBeLessThan(305);
+
+        // Synchronous throw in sendMessage
+        global.browser.runtime.sendMessage = jest.fn(() => { throw new Error("Sync send failure"); });
+        state.recentLogTimestamps.delete('streamtest2.org');
+        const res2 = bg.requestListener({ url: 'https://streamtest2.org/path', tabId: 777, type: 'xmlhttprequest' });
+        expect(res2).toEqual({ cancel: false });
+    });
+
     test('GET_NETWORK_STATUS: Returns current networkStatus from background state', async () => {
         global.fetch.mockResolvedValue({
             ok: true,

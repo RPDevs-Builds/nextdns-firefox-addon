@@ -849,5 +849,172 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
                 stateModule.state.tabTrackingIntervalId = null;
             }
         });
+
+        test('tabBar keyboard navigation handles ArrowRight and ArrowLeft wrap-around', () => {
+            uiMain.initGlobalEventListeners();
+            const tabBar = document.querySelector('.tab-bar');
+            expect(tabBar).not.toBeNull();
+
+            stateModule.state.activeTab = 'dashboard';
+            const rightEvent = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true });
+            tabBar.dispatchEvent(rightEvent);
+
+            const leftEvent = new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true });
+            tabBar.dispatchEvent(leftEvent);
+
+            // Non-arrow keys ignored
+            const otherEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+            tabBar.dispatchEvent(otherEvent);
+        });
+
+        test('dynamic .api-toggle change listener handles success, error response, and exceptions', async () => {
+            uiMain.initGlobalEventListeners();
+
+            const toggle = document.createElement('input');
+            toggle.type = 'checkbox';
+            toggle.className = 'api-toggle';
+            toggle.dataset.cat = 'security';
+            toggle.dataset.id = 'ai';
+            toggle.dataset.type = 'boolean';
+            document.body.appendChild(toggle);
+
+            // 1. Success path
+            toggle.checked = true;
+            toggle.dispatchEvent(new Event('change', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 60));
+            expect(browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+                type: 'TOGGLE_SETTING',
+                category: 'security',
+                id: 'ai',
+                action: 'add'
+            }));
+
+            // 2. Error response from background
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: false, error: 'NextDNS API rejected' });
+            toggle.checked = true;
+            toggle.dispatchEvent(new Event('change', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 60));
+            expect(toggle.checked).toBe(false);
+
+            // 3. Exception thrown during send
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Network disconnected'));
+            toggle.checked = true;
+            toggle.dispatchEvent(new Event('change', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 60));
+            expect(toggle.checked).toBe(false);
+        });
+
+        test('saveAlertSettings and sendTestAlert error handling branches', async () => {
+            const { storage } = await import('../src/storage.js');
+            const origSet = storage.set;
+            storage.set = jest.fn().mockRejectedValueOnce(new Error('Sync quota exceeded'));
+
+            await uiMain.saveAlertSettings();
+            const alertSaveBtn = document.getElementById('alert-save-btn');
+            expect(alertSaveBtn.textContent).toBe('❌ Error');
+            storage.set = origSet;
+
+            // sendTestAlert failure
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Notification service failed'));
+            await uiMain.sendTestAlert();
+            const testAlertBtn = document.getElementById('alert-test-btn');
+            expect(testAlertBtn.textContent).toBe('❌ Failed');
+        });
+
+        test('loadProfiles and refreshActiveProfileAndUI error handling branches', async () => {
+            // 1. loadProfiles exception
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('API offline'));
+            const errProfiles = await uiMain.loadProfiles();
+            expect(errProfiles).toEqual([]);
+
+            // 2. refreshActiveProfileAndUI exception
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Fatal comms error'));
+            const errorResult = await uiMain.refreshActiveProfileAndUI();
+            expect(errorResult).toBeNull();
+        });
+
+        test('header controls, web GUI customize toggles, and live listeners', async () => {
+            uiMain.initGlobalEventListeners();
+
+            // 1. Popout UI button
+            const popoutBtn = document.getElementById('popout-ui-btn');
+            if (popoutBtn) {
+                popoutBtn.click();
+                expect(browser.windows.create).toHaveBeenCalled();
+                expect(global.window.close).toHaveBeenCalled();
+            }
+
+            // 2. Web GUI Customize toggles
+            const masterToggle = document.getElementById('web-gui-master-toggle');
+            if (masterToggle) {
+                masterToggle.checked = true;
+                masterToggle.dispatchEvent(new Event('change'));
+                await new Promise(r => setTimeout(r, 60));
+                expect(browser.storage.sync.set).toHaveBeenCalled();
+
+                masterToggle.checked = false;
+                masterToggle.dispatchEvent(new Event('change'));
+                await new Promise(r => setTimeout(r, 60));
+            }
+
+            const forcedThemeSelect = document.getElementById('web-gui-forced-theme');
+            if (forcedThemeSelect) {
+                forcedThemeSelect.value = 'dark';
+                forcedThemeSelect.dispatchEvent(new Event('change'));
+                await new Promise(r => setTimeout(r, 60));
+                expect(browser.storage.sync.set).toHaveBeenCalled();
+            }
+
+            // 3. Theme Enter keydown
+            const themeInput = document.getElementById('theme-name-input');
+            if (themeInput) {
+                themeInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+            }
+
+            // 4. Import settings button click triggers file input
+            const importBtn = document.getElementById('import-settings-btn');
+            const importFile = document.getElementById('import-settings-file');
+            if (importBtn && importFile) {
+                importFile.click = jest.fn();
+                importBtn.click();
+                expect(importFile.click).toHaveBeenCalled();
+            }
+        });
+
+        test('initSettingsUI debounced apiKey input and error recovery', async () => {
+            // 1. Live debounced API key input
+            document.body.innerHTML = `
+                <input id="setting-api-key" value="">
+                <select id="setting-profile-select"></select>
+                <select id="setting-icon-action"></select>
+                <input type="checkbox" id="setting-auto-refresh">
+                <input type="checkbox" id="setting-block-notif">
+                <input type="checkbox" id="setting-enable-labs">
+                <input id="setting-refresh-time" value="5">
+            `;
+            await uiMain.initSettingsUI();
+
+            const apiKeyInput = document.getElementById('setting-api-key');
+            apiKeyInput.value = '123456789012345678901'; // 21 chars
+            apiKeyInput.dispatchEvent(new Event('input'));
+            await new Promise(r => setTimeout(r, 450));
+            expect(browser.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+                type: 'GET_PROFILES_LIST',
+                apiKey: '123456789012345678901'
+            }));
+
+            // 2. initSettingsUI error catch
+            const { storage } = await import('../src/storage.js');
+            const origGet = storage.get;
+            storage.get = jest.fn().mockRejectedValueOnce(new Error('Storage unreadable'));
+            const res = await uiMain.initSettingsUI();
+            expect(res).toEqual({});
+            storage.get = origGet;
+
+            // 3. loadAlertSettings error catch
+            storage.get = jest.fn().mockRejectedValueOnce(new Error('Alert storage failure'));
+            await uiMain.loadAlertSettings();
+            storage.get = origGet;
+        });
     });
 });

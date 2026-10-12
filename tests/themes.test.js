@@ -205,4 +205,75 @@ describe('Theme Engine & Custom Palette (Phase 8.1)', () => {
         expect(document.getElementById('color-bg-main').value).toBe('#0f172a');
         expect(document.getElementById('delete-theme-btn').style.display).toBe('none');
     });
+
+    test('initViewerTheme: Initializes viewer theme and responds to storage onChanged', async () => {
+        const themeModule = await import('../src/ui/theme.js');
+        let storageListener;
+        global.browser.storage.onChanged.addListener = jest.fn((fn) => { storageListener = fn; });
+
+        await storage.set({
+            activeTheme: 'Dracula',
+            customThemes: { 'CustomV': { '--bg-main': '#333333' } }
+        });
+
+        await themeModule.initViewerTheme();
+        expect(document.body.style.getPropertyValue('--bg-main')).toBe('#282a36');
+
+        // Simulate storage change
+        if (storageListener) {
+            await storage.set('activeTheme', 'Nord');
+            await storageListener({ activeTheme: { newValue: 'Nord' } }, 'sync');
+            expect(document.body.style.getPropertyValue('--bg-main')).toBe('#2e3440');
+        }
+
+        // Test exception handling in initViewerTheme
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        const origGet = storage.get;
+        storage.get = jest.fn(() => { throw new Error('Viewer storage failure'); });
+        await themeModule.initViewerTheme();
+        expect(warnSpy).toHaveBeenCalledWith('[Theme] Viewer theme initialization failed:', expect.any(Error));
+        storage.get = origGet;
+        warnSpy.mockRestore();
+    });
+
+    test('saveCustomTheme: Timers reset placeholder and button state correctly', async () => {
+        jest.useFakeTimers();
+        const nameInput = document.getElementById('theme-name-input');
+        const saveBtn = document.getElementById('save-theme-btn');
+
+        // 1. Blank name error reset
+        nameInput.value = '';
+        await main.saveCustomTheme();
+        expect(nameInput.placeholder).toContain('Please enter a theme name');
+        jest.advanceTimersByTime(2100);
+        expect(nameInput.placeholder).toBe('New theme name...');
+
+        // 2. Reserved name error reset
+        nameInput.value = 'default-dark';
+        await main.saveCustomTheme();
+        expect(nameInput.placeholder).toContain('Name reserved');
+        jest.advanceTimersByTime(2600);
+        expect(nameInput.placeholder).toBe('New theme name...');
+
+        // 3. Successful save button text reset
+        nameInput.value = 'TestTimerTheme';
+        await main.saveCustomTheme();
+        expect(saveBtn.textContent).toBe('✅');
+        jest.advanceTimersByTime(1600);
+        expect(saveBtn.textContent).toBe('💾');
+        expect(saveBtn.disabled).toBe(false);
+
+        jest.useRealTimers();
+    });
+
+    test('initThemeEngine: Catches and logs initialization warnings gracefully', async () => {
+        const themeModule = await import('../src/ui/theme.js');
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        const origGet = storage.get;
+        storage.get = jest.fn(() => { throw new Error('Theme init error'); });
+        await themeModule.initThemeEngine();
+        expect(warnSpy).toHaveBeenCalledWith('[Theme] Engine initialization warning:', expect.any(Error));
+        storage.get = origGet;
+        warnSpy.mockRestore();
+    });
 });

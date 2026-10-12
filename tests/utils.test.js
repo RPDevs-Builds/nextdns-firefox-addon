@@ -103,5 +103,44 @@ describe('Background Utilities (utils.js)', () => {
             expect(keys).toContain('new-trigger.com');
             expect(keys).not.toContain('old0.com');
         });
+
+        test('debounces notification for same domain within 10 seconds', async () => {
+            await storage.set('alertSettings', { enabled: true, triggerDenylist: true, actionCenter: true });
+            state.lastNotificationTimes = {};
+            await handleBlockNotification('debounce.com');
+            const initialCount = state.notifications.length;
+
+            // Immediate repeat call within 10s should be debounced
+            await handleBlockNotification('debounce.com');
+            expect(state.notifications.length).toBe(initialCount);
+        });
+
+        test('handles storage error during actionCenter set gracefully and falls back to legacyBlockNotif', async () => {
+            await storage.set('alertSettings', { enabled: true, triggerDenylist: true, actionCenter: true, desktop: true });
+            const notifSpy = jest.fn();
+            global.browser.notifications = { create: notifSpy };
+
+            // Storage set fails on notifications key to trigger .catch(() => {}) on line 74
+            const origSet = storage.set.bind(storage);
+            storage.set = jest.fn((k, v) => {
+                if (k === 'notifications') return Promise.reject(new Error('Storage disk failure'));
+                return origSet(k, v);
+            });
+
+            state.lastNotificationTimes = {};
+            await expect(handleBlockNotification('legacy-notif.com')).resolves.not.toThrow();
+            expect(notifSpy).toHaveBeenCalled();
+            storage.set = origSet;
+        });
+
+        test('falls back to legacyBlockNotif when alertSettings is not configured', async () => {
+            const notifSpy = jest.fn();
+            global.browser.notifications = { create: notifSpy };
+            await storage.set('alertSettings', null);
+            await storage.set('blockNotif', true);
+            state.lastNotificationTimes = {};
+            await handleBlockNotification('legacy-only.com');
+            expect(notifSpy).toHaveBeenCalled();
+        });
     });
 });

@@ -436,12 +436,72 @@ describe('Dashboard UI Module (src/ui/dashboard.js)', () => {
             expect(toastSpy).toHaveBeenCalledWith('Logs cleared successfully.', 'success');
         });
 
-        test('wipeLogs aborts when user cancels confirmation', async () => {
+        test('wipeLogs aborts when user cancels confirmation or when profile is missing', async () => {
             global.confirm = jest.fn().mockReturnValue(false);
-
             await wipeLogs();
-
             expect(browser.runtime.sendMessage).not.toHaveBeenCalled();
+
+            // When activeProfile is falsy
+            state.activeProfile = null;
+            global.confirm.mockReturnValue(true);
+            await wipeLogs();
+            expect(browser.runtime.sendMessage).not.toHaveBeenCalled();
+        });
+
+        test('tab log actions: add to denylist, failure handling, and domain click input fill', async () => {
+            initTabLogEvents();
+            const container = document.getElementById('tab-log');
+            container.innerHTML = `
+                <div class="tab-request-row">
+                    <span class="tab-domain-name" data-domain="ad-tracker.com">ad-tracker.com</span>
+                    <button class="tab-action-btn tab-btn-add-deny" data-domain="ad-tracker.com" data-list="denylist" data-action="add">+ Deny</button>
+                    <button class="tab-action-btn tab-btn-add-allow" data-domain="failing.com" data-list="allowlist" data-action="add">+ Allow</button>
+                    <button class="tab-action-btn tab-btn-remove-deny" data-domain="error.com" data-list="denylist" data-action="delete">✕ Deny</button>
+                </div>
+            `;
+
+            // 1. Click domain name to populate domain input
+            const domainEl = container.querySelector('.tab-domain-name');
+            domainEl.click();
+            const domainInput = document.getElementById('domain-input');
+            expect(domainInput.value).toBe('ad-tracker.com');
+
+            // 2. Click deny button (success)
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            const denyBtn = container.querySelector('.tab-btn-add-deny');
+            await denyBtn.click();
+            expect(state.currentDenylist.has('ad-tracker.com')).toBe(true);
+
+            // 3. Click allow button (API failure)
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: false, error: 'Denied by server' });
+            const failBtn = container.querySelector('.tab-btn-add-allow');
+            await failBtn.click();
+            expect(failBtn.textContent).toBe('Err');
+
+            // 4. Click button (Throws exception)
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Fatal comms error'));
+            const errorBtn = container.querySelector('.tab-btn-remove-deny');
+            await errorBtn.click();
+            expect(errorBtn.textContent).toBe('Err');
+        });
+
+        test('updateDashboardTabInfo handles URL parse warnings and top-level errors', async () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+            const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+            // Invalid tab URL
+            browser.tabs.query.mockResolvedValueOnce([{ id: 2, url: 'http://[invalid-url' }]);
+            browser.runtime.sendMessage.mockResolvedValueOnce({ requests: {}, blockedCount: 0 });
+            await updateDashboardTabInfo();
+            expect(warnSpy).toHaveBeenCalledWith('[Dashboard] Failed to parse tab URL:', expect.anything());
+
+            // Query throws error
+            browser.tabs.query.mockRejectedValueOnce(new Error('Tab query error'));
+            await updateDashboardTabInfo();
+            expect(errorSpy).toHaveBeenCalledWith('[Dashboard] updateDashboardTabInfo failed:', expect.anything());
+
+            warnSpy.mockRestore();
+            errorSpy.mockRestore();
         });
     });
 });

@@ -316,6 +316,113 @@ describe('Popup UI - Blocks Expansion Suite', () => {
         expect(listItems.textContent).toContain('badsite.com');
         expect(listItems.textContent).toContain('tracker.org');
     });
+
+    test('Blocks UI - List Remove button click handles success, failure, and exceptions', async () => {
+        state.activeTab = 'lists';
+        state.currentDenylist = new Set(['adsite.com', 'track.net', 'malware.ru']);
+        blocks.renderLists();
+
+        const container = document.getElementById('list-items-container');
+        const deleteBtns = container.querySelectorAll('.list-delete-btn');
+        expect(deleteBtns.length).toBe(3);
+
+        // 1. Success delete
+        global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+        await deleteBtns[0].onclick();
+        expect(state.currentDenylist.has('adsite.com')).toBe(false);
+
+        // 2. API Failure delete
+        global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: false, error: 'Permission denied' });
+        await deleteBtns[1].onclick();
+        expect(deleteBtns[1].textContent).toBe('Remove');
+        expect(deleteBtns[1].disabled).toBe(false);
+
+        // 3. Exception in delete
+        global.browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Network disconnected'));
+        await deleteBtns[2].onclick();
+        expect(deleteBtns[2].textContent).toBe('Remove');
+        expect(deleteBtns[2].disabled).toBe(false);
+    });
+
+    test('Blocks UI - Blocklists sorting by name, updated, popularity, and entries', async () => {
+        state.activeBlocksSubTab = 'blocklists';
+        state.blocksMeta.blocklists = [
+            { id: 'b1', name: 'Zeta List', description: 'Desc', entries: 500, updated_ts: 100, popularity: 1 },
+            { id: 'b2', name: 'Alpha List', description: 'Desc', entries: 2000, updated_ts: 500, popularity: 10 },
+            { id: 'b3', name: 'Beta List', description: 'Desc', entries: 100, updated_ts: 300, popularity: 5 }
+        ];
+
+        // Sort by name
+        state.activeBlocksSort = 'name';
+        await blocks.loadToggles();
+        let btns = Array.from(document.querySelectorAll('.api-toggle-btn')).map(b => b.dataset.id);
+        expect(btns[0]).toBe('b2'); // Alpha
+        expect(btns[1]).toBe('b3'); // Beta
+        expect(btns[2]).toBe('b1'); // Zeta
+
+        // Sort by updated
+        state.activeBlocksSort = 'updated';
+        await blocks.loadToggles();
+        btns = Array.from(document.querySelectorAll('.api-toggle-btn')).map(b => b.dataset.id);
+        expect(btns[0]).toBe('b2'); // ts: 500
+
+        // Sort by popularity
+        state.activeBlocksSort = 'popularity';
+        await blocks.loadToggles();
+        btns = Array.from(document.querySelectorAll('.api-toggle-btn')).map(b => b.dataset.id);
+        expect(btns[0]).toBe('b2'); // pop: 10
+
+        // Sort by entries
+        state.activeBlocksSort = 'entries';
+        await blocks.loadToggles();
+        btns = Array.from(document.querySelectorAll('.api-toggle-btn')).map(b => b.dataset.id);
+        expect(btns[0]).toBe('b2'); // 2000 entries
+    });
+
+    test('Blocks UI - Parental control categories and services rendering', async () => {
+        state.activeBlocksSubTab = 'parental';
+        state.lastBlocksData.parentalcontrol = {
+            safeSearch: true,
+            categories: [{ id: 'dating' }],
+            services: [{ id: 'facebook' }]
+        };
+        state.blocksMeta.categories = [
+            { id: 'dating', name: 'Dating' },
+            { id: 'gambling', name: 'Gambling' }
+        ];
+        state.blocksMeta.parental_services = [
+            { id: 'facebook', name: 'Facebook' },
+            { id: 'tiktok', name: 'TikTok' }
+        ];
+
+        await blocks.loadToggles();
+        const container = document.getElementById('toggles-container');
+        expect(container.textContent).toContain('Global Settings');
+        expect(container.textContent).toContain('Categories');
+        expect(container.textContent).toContain('Services');
+        expect(container.textContent).toContain('Dating');
+        expect(container.textContent).toContain('Facebook');
+
+        // Search with non-matching query shows empty services state
+        await blocks.loadToggles('nonexistent_service_query');
+        expect(container.textContent).toContain('No services found.');
+    });
+
+    test('Blocks UI - TLD grid search query filtering', async () => {
+        state.activeBlocksSubTab = 'tlds';
+        state.blocksMeta.tlds = ['com', 'org', 'net', 'io', 'dev'];
+        await blocks.loadToggles('io');
+        const container = document.getElementById('toggles-container');
+        expect(container.textContent).toContain('.io');
+        expect(container.textContent).not.toContain('.com');
+    });
+
+    test('Blocks UI - syncLists handles force re-sync and message rejection', async () => {
+        state.listsSynced = false;
+        state.activeTab = 'lists';
+        global.browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Sync failed'));
+        await expect(blocks.syncLists(true)).resolves.not.toThrow();
+    });
 });
 
 

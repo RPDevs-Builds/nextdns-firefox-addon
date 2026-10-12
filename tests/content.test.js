@@ -930,4 +930,176 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
         expect(styleEl.textContent).toContain('rgba(40, 167, 69, 0.10)');
         expect(styleEl.textContent).toContain('rgba(174, 0, 255, 0.10)');
     });
+
+    test('Logs search with negative syntax and compact mode toggle', async () => {
+        document.body.innerHTML = `
+            <div class="Logs">
+                <div class="list-group">
+                    <div class="list-group-item bg-2"><div class="d-md-flex"></div></div>
+                    <div class="log list-group-item" style="border-left: 4px solid rgb(255, 65, 54);">
+                        <span class="notranslate">malware-site.bad</span>
+                    </div>
+                    <div class="log list-group-item" style="border-left: 4px solid rgb(46, 204, 64);">
+                        <span class="notranslate">friendly-cdn.com</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        global.browser.storage.sync.get.mockResolvedValue({
+            webGuiMaster: true,
+            webGuiLogActions: true,
+            logFilters: {}
+        });
+
+        window.history.pushState({}, '', '/abc123/logs');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // 1. Compact mode toggle
+        const compactCheckbox = document.getElementById('nxm-logs-compact');
+        expect(compactCheckbox).not.toBeNull();
+        compactCheckbox.checked = true;
+        compactCheckbox.onchange();
+
+        const styleEl = document.getElementById('nxm-log-styles');
+        expect(styleEl.textContent).toContain('padding-top: 4px !important');
+
+        // 2. Negative search syntax
+        const searchInput = document.getElementById('nxm-logs-search');
+        expect(searchInput).not.toBeNull();
+
+        searchInput.value = 'cdn -malware';
+        searchInput.oninput({ target: searchInput });
+
+        const rows = document.querySelectorAll('.Logs .list-group-item:not(.bg-2)');
+        expect(rows[0].style.display).toBe('none'); // malware-site.bad excluded by -malware
+        expect(rows[1].style.display).toBe('');     // friendly-cdn.com matches cdn
+    });
+
+    test('Log filters regex, wildcard, and subdomain pattern matching', async () => {
+        document.body.innerHTML = `
+            <div class="Logs">
+                <div class="list-group">
+                    <div class="list-group-item bg-2"><div class="d-md-flex"></div></div>
+                    <div class="list-group-item">
+                        <span class="notranslate">sub.analytics.google.com</span>
+                    </div>
+                    <div class="list-group-item">
+                        <span class="notranslate">api.telemetry.io</span>
+                    </div>
+                    <div class="list-group-item">
+                        <span class="notranslate">direct-match.com</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        global.browser.storage.sync.get.mockResolvedValue({
+            webGuiMaster: true,
+            webGuiFilter: true,
+            logFilters: {
+                '**.google.com': 'Google multi-subdomain wildcard',
+                '*.telemetry.io': 'Telemetry single wildcard',
+                'direct-match.com': 'Exact domain'
+            }
+        });
+
+        window.history.pushState({}, '', '/abc123/logs');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const rows = document.querySelectorAll('.Logs .list-group-item:not(.bg-2)');
+        expect(rows[0].style.display).toBe('none');
+        expect(rows[1].style.display).toBe('none');
+        expect(rows[2].style.display).toBe('none');
+    });
+
+    test('Header profile switcher and dropdown manage filtered logs button', async () => {
+        document.body.innerHTML = `
+            <div class="header-nav">
+                <div>
+                    <div class="dropdown">
+                        <button class="dropdown-toggle">Profiles</button>
+                        <div class="dropdown-menu">
+                            <a href="/account" class="dropdown-item">Account</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        global.browser.storage.sync.get.mockResolvedValue({
+            webGuiMaster: true,
+            accountProfiles: [
+                { id: 'abc123', name: 'Home Profile' },
+                { id: 'xyz789', name: 'Work Profile' }
+            ]
+        });
+
+        window.history.pushState({}, '', '/abc123/setup');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // Click dropdown item for Manage Filtered Logs
+        const dropdownItem = document.getElementById('nxm-dropdown-filtered-logs-item');
+        expect(dropdownItem).not.toBeNull();
+        const mockClickEvent = { preventDefault: jest.fn(), stopPropagation: jest.fn() };
+        dropdownItem.onclick(mockClickEvent);
+        expect(mockClickEvent.preventDefault).toHaveBeenCalled();
+        await new Promise(r => setTimeout(r, 60));
+        expect(document.getElementById('nxm-filter-modal-backdrop')).not.toBeNull();
+    });
+
+    test('Root domain equality sorting and bulk add input validations', async () => {
+        // 1. Root domain equality sorting: sub1.example.com and sub2.example.com
+        document.body.innerHTML = `
+            <div>
+                <form><button type="submit">Submit</button></form>
+                <div class="list-group">
+                    <div class="list-group-item"><span class="notranslate">sub2.example.com</span></div>
+                    <div class="list-group-item"><span class="notranslate">sub1.example.com</span></div>
+                </div>
+            </div>
+        `;
+
+        global.browser.storage.sync.get.mockResolvedValue({
+            webGuiMaster: true,
+            webGuiDesc: false
+        });
+
+        window.history.pushState({}, '', '/abc123/allowlist');
+        await import('../src/content.js');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const sortBtn = document.getElementById('nxm-sort-domains');
+        expect(sortBtn).not.toBeNull();
+        sortBtn.onclick();
+
+        const items = document.querySelectorAll('.list-group-item .notranslate');
+        expect(items[0].textContent).toContain('sub1.example.com');
+        expect(items[1].textContent).toContain('sub2.example.com');
+
+        // 2. Bulk Add validation: empty prompt
+        const bulkBtn = document.getElementById('nxm-bulk-add-btn');
+        expect(bulkBtn).not.toBeNull();
+
+        global.prompt = jest.fn(() => null);
+        bulkBtn.onclick(new Event('click'));
+
+        // 3. Bulk Add validation: invalid domain without dots
+        global.prompt = jest.fn(() => 'nodotsdomain');
+        bulkBtn.onclick(new Event('click'));
+        expect(document.getElementById('nxm-toast')).not.toBeNull();
+
+        // 4. Bulk Add validation: cancel confirm
+        global.prompt = jest.fn(() => 'valid.com, test.org');
+        global.confirm = jest.fn(() => false);
+        bulkBtn.onclick(new Event('click'));
+        expect(global.confirm).toHaveBeenCalled();
+    });
 });
