@@ -195,6 +195,19 @@ describe('Storage Persistence & Auto-Heal', () => {
         // array get with default object
         const defResult = await storage.get(['nonExistent'], { nonExistent: 'fallbackVal' });
         expect(defResult.nonExistent).toBe('fallbackVal');
+
+        // StorageManager: remove when uninitialized (line 155)
+        storage.initialized = false;
+        await storage.remove('uninitializedKey');
+        expect(storage.initialized).toBe(true);
+
+        // StorageManager: healObj rejection catch (line 65)
+        storage.initialized = false;
+        global.browser.storage.sync.get = jest.fn().mockResolvedValue({ healKey: 'healValue' });
+        global.browser.storage.local.get = jest.fn().mockResolvedValue({});
+        global.browser.storage.local.set = jest.fn().mockRejectedValue(new Error('Heal set failed'));
+        await storage.init();
+        expect(storage.initialized).toBe(true);
     });
 });
 

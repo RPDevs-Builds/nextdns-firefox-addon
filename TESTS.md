@@ -4,19 +4,20 @@
 
 - **Test Framework**: Jest v30.5.2 with `jest-environment-jsdom`, `jest-webextension-mock`, and `jest-fetch-mock`.
 - **Total Test Suites**: **24 passed, 24 total** (100% Suite Pass Rate).
-- **Total Unit Tests**: **348 passed, 348 total** (100% Test Pass Rate, 0 failures).
-- **Global Coverage**: **100.0% Lines** | **97.79% Statements** | **95.98% Functions** | **83.42% Branches**.
+- **Total Unit Tests**: **353 passed, 353 total** (100% Test Pass Rate, 0 failures).
+- **Global Coverage**: **100.0% Lines** | **98.53% Statements** | **98.47% Functions** | **84.73% Branches**.
 - **100% Line Coverage Modules**: **All 20 Source Modules** at **100.0% line coverage** (100% across `src/`, `src/background/`, and `src/ui/`).
+- **100% Function Coverage Modules**: **18 of 20 Source Modules** at **100.0% function coverage**.
 - **Mozilla AMO Compliance**: 0 errors, 0 warnings, 0 notices via `addons-linter`.
 
 ### Enforced Coverage Thresholds (`package.json`)
 
 | Metric | Enforced Threshold | Achieved Level | Margin |
 | :--- | :---: | :---: | :---: |
-| **Lines** | `98%` | **100.0%** | +2.00% |
-| **Statements** | `96%` | **97.79%** | +1.79% |
-| **Functions** | `93%` | **95.98%** | +2.98% |
-| **Branches** | `80%` | **83.42%** | +3.42% |
+| **Lines** | `99%` | **100.0%** | +1.00% |
+| **Statements** | `98%` | **98.53%** | +0.53% |
+| **Functions** | `98%` | **98.47%** | +0.47% |
+| **Branches** | `84%` | **84.73%** | +0.73% |
 
 ### Test Execution Commands
 
@@ -40,30 +41,30 @@ npm run test:watch
 
 | File / Subdirectory | % Lines | % Statements | % Functions | % Branches | Status |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **All Files Combined** | **100.0%** | **97.79%** | **95.98%** | **83.42%** | 🏆 **100% Line Coverage Milestone** |
-| [`src/apiClient.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/apiClient.js) | **100.0%** | **100.0%** | **100.0%** | 87.77% | 🎯 100% Lines & Functions |
+| **All Files Combined** | **100.0%** | **98.53%** | **98.47%** | **84.73%** | 🏆 **High-Water Benchmark** |
+| [`src/apiClient.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/apiClient.js) | **100.0%** | **100.0%** | **100.0%** | 87.77% | 🎯 100% Lines, Stmts & Funcs |
 | [`src/content.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/content.js) | **100.0%** | 96.90% | 96.75% | 81.28% | 🎯 100% Lines |
 | [`src/metadataManager.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/metadataManager.js) | **100.0%** | **100.0%** | **100.0%** | **100.0%** | 🎯 100% Everywhere |
-| [`src/storage.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/storage.js) | **100.0%** | 97.56% | 94.11% | 90.90% | 🎯 100% Lines |
-| **`src/background/` (All 8 Modules)** | **100.0%** | **97.49%** | **93.45%** | **82.33%** | 🏆 **100% Lines Across Directory** |
-| [`src/background/api.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/api.js) | **100.0%** | 96.56% | 79.16% | 84.23% | 🎯 100% Lines |
-| [`src/background/handlers.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/handlers.js) | **100.0%** | 96.11% | 96.00% | 75.00% | 🎯 100% Lines |
-| [`src/background/logStream.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/logStream.js) | **100.0%** | **100.0%** | **100.0%** | 92.10% | 🎯 100% Lines & Functions |
-| [`src/background/main.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/main.js) | **100.0%** | 98.19% | **100.0%** | 85.00% | 🎯 100% Lines & Functions |
-| [`src/background/requestListener.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/requestListener.js) | **100.0%** | 98.00% | **100.0%** | 88.63% | 🎯 100% Lines & Functions |
-| [`src/background/scheduler.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/scheduler.js) | **100.0%** | **100.0%** | **100.0%** | 95.91% | 🎯 100% Lines & Functions |
+| [`src/storage.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/storage.js) | **100.0%** | **100.0%** | **100.0%** | 92.20% | 🎯 100% Lines, Stmts & Funcs |
+| **`src/background/` (All 8 Modules)** | **100.0%** | **98.58%** | **100.0%** | **84.86%** | 🏆 **100% Lines & Functions** |
+| [`src/background/api.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/api.js) | **100.0%** | 99.01% | **100.0%** | 88.17% | 🎯 100% Lines & Funcs |
+| [`src/background/handlers.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/handlers.js) | **100.0%** | 97.61% | **100.0%** | 78.68% | 🎯 100% Lines & Funcs |
+| [`src/background/logStream.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/logStream.js) | **100.0%** | **100.0%** | **100.0%** | 92.10% | 🎯 100% Lines, Stmts & Funcs |
+| [`src/background/main.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/main.js) | **100.0%** | 98.19% | **100.0%** | 85.00% | 🎯 100% Lines & Funcs |
+| [`src/background/requestListener.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/requestListener.js) | **100.0%** | 98.00% | **100.0%** | 88.63% | 🎯 100% Lines & Funcs |
+| [`src/background/scheduler.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/scheduler.js) | **100.0%** | **100.0%** | **100.0%** | 95.91% | 🎯 100% Lines, Stmts & Funcs |
 | [`src/background/state.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/state.js) | **100.0%** | **100.0%** | **100.0%** | **100.0%** | 🎯 100% Everywhere |
-| [`src/background/utils.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/utils.js) | **100.0%** | **100.0%** | **100.0%** | 95.00% | 🎯 100% Lines & Functions |
-| **`src/ui/` (All 8 Modules)** | **100.0%** | **98.49%** | **96.55%** | **84.16%** | 🏆 **100% Lines Across Directory** |
+| [`src/background/utils.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/utils.js) | **100.0%** | **100.0%** | **100.0%** | 95.00% | 🎯 100% Lines, Stmts & Funcs |
+| **`src/ui/` (All 8 Modules)** | **100.0%** | **99.55%** | **98.70%** | **85.37%** | 🏆 **100% Lines Across Directory** |
 | [`src/ui/blocks.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/blocks.js) | **100.0%** | 98.42% | 97.72% | 83.62% | 🎯 100% Lines |
-| [`src/ui/dashboard.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/dashboard.js) | **100.0%** | 97.94% | 96.87% | 85.16% | 🎯 100% Lines |
-| [`src/ui/main.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/main.js) | **100.0%** | 98.92% | 93.47% | 83.99% | 🎯 100% Lines |
-| [`src/ui/notifications.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/notifications.js) | **100.0%** | **100.0%** | **100.0%** | 93.47% | 🎯 100% Lines & Functions |
-| [`src/ui/scheduler.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/scheduler.js) | **100.0%** | **100.0%** | **100.0%** | 78.94% | 🎯 100% Lines & Functions |
+| [`src/ui/dashboard.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/dashboard.js) | **100.0%** | **100.0%** | 96.87% | 87.21% | 🎯 100% Lines & Stmts |
+| [`src/ui/main.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/main.js) | **100.0%** | 99.86% | 98.91% | 84.58% | 🎯 100% Lines |
+| [`src/ui/notifications.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/notifications.js) | **100.0%** | **100.0%** | **100.0%** | 93.47% | 🎯 100% Lines, Stmts & Funcs |
+| [`src/ui/scheduler.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/scheduler.js) | **100.0%** | **100.0%** | **100.0%** | 78.94% | 🎯 100% Lines, Stmts & Funcs |
 | [`src/ui/state.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/state.js) | **100.0%** | **100.0%** | **100.0%** | **100.0%** | 🎯 100% Everywhere |
-| [`src/ui/theme.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/theme.js) | **100.0%** | 96.31% | **100.0%** | 77.77% | 🎯 100% Lines & Functions |
-| [`src/ui/tools.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/tools.js) | **100.0%** | **100.0%** | **100.0%** | 81.15% | 🎯 100% Lines & Functions |
-| [`src/ui/utils.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/utils.js) | **100.0%** | 98.18% | **100.0%** | 94.54% | 🎯 100% Lines & Functions |
+| [`src/ui/theme.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/theme.js) | **100.0%** | 98.94% | **100.0%** | 82.53% | 🎯 100% Lines & Funcs |
+| [`src/ui/tools.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/tools.js) | **100.0%** | **100.0%** | **100.0%** | 81.15% | 🎯 100% Lines, Stmts & Funcs |
+| [`src/ui/utils.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/utils.js) | **100.0%** | 98.18% | **100.0%** | 94.54% | 🎯 100% Lines & Funcs |
 
 ---
 
@@ -123,7 +124,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/background/main.js, src/background/api.js, src/background/handlers.js, src/background/requestListener.js`
 - **Category**: **Background Engine**
-- **Total Tests**: **37 tests**
+- **Total Tests**: **38 tests**
 - **Overview**: Core extension lifecycle testing covering profile detection, message handlers, context menu routing, alarm listeners, sender verification, DDNS synchronization, and mirror mode replication.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -165,6 +166,7 @@ npm run test:watch
 | 35 | Background API - manageDomain and detectActiveProfile comprehensive paths | *Background Script - Full Coverage Suite* | [L1211](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/background.test.js#L1211) |
 | 36 | initializeBackground covers Android platform errors, menu fallbacks, and action errors | *Background Script - Full Coverage Suite* | [L1277](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/background.test.js#L1277) |
 | 37 | Background API and Handlers comprehensive paths for 100% line coverage | *Background Script - Full Coverage Suite* | [L1324](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/background.test.js#L1324) |
+| 38 | handlers.js & api.js - Exhaustive Statement, Function & Branch Coverage Deep Dive | *Background Script - Full Coverage Suite* | [L1546](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/background.test.js#L1546) |
 
 ---
 
@@ -200,7 +202,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/content.js, src/content.css`
 - **Category**: **Content Scripts & Web GUI**
-- **Total Tests**: **29 tests**
+- **Total Tests**: **30 tests**
 - **Overview**: DOM injections into NextDNS console (my.nextdns.io), forced dark mode log border highlight preservation, TLD bulk actions, log filtering modals, live search exclusions, and metadata scrapers.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -234,6 +236,7 @@ npm run test:watch
 | 27 | Content Script - comprehensive coverage for profile switcher, TLD restore, and account dropdown | *Content Script (NextDNS Web Console Enhancements)* | [L1109](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1109) |
 | 28 | Content Script - Section collapsing, log actions, search exclusions, and scraping edge cases | *Content Script (NextDNS Web Console Enhancements)* | [L1345](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1345) |
 | 29 | Content Script - fallback selectors when domSelectors fetch fails or lacks definitions | *Content Script (NextDNS Web Console Enhancements)* | [L1534](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1534) |
+| 30 | content.js - Exhaustive Statement & Function Coverage Deep Dive | *Content Script (NextDNS Web Console Enhancements)* | [L1604](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1604) |
 
 ---
 
@@ -258,7 +261,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/ui/dashboard.js`
 - **Category**: **UI & Components**
-- **Total Tests**: **30 tests**
+- **Total Tests**: **31 tests**
 - **Overview**: Detailed testing of log formatting, live log stream updates, multi-criteria log filtering, analytics summary calculations, traffic trend indicators, and CSV export/wipe.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -293,6 +296,7 @@ npm run test:watch
 | 28 | handleLiveLog clears placeholder when container displays  | *Dynamic Links, CSV Export, and Wipe Logs* | [L507](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L507) |
 | 29 | loadAnalytics calculates rawBlockedPercent when summary data blockedPercent is NaN | *Dynamic Links, CSV Export, and Wipe Logs* | [L521](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L521) |
 | 30 | loadNativeLogs catches exception when sendMessage rejects | *Dynamic Links, CSV Export, and Wipe Logs* | [L541](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L541) |
+| 31 | dashboard.js - Exhaustive Statement & Branch Coverage Deep Dive | *Dynamic Links, CSV Export, and Wipe Logs* | [L552](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L552) |
 
 ---
 
@@ -532,7 +536,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/ui/theme.js`
 - **Category**: **UI & Styling**
-- **Total Tests**: **11 tests**
+- **Total Tests**: **12 tests**
 - **Overview**: Comprehensive testing of preset themes, color variable mappings, custom theme deletion, and dropdown synchronization.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -548,6 +552,7 @@ npm run test:watch
 | 9 | initViewerTheme: Initializes viewer theme and responds to storage onChanged | *Theme Engine & Custom Palette (Phase 8.1)* | [L209](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/themes.test.js#L209) |
 | 10 | saveCustomTheme: Timers reset placeholder and button state correctly | *Theme Engine & Custom Palette (Phase 8.1)* | [L239](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/themes.test.js#L239) |
 | 11 | initThemeEngine: Catches and logs initialization warnings gracefully | *Theme Engine & Custom Palette (Phase 8.1)* | [L269](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/themes.test.js#L269) |
+| 12 | theme.js - Exhaustive Statement & Branch Coverage Deep Dive | *Theme Engine & Custom Palette (Phase 8.1)* | [L280](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/themes.test.js#L280) |
 
 ---
 
@@ -578,7 +583,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/ui/main.js`
 - **Category**: **UI & Components**
-- **Total Tests**: **54 tests**
+- **Total Tests**: **55 tests**
 - **Overview**: Main popup controller suite covering sub-tabs, window mode redirects, profile dropdown, settings form synchronization, error recovery cards, and WAI-ARIA tab navigation.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -637,6 +642,7 @@ npm run test:watch
 | 52 | Exhaustive coverage of UI Main edge cases, listeners, filters, and fallbacks | *Global Event Listeners and Delegations* | [L1104](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1104) |
 | 53 | UI Main - handleAddDomain empty, handleBulkAdd, sub-tabs, alerts, and mirror UI | *Global Event Listeners and Delegations* | [L1331](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1331) |
 | 54 | UI Main - alerts settings listeners, web GUI toggles, and profile status catch blocks | *Global Event Listeners and Delegations* | [L1430](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1430) |
+| 55 | ui/main.js - Exhaustive Statement & Branch Coverage Deep Dive | *Global Event Listeners and Delegations* | [L1552](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1552) |
 
 ---
 

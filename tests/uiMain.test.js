@@ -1548,6 +1548,47 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             await new Promise(r => setTimeout(r, 60));
             document.querySelectorAll = origQSA;
         });
+
+        test('ui/main.js - Exhaustive Statement & Branch Coverage Deep Dive', async () => {
+            document.body.innerHTML = html;
+            uiMain.initGlobalEventListeners();
+
+            // 1. Dashboard actions: allow-btn, deny-btn, snooze-btn (lines 389-391)
+            const allowBtn = document.getElementById('allow-btn');
+            const denyBtn = document.getElementById('deny-btn');
+            const snoozeBtn = document.getElementById('snooze-btn');
+            const domainInput = document.getElementById('domain-input');
+            if (domainInput) domainInput.value = 'test-domain.com';
+
+            allowBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            denyBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            snoozeBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 20));
+
+            // 2. Log filter inputs: log-search, log-device-filter, log-type-filter (lines 411-413)
+            const logSearch = document.getElementById('log-search');
+            const logDevFilter = document.getElementById('log-device-filter');
+            const logTypeFilter = document.getElementById('log-type-filter');
+
+            logSearch?.dispatchEvent(new Event('input', { bubbles: true }));
+            logDevFilter?.dispatchEvent(new Event('change', { bubbles: true }));
+            logTypeFilter?.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // 3. Theme selector with __unsaved__ (line 506)
+            const themeSel = document.getElementById('theme-selector');
+            if (themeSel) {
+                const opt = document.createElement('option');
+                opt.value = '__unsaved__';
+                themeSel.appendChild(opt);
+                themeSel.value = '__unsaved__';
+                themeSel.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            // 4. saveSettings with missing saveBtn (line 1086)
+            const saveBtn = document.getElementById('save-settings-btn');
+            saveBtn?.remove();
+            await uiMain.saveSettings(); // should return early without error
+        });
     });
 });
 

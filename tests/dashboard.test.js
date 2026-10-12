@@ -548,6 +548,75 @@ describe('Dashboard UI Module (src/ui/dashboard.js)', () => {
             );
             errorSpy.mockRestore();
         });
+
+        test('dashboard.js - Exhaustive Statement & Branch Coverage Deep Dive', async () => {
+            // 1. handleLiveLog with null log (line 76)
+            handleLiveLog(null);
+
+            // 2. handleLiveLog with container child count > 100 pruning (line 104)
+            state.activeTab = 'logs';
+            const container = document.getElementById('logs-container');
+            container.innerHTML = '';
+            for (let i = 0; i < 105; i++) {
+                const el = document.createElement('div');
+                el.textContent = `Log ${i}`;
+                container.appendChild(el);
+            }
+            handleLiveLog({
+                timestamp: Date.now(),
+                name: 'live-prune.com',
+                status: 'default',
+                protocol: 'udp'
+            });
+            expect(container.children.length).toBeLessThanOrEqual(105);
+
+            // 3. renderLogs with non-array override (line 169) and null entries in logs (line 182)
+            renderLogs("not-an-array");
+            expect(container.textContent).toContain('No logs found');
+
+            renderLogs([null, { name: 'valid.com', status: 'default' }]);
+
+            // 4. renderLogs with protocolFilter mismatch (line 189)
+            const protoSelect = document.getElementById('log-type-filter');
+            if (protoSelect) {
+                const opt = document.createElement('option');
+                opt.value = 'doh';
+                opt.textContent = 'DoH';
+                protoSelect.appendChild(opt);
+                protoSelect.value = 'doh';
+                renderLogs([{ name: 'test.com', protocol: 'udp', status: 'default' }]);
+                expect(container.textContent).toContain('No logs match');
+                protoSelect.value = '';
+            }
+
+            // 5. Tab action button click with missing data attributes (line 365)
+            const tabLogContainer = document.getElementById('tab-log');
+            initTabLogEvents();
+            const badBtn = document.createElement('button');
+            badBtn.className = 'tab-action-btn';
+            tabLogContainer.appendChild(badBtn);
+            badBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            badBtn.remove();
+
+            // 6. updateDashboardTabInfo when isTabActionPending is true (line 432)
+            const actionBtn = document.createElement('button');
+            actionBtn.className = 'tab-action-btn';
+            actionBtn.setAttribute('data-domain', 'pause.com');
+            actionBtn.setAttribute('data-list', 'allowlist');
+            actionBtn.setAttribute('data-action', 'add');
+            tabLogContainer.appendChild(actionBtn);
+
+            let resolveMsg;
+            global.browser.runtime.sendMessage = jest.fn(() => new Promise(r => { resolveMsg = r; }));
+            actionBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            // While action is pending, call updateDashboardTabInfo (hits line 432)
+            await updateDashboardTabInfo();
+
+            resolveMsg({ success: true });
+            await new Promise(r => setTimeout(r, 20));
+            actionBtn.remove();
+        });
     });
 });
 

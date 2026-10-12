@@ -276,4 +276,47 @@ describe('Theme Engine & Custom Palette (Phase 8.1)', () => {
         storage.get = origGet;
         warnSpy.mockRestore();
     });
+
+    test('theme.js - Exhaustive Statement & Branch Coverage Deep Dive', async () => {
+        const themeModule = await import('../src/ui/theme.js');
+
+        // 1. normalizeHexColor branches (lines 19-35)
+        expect(themeModule.normalizeHexColor(null)).toBe('#000000');
+        expect(themeModule.normalizeHexColor(12345)).toBe('#000000');
+        expect(themeModule.normalizeHexColor('')).toBe('#000000');
+        expect(themeModule.normalizeHexColor('#abc')).toBe('#aabbcc');
+        expect(themeModule.normalizeHexColor('#abcd')).toBe('#aabbcc');
+        expect(themeModule.normalizeHexColor('#11223344')).toBe('#112233');
+        expect(themeModule.normalizeHexColor('rgb(255, 128, 0)')).toBe('#ff8000');
+        expect(themeModule.normalizeHexColor('rgba(0, 255, 64, 0.5)')).toBe('#00ff40');
+        expect(themeModule.normalizeHexColor('invalid-color', '#123456')).toBe('#123456');
+
+        // 2. updateDeleteThemeBtnVisibility with missing DOM element (line 101)
+        const delBtn = document.getElementById('delete-theme-btn');
+        delBtn.remove();
+        themeModule.updateDeleteThemeBtnVisibility(); // should not throw
+
+        // 3. updateUnsavedBadge with missing DOM element (line 114)
+        const badge = document.getElementById('theme-unsaved-badge');
+        badge.remove();
+        themeModule.updateUnsavedBadge(); // should not throw
+
+        // 4. saveCustomTheme with missing nameInput (line 268)
+        const nameInput = document.getElementById('theme-name-input');
+        nameInput.remove();
+        await themeModule.saveCustomTheme(); // should return early without throwing
+
+        // 5. deleteCustomTheme guard when theme is unsaved or not in savedThemes (line 333)
+        state.isThemeUnsaved = true;
+        await themeModule.deleteCustomTheme();
+        state.isThemeUnsaved = false;
+        state.savedThemes = {};
+        state.activeThemeId = 'nonexistent-theme';
+        await themeModule.deleteCustomTheme();
+
+        // 6. getThemeDisplayName fallback branch (line 78)
+        expect(themeModule.getThemeDisplayName('')).toBe('Custom');
+        expect(themeModule.getThemeDisplayName(null)).toBe('Custom');
+        expect(themeModule.getThemeDisplayName('my-custom-theme')).toBe('my-custom-theme');
+    });
 });

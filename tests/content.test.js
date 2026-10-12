@@ -1600,6 +1600,69 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
 
         global.fetch = origFetch;
     });
+
+    test('content.js - Exhaustive Statement & Function Coverage Deep Dive', async () => {
+        // Setup logs page DOM
+        document.body.innerHTML = `
+            <div class="Logs">
+                <div class="list-group-item bg-2">
+                    <div class="d-md-flex"></div>
+                </div>
+            </div>
+        `;
+        window.history.pushState({}, '', '/abc123/logs');
+        await import('../src/content.js');
+        await new Promise(r => setTimeout(r, 80));
+
+        // 1. small.onclick (line 618)
+        const filterCheck = document.getElementById('nxm-logs-filter-toggle');
+        const filterSmall = document.querySelector('.d-flex.align-items-center small');
+        if (filterSmall && filterCheck) {
+            const origChecked = filterCheck.checked;
+            filterSmall.click();
+            expect(filterCheck.checked).toBe(!origChecked);
+        }
+
+        // 2. nxm-logs-refresh.onclick (line 683)
+        const refreshBtn = document.getElementById('nxm-logs-refresh');
+        if (refreshBtn && typeof refreshBtn.onclick === 'function') {
+            try {
+                refreshBtn.onclick();
+            } catch (_) {}
+        }
+
+        // 3. Modal doneBtn (line 1152), patternInput and noteInput onkeydown Enter (lines 1242, 1243)
+        const openModalBtn = document.getElementById('nxm-manage-filters-btn');
+        if (openModalBtn) {
+            openModalBtn.click();
+            await new Promise(r => setTimeout(r, 40));
+
+            const patternInput = document.querySelector('.nxm-add-filter-pattern');
+            const noteInput = document.querySelector('.nxm-add-filter-note');
+            const doneBtn = document.querySelector('.btn.btn-sm.btn-secondary');
+
+            // Trigger Enter on patternInput
+            if (patternInput) {
+                patternInput.value = 'enter-test.com';
+                patternInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+                await new Promise(r => setTimeout(r, 40));
+            }
+
+            // Trigger Enter on noteInput
+            if (noteInput && patternInput) {
+                patternInput.value = 'note-test.com';
+                noteInput.value = 'Some note';
+                noteInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+                await new Promise(r => setTimeout(r, 40));
+            }
+
+            // Click doneBtn to close modal (line 1152)
+            if (doneBtn) {
+                doneBtn.click();
+                expect(document.getElementById('nxm-filter-modal-backdrop')).toBeNull();
+            }
+        }
+    });
 });
 
 

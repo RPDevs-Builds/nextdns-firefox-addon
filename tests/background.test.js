@@ -1542,6 +1542,155 @@ describe('Background Script - Full Coverage Suite', () => {
     expect(storedManualProfile.id).toBe('pStoredManualOnly');
     expect(storedManualProfile.manual).toBe(true);
   });
+
+  test('handlers.js & api.js - Exhaustive Statement, Function & Branch Coverage Deep Dive', async () => {
+    const { messageHandlers } = await import('../src/background/handlers.js');
+    const bgApi = await import('../src/background/api.js');
+    const { apiClient } = await import('../src/apiClient.js');
+    const { state } = await import('../src/background/state.js');
+
+    // 1. Guard check branches for invalid profile IDs across all handlers
+    const invalidProfileCases = [
+      { fn: 'GET_LOGS', msg: { profileId: '' }, check: res => expect(res.error).toBe('Invalid profile ID') },
+      { fn: 'GET_LOGS', msg: { profileId: 'bad!id' }, check: res => expect(res.error).toBe('Invalid profile ID') },
+      { fn: 'GET_PROFILE_DATA', msg: { profileId: null }, check: res => expect(res.error).toBe('Invalid profile ID') },
+      { fn: 'GET_ANALYTICS', msg: { profileId: '$$' }, check: res => expect(res.error).toBe('Invalid profile ID') },
+      { fn: 'GET_ALL_SETTINGS', msg: { profileId: 'bad!id' }, check: res => expect(res.error).toBe('Invalid profile ID') },
+      { fn: 'CREATE_SNAPSHOT', msg: { profileId: '' }, check: res => expect(res.error).toBe('Profile ID required') },
+      { fn: 'LIST_SNAPSHOTS', msg: { profileId: '' }, check: res => expect(res.error).toBe('Invalid profile ID') },
+      { fn: 'DELETE_SNAPSHOT', msg: { profileId: '' }, check: res => expect(res.error).toBe('Invalid profile ID') },
+      { fn: 'LIST_REWRITES', msg: { profileId: '' }, check: res => expect(res.error).toBe('Invalid profile ID') },
+      { fn: 'SAVE_REWRITE', msg: { profileId: '' }, check: res => expect(res.error).toBe('Invalid profile ID') },
+      { fn: 'SAVE_REWRITE', msg: { profileId: 'valid1', name: '' }, check: res => expect(res.error).toBe('Invalid domain name') },
+      { fn: 'SAVE_REWRITE', msg: { profileId: 'valid1', name: 'domain.com', content: '' }, check: res => expect(res.error).toBe('Invalid rewrite target') },
+      { fn: 'DELETE_REWRITE', msg: { profileId: '' }, check: res => expect(res.error).toBe('Invalid profile ID') },
+      { fn: 'DELETE_REWRITE', msg: { profileId: 'valid1', name: '' }, check: res => expect(res.error).toBe('Invalid domain name') }
+    ];
+
+    for (const testCase of invalidProfileCases) {
+      const res = await messageHandlers[testCase.fn](testCase.msg);
+      testCase.check(res);
+    }
+
+    // 2. GET_LOGS with raw: false and missing/present local logs merging branches
+    const origFetch = apiClient.fetchWithRetry;
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: {
+        json: async () => ({
+          data: [
+            { domain: 'exist.com', timestamp: 100 },
+            { name: 'exist2.com', timestamp: 200 }
+          ]
+        })
+      }
+    });
+
+    state.localLogs = [
+      { domain: 'exist.com', timestamp: 150 }, // duplicate, should be skipped
+      { domain: 'unique-local.com', timestamp: 300 } // unique, should be prepended
+    ];
+
+    const rawFalseRes = await messageHandlers.GET_LOGS({ profileId: 'prof123', raw: false });
+    expect(rawFalseRes.success).toBe(true);
+    expect(rawFalseRes.data.some(d => (d.domain || d.name) === 'unique-local.com')).toBe(true);
+
+    // 3. GET_PROFILE_DATA with direct array response instead of { data: [...] }
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('allowlist')) {
+        return { success: true, response: { json: async () => [{ id: 'direct-allow.com' }] } };
+      }
+      return { success: true, response: { json: async () => [{ id: 'direct-deny.com' }] } };
+    });
+    const directArrayRes = await messageHandlers.GET_PROFILE_DATA({ profileId: 'prof123' });
+    expect(directArrayRes.allowlist).toEqual(['direct-allow.com']);
+    expect(directArrayRes.denylist).toEqual(['direct-deny.com']);
+
+    // 4. DEBUG_TAB corrupt json response (exercises line 342 json().catch(() => ({})))
+    state.tabRequests[42] = { 'malicious.com': { status: 'blocked' } };
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: {
+        json: async () => { throw new Error('Corrupt json'); }
+      }
+    });
+    const secRes = await messageHandlers.DEBUG_TAB({ profileId: 'prof123', tabId: 42 });
+    expect(secRes.success).toBe(true);
+    delete state.tabRequests[42];
+
+    // 5. LIST_REWRITES corrupt json response (exercises line 504 json().catch(() => ({})))
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: {
+        json: async () => { throw new Error('Corrupt rewrites'); }
+      }
+    });
+    const rewriteRes = await messageHandlers.LIST_REWRITES({ profileId: 'prof123' });
+    expect(rewriteRes.success).toBe(true);
+    expect(rewriteRes.data).toEqual([]);
+
+    // 6. api.js detectActiveProfile Anycast info probe JSON parse failure (exercises line 175)
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('test.nextdns.io')) return { success: false };
+      if (url.includes('/info')) {
+        return {
+          success: true,
+          response: {
+            json: async () => { throw new Error('Info parse failure'); }
+          }
+        };
+      }
+      return { success: false };
+    });
+    bgApi._resetDetectInFlight();
+    await bgApi.detectActiveProfile();
+
+    // 7. api.js checkAndUpdateLinkedIP IP detection JSON parse failures (exercises lines 273, 283, 294)
+    await global.storage.set('activeProfile', 'prof123');
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('/profiles/prof123')) {
+        return { success: true, response: { json: async () => ({ data: { linkedIp: '1.2.3.4' } }) } };
+      }
+      if (url.includes('test.nextdns.io')) {
+        return {
+          success: true,
+          response: { json: async () => { throw new Error('test parse fail'); } }
+        };
+      }
+      if (url.includes('/info')) {
+        return {
+          success: true,
+          response: { json: async () => { throw new Error('info parse fail'); } }
+        };
+      }
+      return { success: false };
+    });
+
+    const origGlobalFetch = global.fetch;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => { throw new Error('ipify parse fail'); }
+    });
+
+    await bgApi.checkAndUpdateLinkedIP();
+
+    // 8. api.js runNetworkDiagnostics infoData JSON parse failure (exercises line 349)
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('/info')) {
+        return {
+          success: true,
+          response: { json: async () => { throw new Error('Info parse failure'); } }
+        };
+      }
+      return { success: false };
+    });
+    const diagRes = await bgApi.runNetworkDiagnostics();
+    expect(diagRes).toBeDefined();
+
+    // Restore mocks
+    apiClient.fetchWithRetry = origFetch;
+    global.fetch = origGlobalFetch;
+  });
 });
 
 
