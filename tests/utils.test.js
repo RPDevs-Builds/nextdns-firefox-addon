@@ -142,5 +142,27 @@ describe('Background Utilities (utils.js)', () => {
             await handleBlockNotification('legacy-only.com');
             expect(notifSpy).toHaveBeenCalled();
         });
+
+        test('Utils Branch Hardening: handles uninitialized notifications state and absent desktop notification API', async () => {
+            await storage.set('alertSettings', { enabled: true, triggerDenylist: true, actionCenter: true, desktop: true });
+            state.lastNotificationTimes = {};
+            state.notifications = null; // hits line 71: state.notifications = state.notifications || [];
+
+            // Temporarily delete browser.notifications to hit line 79: browser.notifications?.create falsy
+            const origNotif = global.browser.notifications;
+            delete global.browser.notifications;
+
+            await handleBlockNotification('no-api.com');
+            expect(Array.isArray(state.notifications)).toBe(true);
+            expect(state.notifications.length).toBe(1);
+
+            // Now test when browser.notifications exists but has no create function
+            global.browser.notifications = {};
+            state.lastNotificationTimes = {};
+            await handleBlockNotification('no-create.com');
+            expect(state.notifications.length).toBe(2);
+
+            global.browser.notifications = origNotif;
+        });
     });
 });

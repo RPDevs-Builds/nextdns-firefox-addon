@@ -1881,6 +1881,378 @@ describe('Background Script - Full Coverage Suite', () => {
     apiClient.fetchWithRetry = origFetch;
     global.fetch = origGlobalFetch;
   });
+
+  test('handlers.js - Targeted Branch Hardening for 90%+ Branch Coverage', async () => {
+    const { messageHandlers } = await import('../src/background/handlers.js');
+    const { apiClient } = await import('../src/apiClient.js');
+    const { state } = await import('../src/background/state.js');
+    const origFetch = apiClient.fetchWithRetry;
+
+    // 1. GET_ANALYTICS branches
+    // 1a. endpoint status with series: true
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: { json: async () => ({ data: [{ queries: 100, timestamp: 123 }] }) }
+    });
+    const seriesStatusRes = await messageHandlers.GET_ANALYTICS({ profileId: 'prof123', endpoint: 'status', series: true });
+    expect(seriesStatusRes.success).toBe(true);
+    expect(seriesStatusRes.data[0].queries).toBe(100);
+
+    // 1b. endpoint !== 'status' with series flag
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: { json: async () => ({ data: [{ name: 'device1', queries: 50 }] }) }
+    });
+    const nonStatusRes = await messageHandlers.GET_ANALYTICS({ profileId: 'prof123', endpoint: 'devices', series: false });
+    expect(nonStatusRes.success).toBe(true);
+    expect(nonStatusRes.data[0].name).toBe('device1');
+
+    // 1c. non-status with fetch failure
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: false });
+    const nonStatusFail = await messageHandlers.GET_ANALYTICS({ profileId: 'prof123', endpoint: 'protocols' });
+    expect(nonStatusFail.success).toBe(false);
+    expect(nonStatusFail.data).toEqual([]);
+
+    // 1d. status with total === 0 (blockedPercent: 0)
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: { json: async () => ({ data: [] }) }
+    });
+    const zeroQueriesRes = await messageHandlers.GET_ANALYTICS({ profileId: 'prof123', endpoint: 'status' });
+    expect(zeroQueriesRes.success).toBe(true);
+    expect(zeroQueriesRes.data.blockedPercent).toBe(0);
+
+    // 1e. fetch rejection / exception in GET_ANALYTICS
+    apiClient.fetchWithRetry = jest.fn().mockRejectedValue(new Error('Network offline'));
+    const analyticsExceptStatus = await messageHandlers.GET_ANALYTICS({ profileId: 'prof123', endpoint: 'status' });
+    expect(analyticsExceptStatus.success).toBe(false);
+    expect(analyticsExceptStatus.data).toEqual({});
+
+    const analyticsExceptOther = await messageHandlers.GET_ANALYTICS({ profileId: 'prof123', endpoint: 'devices' });
+    expect(analyticsExceptOther.success).toBe(false);
+    expect(analyticsExceptOther.data).toEqual([]);
+
+    // 2. TOGGLE_SETTING branches
+    // 2a. Category invalid validation branch
+    const badCatRes = await messageHandlers.TOGGLE_SETTING({ profileId: 'prof123', category: 'bad/cat/invalid!' });
+    expect(badCatRes.success).toBe(false);
+    expect(badCatRes.error).toBe('Invalid setting category');
+
+    // 2b. ID path traversal validation branches
+    const badIdRes1 = await messageHandlers.TOGGLE_SETTING({ profileId: 'prof123', category: 'security', id: 'path/traversal' });
+    expect(badIdRes1.success).toBe(false);
+    expect(badIdRes1.error).toBe('Invalid setting ID');
+
+    const badIdRes2 = await messageHandlers.TOGGLE_SETTING({ profileId: 'prof123', category: 'security', id: 'path\\traversal' });
+    expect(badIdRes2.success).toBe(false);
+    const badIdRes3 = await messageHandlers.TOGGLE_SETTING({ profileId: 'prof123', category: 'security', id: 'path..traversal' });
+    expect(badIdRes3.success).toBe(false);
+
+    // 2c. Custom settingType (not 'list' and not 'boolean')
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: true });
+    const customSettingRes = await messageHandlers.TOGGLE_SETTING({
+      profileId: 'prof123',
+      category: 'settings',
+      id: 'logRetention',
+      value: 30,
+      settingType: 'number'
+    });
+    expect(customSettingRes.success).toBe(true);
+
+    // 2d. TOGGLE_SETTING fallback profile from overrideProfileId when activeProfile is absent
+    await global.storage.set('activeProfile', null);
+    await global.storage.set('overrideProfileId', 'profOverrideFallback');
+    const overrideToggleRes = await messageHandlers.TOGGLE_SETTING({
+      category: 'security',
+      id: 'block_ai',
+      action: 'add',
+      settingType: 'boolean'
+    });
+    expect(overrideToggleRes.success).toBe(true);
+
+    // 3. DEBUG_TAB branches
+    // 3a. requestedDomains length 0
+    state.tabRequests[999] = {};
+    const debugEmptyDomains = await messageHandlers.DEBUG_TAB({ tabId: 999, profileId: 'prof123' });
+    expect(debugEmptyDomains.success).toBe(true);
+    expect(debugEmptyDomains.correlations).toEqual([]);
+
+    // 3b. fetch fails
+    state.tabRequests[998] = { 'example.com': { status: 'blocked', reason: 'Blocked' } };
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: false });
+    const debugFetchFail = await messageHandlers.DEBUG_TAB({ tabId: 998, profileId: 'prof123' });
+    expect(debugFetchFail.success).toBe(false);
+    expect(debugFetchFail.error).toBe('Failed to fetch logs');
+
+    // 3c. logs json parsing error
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: { json: async () => { throw new Error('Bad json'); } }
+    });
+    const debugJsonError = await messageHandlers.DEBUG_TAB({ tabId: 998, profileId: 'prof123' });
+    expect(debugJsonError.success).toBe(true);
+
+    // 3d. logs match with l.domain and fallback reason string
+    state.tabRequests[997] = {
+      'matched-domain.com': { status: 'blocked', timestamp: 100 },
+      'local-only.com': { status: 'blocked', reason: 'Custom Local Reason' },
+      'allowed-domain.com': { status: 'allowed' }
+    };
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: {
+        json: async () => ({
+          data: [
+            { domain: 'matched-domain.com', status: 'denied', reason: 'Explicit Denial', clientIp: '1.2.3.4' }
+          ]
+        })
+      }
+    });
+    const debugMatchRes = await messageHandlers.DEBUG_TAB({ tabId: 997, profileId: 'prof123' });
+    expect(debugMatchRes.success).toBe(true);
+    expect(debugMatchRes.correlations.length).toBe(2);
+    expect(debugMatchRes.correlations[0].device).toBe('1.2.3.4');
+
+    // 4. SAVE_RULE & DELETE_RULE branches
+    // 4a. SAVE_RULE with invalid rule definition
+    const saveRuleInvalid = await messageHandlers.SAVE_RULE({ rule: null });
+    expect(saveRuleInvalid.success).toBe(false);
+    expect(saveRuleInvalid.error).toBe('Invalid rule definition');
+
+    // 4b. DELETE_RULE with missing ruleId
+    const delRuleMissing = await messageHandlers.DELETE_RULE({});
+    expect(delRuleMissing.success).toBe(false);
+    expect(delRuleMissing.error).toBe('Missing ruleId');
+
+    // 4c. LIST_RULES when storage returns non-array
+    await global.storage.set('forgeRules', null);
+    const listRulesNull = await messageHandlers.LIST_RULES();
+    expect(listRulesNull.rules).toEqual([]);
+
+    // 5. PUSH_NOTIFICATION trigger filter branches
+    // 5a. Empty msg.payload (line 545 fallback)
+    const pushEmptyPayload = await messageHandlers.PUSH_NOTIFICATION({});
+    expect(pushEmptyPayload.success).toBe(true);
+
+    // 5b. alerts_disabled (line 557)
+    await global.storage.set('alertSettings', { enabled: false });
+    const pushDisabled = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security' } });
+    expect(pushDisabled.success).toBe(false);
+    expect(pushDisabled.reason).toBe('alerts_disabled');
+
+    // 5c. trigger filters disabled
+    await global.storage.set('alertSettings', {
+      enabled: true,
+      desktop: true,
+      actionCenter: true,
+      triggerThreats: false,
+      triggerDenylist: false,
+      triggerParental: false
+    });
+    const pushThreatBlocked = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security' } });
+    expect(pushThreatBlocked.success).toBe(false);
+    expect(pushThreatBlocked.reason).toBe('trigger_type_disabled');
+
+    const pushDenyBlocked = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'denylist' } });
+    expect(pushDenyBlocked.success).toBe(false);
+
+    // type 'block' (line 564)
+    const pushBlockBlocked = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'block' } });
+    expect(pushBlockBlocked.success).toBe(false);
+
+    const pushParentalBlocked = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'parental' } });
+    expect(pushParentalBlocked.success).toBe(false);
+
+    // 5d. Delivery to Action Center and Desktop notification (lines 585 & 592)
+    await global.storage.set('alertSettings', {
+      enabled: true,
+      desktop: true,
+      actionCenter: true,
+      triggerThreats: true
+    });
+    global.browser.notifications = { create: jest.fn().mockResolvedValue('notif-id-1') };
+    const pushDelivered = await messageHandlers.PUSH_NOTIFICATION({
+      payload: { type: 'security', severity: 'high', message: 'Threat blocked' }
+    });
+    expect(pushDelivered.success).toBe(true);
+    expect(global.browser.notifications.create).toHaveBeenCalled();
+
+    // 6. SAVE_SCRAPED_META branches
+    const saveMetaNull = await messageHandlers.SAVE_SCRAPED_META(null);
+    expect(saveMetaNull.success).toBe(false);
+    expect(saveMetaNull.error).toBe('Invalid payload');
+
+    const saveMetaInvalidType = await messageHandlers.SAVE_SCRAPED_META({ payload: { metaType: 'unknown_type', data: [] } });
+    expect(saveMetaInvalidType.success).toBe(false);
+    expect(saveMetaInvalidType.error).toBe('Invalid metaType or data format');
+
+    const saveMetaNonArrayData = await messageHandlers.SAVE_SCRAPED_META({ payload: { metaType: 'blocklists', data: 'not_array' } });
+    expect(saveMetaNonArrayData.success).toBe(false);
+
+    // 7. CLEAR_TAB_STATS branches
+    state.tabRequests[12345] = { 'test.com': {} };
+    state.blockedTabRequests[12345] = 2;
+    await messageHandlers.CLEAR_TAB_STATS({ tabId: 12345 });
+    expect(state.tabRequests[12345]).toEqual({});
+    expect(state.blockedTabRequests[12345]).toBe(0);
+
+    // CLEAR_TAB_STATS when tabId does not exist in state
+    await messageHandlers.CLEAR_TAB_STATS({ tabId: 999999 });
+    // CLEAR_TAB_STATS when tabId is undefined
+    await messageHandlers.CLEAR_TAB_STATS({});
+
+    // 8. GET_PROFILES_LIST branches (custom apiKey trimming, direct array vs data property)
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (endpoint, opts) => {
+      if (opts?.headers?.['X-Api-Key']) {
+        return { success: true, response: { json: async () => [{ id: 'pCustom' }] } };
+      }
+      return { success: true, response: { json: async () => ({}) } };
+    });
+    const profilesWithKey = await messageHandlers.GET_PROFILES_LIST({ apiKey: '  custom-key  ' });
+    expect(profilesWithKey.success).toBe(true);
+    expect(profilesWithKey.data[0].id).toBe('pCustom');
+
+    const profilesNoData = await messageHandlers.GET_PROFILES_LIST({});
+    expect(profilesNoData.success).toBe(true);
+    expect(profilesNoData.data).toEqual([]);
+
+    // 9. DELETE_SNAPSHOT when profile exists vs does not exist
+    await global.storage.set('profileSnapshots', {
+      prof123: [{ id: 'snap1', name: 'Snap 1' }]
+    });
+    const delSnapSuccess = await messageHandlers.DELETE_SNAPSHOT({ profileId: 'prof123', snapshotId: 'snap1' });
+    expect(delSnapSuccess.success).toBe(true);
+
+    const delSnapNonExistentProfile = await messageHandlers.DELETE_SNAPSHOT({ profileId: 'prof99999', snapshotId: 'snap1' });
+    expect(delSnapNonExistentProfile.success).toBe(true);
+
+    // 10. CLEAR_LOGS error propagation (line 461)
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: false, error: 'Clear logs failed' });
+    const clearLogsErr = await messageHandlers.CLEAR_LOGS({ profileId: 'prof123' });
+    expect(clearLogsErr.success).toBe(false);
+    expect(clearLogsErr.error).toBe('Clear logs failed');
+
+    // 11. SAVE_RULE and DELETE_RULE when storage returns non-array (lines 478, 491)
+    await global.storage.set('forgeRules', 'not-an-array');
+    const saveRuleNonArray = await messageHandlers.SAVE_RULE({ rule: { name: 'New Rule' } });
+    expect(saveRuleNonArray.success).toBe(true);
+
+    await global.storage.set('forgeRules', 'not-an-array');
+    const delRuleNonArray = await messageHandlers.DELETE_RULE({ ruleId: 'some-id' });
+    expect(delRuleNonArray.success).toBe(true);
+
+    // 12. LIST_REWRITES fetch failure and error propagation (line 503)
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: false, error: 'Rewrite list error' });
+    const listRewritesErr = await messageHandlers.LIST_REWRITES({ profileId: 'prof123' });
+    expect(listRewritesErr.success).toBe(false);
+    expect(listRewritesErr.error).toBe('Rewrite list error');
+
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: false }); // r.error undefined fallback
+    const listRewritesFallbackErr = await messageHandlers.LIST_REWRITES({ profileId: 'prof123' });
+    expect(listRewritesFallbackErr.success).toBe(false);
+    expect(listRewritesFallbackErr.error).toBe('Failed to fetch rewrites');
+
+    // 13. PUSH_NOTIFICATION Action Center feed delivery when actionCenter: false (line 584)
+    await global.storage.set('alertSettings', {
+      enabled: true,
+      desktop: false,
+      actionCenter: false,
+      triggerThreats: true
+    });
+    const pushNoActionCenter = await messageHandlers.PUSH_NOTIFICATION({
+      payload: { type: 'security', severity: 'low', message: 'Silent alert' }
+    });
+    expect(pushNoActionCenter.success).toBe(true);
+
+    // 14. CREATE_SNAPSHOT branches (configRes failure, profileSnapshots length > 10)
+    const origGetAllSettings = messageHandlers.GET_ALL_SETTINGS;
+    messageHandlers.GET_ALL_SETTINGS = jest.fn().mockResolvedValue({ success: false, error: 'Config fetch error' });
+    const snapConfigErr = await messageHandlers.CREATE_SNAPSHOT({ profileId: 'prof123' });
+    expect(snapConfigErr.success).toBe(false);
+    expect(snapConfigErr.error).toBe('Config fetch error');
+
+    // Also test fallback error string when error is undefined (line 388: error || "Failed to fetch current config")
+    messageHandlers.GET_ALL_SETTINGS = jest.fn().mockResolvedValue({ success: false });
+    const snapConfigFallbackErr = await messageHandlers.CREATE_SNAPSHOT({ profileId: 'prof123' });
+    expect(snapConfigFallbackErr.success).toBe(false);
+    expect(snapConfigFallbackErr.error).toBe('Failed to fetch current config');
+    messageHandlers.GET_ALL_SETTINGS = origGetAllSettings;
+
+    // CREATE_SNAPSHOT when msg is empty/null (line 384 fallback)
+    const snapNullMsg = await messageHandlers.CREATE_SNAPSHOT();
+    expect(snapNullMsg.success).toBe(false);
+    expect(snapNullMsg.error).toBe('Profile ID required');
+
+    // CREATE_SNAPSHOT catch block fallback error string (line 414: e.message || "Failed to save snapshot")
+    const origStorageSet = global.storage.set;
+    global.storage.set = jest.fn().mockRejectedValue({}); // e.message is undefined
+    const snapSaveCatchErr = await messageHandlers.CREATE_SNAPSHOT({ profileId: 'prof123', name: 'Catch Test' });
+    expect(snapSaveCatchErr.success).toBe(false);
+    expect(snapSaveCatchErr.error).toBe('Failed to save snapshot');
+    global.storage.set = origStorageSet;
+
+    // DEBUG_TAB fallback timestamp (line 358: tabData[domain]?.timestamp || Date.now())
+    state.tabRequests[994] = {
+      'fallback-ts.com': { status: 'blocked' } // no timestamp
+    };
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: {
+        json: async () => ({
+          data: [{ domain: 'fallback-ts.com', status: 'blocked' }] // no timestamp, no reasons, no device
+        })
+      }
+    });
+    const debugFallbackTs = await messageHandlers.DEBUG_TAB({ tabId: 994, profileId: 'prof123' });
+    expect(debugFallbackTs.success).toBe(true);
+    expect(debugFallbackTs.correlations[0].timestamp).toBeGreaterThan(0);
+    expect(debugFallbackTs.correlations[0].device).toBe('NextDNS Profile');
+    expect(debugFallbackTs.correlations[0].reasons).toEqual(['Cloud Blocklist']);
+
+    // 15. LIST_SNAPSHOTS when profile not in profileSnapshots (line 424 fallback)
+    const listSnapEmpty = await messageHandlers.LIST_SNAPSHOTS({ profileId: 'profNonExistent' });
+    expect(listSnapEmpty.success).toBe(true);
+    expect(listSnapEmpty.snapshots).toEqual([]);
+
+    // 16. DEBUG_TAB seenDomains branch for duplicate local blocked domains and cloud logs (lines 335, 353, 363)
+    // Line 335: tabId not in state.tabRequests (fallback to {})
+    const debugMissingTab = await messageHandlers.DEBUG_TAB({ tabId: 999999, profileId: 'prof123' });
+    expect(debugMissingTab.success).toBe(true);
+    expect(debugMissingTab.correlations).toEqual([]);
+
+    // Line 353 & 363: duplicate domains in requestedDomains where seenDomains.has(domain) is true
+    // In JavaScript Object.keys() cannot have duplicate keys, but we can exercise seenDomains.has()
+    // if requestedDomains contains duplicates or if we test the branches directly.
+    // Wait, let's also test CREATE_SNAPSHOT when profileSnapshots[profileId].length > 10 (line 400 pop())
+    const tenSnapshots = Array.from({ length: 10 }, (_, i) => ({ id: `snap_${i}`, timestamp: Date.now() }));
+    await global.storage.set('profileSnapshots', { prof123: tenSnapshots });
+    const snapOverTen = await messageHandlers.CREATE_SNAPSHOT({ profileId: 'prof123', name: 'Over Ten' });
+    expect(snapOverTen.success).toBe(true);
+    const storedSnaps = await global.storage.get('profileSnapshots', {});
+    expect(storedSnaps.prof123.length).toBe(10);
+
+    // PUSH_NOTIFICATION when state.notifications.length > 50 (line 587 pop())
+    state.notifications = Array.from({ length: 50 }, (_, i) => ({ id: `notif_${i}`, message: `msg ${i}` }));
+    await global.storage.set('alertSettings', {
+      enabled: true,
+      actionCenter: true,
+      triggerThreats: true
+    });
+    const pushOverFifty = await messageHandlers.PUSH_NOTIFICATION({
+      payload: { type: 'security', severity: 'high', message: 'Fifty first alert' }
+    });
+    expect(pushOverFifty.success).toBe(true);
+    expect(state.notifications.length).toBe(50);
+
+    // 17. GET_NETWORK_STATUS cache expiration (> 300000ms)
+    state.networkStatus = { lastChecked: Date.now() - 400000 };
+    const netStatusFresh = await messageHandlers.GET_NETWORK_STATUS();
+    expect(netStatusFresh.success).toBe(true);
+
+    // Restore fetch mock
+    apiClient.fetchWithRetry = origFetch;
+  });
 });
+
 
 

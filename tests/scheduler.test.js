@@ -220,4 +220,40 @@ describe('Background Scheduler & Automation Rules', () => {
         expect(errSpy).toHaveBeenCalled();
         errSpy.mockRestore();
     });
+
+    test('Scheduler Branch Hardening: handles rule with missing category and non-array freshRules', async () => {
+        const now = new Date();
+        const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        storedData.activeProfile = 'profile-branch-1';
+        storedData.forgeRules = [
+            {
+                id: 'rule-nocat',
+                name: 'No Category Rule',
+                trigger: currentTime,
+                action: 'enable',
+                targetId: 't1',
+                active: true
+            }
+        ];
+
+        let callCount = 0;
+        jest.spyOn(storage, 'get').mockImplementation(async (key, def) => {
+            if (key === 'forgeRules') {
+                callCount++;
+                if (callCount > 1) {
+                    return null; // Return null to hit (Array.isArray(freshRules) ? freshRules : []) false branch
+                }
+            }
+            return storedData[key] !== undefined ? storedData[key] : def;
+        });
+
+        handlersMock.TOGGLE_SETTING.mockResolvedValueOnce({ success: true });
+        await checkAutomationRules();
+
+        expect(handlersMock.TOGGLE_SETTING).toHaveBeenCalledWith(expect.objectContaining({
+            profileId: 'profile-branch-1',
+            category: undefined,
+            settingType: 'boolean'
+        }));
+    });
 });
