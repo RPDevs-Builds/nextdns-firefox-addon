@@ -273,10 +273,8 @@ export async function saveCustomTheme() {
         nameInput.placeholder = 'Please enter a theme name...';
         nameInput.style.borderColor = 'var(--danger)';
         setTimeout(() => {
-            if (nameInput) {
-                nameInput.placeholder = 'New theme name...';
-                nameInput.style.borderColor = '';
-            }
+            nameInput.placeholder = 'New theme name...';
+            nameInput.style.borderColor = '';
         }, 2000);
         return;
     }
@@ -286,10 +284,8 @@ export async function saveCustomTheme() {
         nameInput.placeholder = 'Name reserved. Choose another...';
         nameInput.style.borderColor = 'var(--danger)';
         setTimeout(() => {
-            if (nameInput) {
-                nameInput.placeholder = 'New theme name...';
-                nameInput.style.borderColor = '';
-            }
+            nameInput.placeholder = 'New theme name...';
+            nameInput.style.borderColor = '';
         }, 2500);
         return;
     }
@@ -317,10 +313,8 @@ export async function saveCustomTheme() {
         saveBtn.textContent = '✅';
         saveBtn.disabled = true;
         setTimeout(() => {
-            if (saveBtn) {
-                saveBtn.textContent = '💾';
-                saveBtn.disabled = false;
-            }
+            saveBtn.textContent = '💾';
+            saveBtn.disabled = false;
         }, 1500);
     }
 }

@@ -314,5 +314,135 @@ describe('LogStreamManager', () => {
         await new Promise(r => setTimeout(r, 10));
         sendSpy.mockRestore();
     });
+
+    test('logStreamManager: Exhaustive Branch Coverage to 100%', async () => {
+        const origBrowser = global.browser;
+        const origFetch = global.fetch;
+        const origEventSource = global.EventSource;
+
+        // 1. Line 33, 36, 46, 49, 50: handleLogPayload edge branches
+        // Line 33: browser undefined or runtime.sendMessage not a function
+        delete global.browser;
+        expect(() => logStreamManager.handleLogPayload({ status: 'allowed' })).not.toThrow();
+
+        global.browser = { runtime: { sendMessage: 'not-a-func' } };
+        expect(() => logStreamManager.handleLogPayload({ status: 'allowed' })).not.toThrow();
+
+        // Line 36 & 49: sendMessage returns value without catch method (e.g. undefined)
+        global.browser = {
+            runtime: {
+                sendMessage: jest.fn().mockReturnValue(undefined)
+            }
+        };
+        // Line 46: log.name is empty so log.domain is used
+        logStreamManager.handleLogPayload({
+            status: 'blocked',
+            category: 'malware',
+            name: '',
+            domain: 'fallback-domain.org'
+        });
+        expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: 'PUSH_NOTIFICATION',
+                payload: expect.objectContaining({
+                    message: 'Blocked malware request: fallback-domain.org'
+                })
+            })
+        );
+
+        // Lines 37 & 50: sendMessage throws synchronously
+        global.browser = {
+            runtime: {
+                sendMessage: jest.fn().mockImplementation(() => {
+                    throw new Error('Sync sendMessage failure');
+                })
+            }
+        };
+        expect(() => logStreamManager.handleLogPayload({
+            status: 'blocked',
+            category: 'cryptojacking',
+            name: 'miner.js'
+        })).not.toThrow();
+
+        // Restore global.browser
+        global.browser = origBrowser;
+
+        // 2. Line 66: parseSSEChunk with empty jsonStr ('data: \n\n')
+        expect(() => logStreamManager.parseSSEChunk('data:    \n\n')).not.toThrow();
+
+        // 3. Line 125: _startFetchStream reader error with AbortError and when explicitly stopped
+        const reconnectSpy = jest.spyOn(logStreamManager, '_scheduleReconnect').mockImplementation(() => {});
+
+        // Case a: AbortError does NOT trigger _scheduleReconnect
+        logStreamManager.isExplicitlyStopped = false;
+        const abortErr = new Error('Aborted');
+        abortErr.name = 'AbortError';
+        const mockAbortReader = {
+            read: jest.fn().mockRejectedValue(abortErr),
+            cancel: jest.fn()
+        };
+        global.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            body: { getReader: () => mockAbortReader }
+        });
+        await logStreamManager._startFetchStream('p12345', 'key');
+        await new Promise(r => setTimeout(r, 40));
+        expect(reconnectSpy).not.toHaveBeenCalled();
+
+        // Case b: error while isExplicitlyStopped = true does NOT trigger _scheduleReconnect
+        logStreamManager.isExplicitlyStopped = true;
+        const mockStoppedReader = {
+            read: jest.fn().mockRejectedValue(new Error('Other error')),
+            cancel: jest.fn()
+        };
+        global.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            body: { getReader: () => mockStoppedReader }
+        });
+        await logStreamManager._startFetchStream('p12345', 'key');
+        await new Promise(r => setTimeout(r, 40));
+        expect(reconnectSpy).not.toHaveBeenCalled();
+
+        reconnectSpy.mockRestore();
+
+        // 4. Lines 161-169: _startEventSourceStream onerror branches
+        let eventSourceInstance = null;
+        global.EventSource = jest.fn().mockImplementation(() => {
+            eventSourceInstance = {
+                onmessage: null,
+                onerror: null,
+                close: jest.fn()
+            };
+            return eventSourceInstance;
+        });
+
+        const reconnectSpy2 = jest.spyOn(logStreamManager, '_scheduleReconnect').mockImplementation(() => {});
+
+        // Case a: normal onerror schedules reconnect when not explicitly stopped
+        logStreamManager.isExplicitlyStopped = false;
+        logStreamManager._startEventSourceStream('p12345', 'key');
+        const savedOnError = eventSourceInstance.onerror;
+        savedOnError();
+        expect(eventSourceInstance.close).toHaveBeenCalled();
+        expect(reconnectSpy2).toHaveBeenCalledWith('p12345');
+        expect(logStreamManager.eventSource).toBeNull();
+
+        // Case b: onerror called when eventSource is already null (line 161 false branch)
+        reconnectSpy2.mockClear();
+        logStreamManager.eventSource = null;
+        logStreamManager.isExplicitlyStopped = false;
+        savedOnError();
+        expect(reconnectSpy2).toHaveBeenCalledWith('p12345');
+
+        // Case c: onerror called when isExplicitlyStopped is true (line 167 false branch)
+        reconnectSpy2.mockClear();
+        logStreamManager.isExplicitlyStopped = true;
+        savedOnError();
+        expect(reconnectSpy2).not.toHaveBeenCalled();
+
+        reconnectSpy2.mockRestore();
+        global.fetch = origFetch;
+        global.EventSource = origEventSource;
+    });
 });
 

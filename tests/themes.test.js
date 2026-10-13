@@ -351,34 +351,153 @@ describe('Theme Engine & Custom Palette (Phase 8.1)', () => {
         await themeModule.saveCustomTheme();
         expect(state.savedThemes['NoSaveBtnTheme']).toBeDefined();
 
-        // 11. Timers in saveCustomTheme when nameInput or saveBtn is removed during delay (lines 276, 289, 320)
+        // 11. Timers in saveCustomTheme
         jest.useFakeTimers();
         document.body.innerHTML = `
             <input id="theme-name-input" value="" />
             <button id="save-theme-btn"></button>
         `;
         const savePromise1 = themeModule.saveCustomTheme();
-        document.getElementById('theme-name-input').remove();
         jest.advanceTimersByTime(2100);
         await savePromise1;
+        expect(document.getElementById('theme-name-input').placeholder).toBe('New theme name...');
 
         document.body.innerHTML = `
             <input id="theme-name-input" value="default-dark" />
             <button id="save-theme-btn"></button>
         `;
         const savePromise2 = themeModule.saveCustomTheme();
-        document.getElementById('theme-name-input').remove();
         jest.advanceTimersByTime(2600);
         await savePromise2;
-
-        document.body.innerHTML = `
-            <input id="theme-name-input" value="ValidThemeWithTimer" />
-            <button id="save-theme-btn"></button>
-        `;
-        const savePromise3 = themeModule.saveCustomTheme();
-        document.getElementById('save-theme-btn').remove();
-        jest.advanceTimersByTime(1600);
-        await savePromise3;
+        expect(document.getElementById('theme-name-input').placeholder).toBe('New theme name...');
         jest.useRealTimers();
+    });
+
+    test('theme.js - 100% Branch Coverage Target', async () => {
+        const themeModule = await import('../src/ui/theme.js');
+        const { DEFAULT_THEME_COLORS } = await import('../src/ui/state.js');
+
+        // 1. Line 56: defaults[v] without '--' prefix
+        DEFAULT_THEME_COLORS['test-no-prefix'] = {
+            'bg-main': '#111111',
+            'bg-panel': '#222222',
+            'border-color': '#333333',
+            'text-main': '#444444',
+            'text-muted': '#555555',
+            'hover-bg': '#666666'
+        };
+        const noPrefixColors = themeModule.getThemeColors('test-no-prefix');
+        expect(noPrefixColors['bg-main']).toBe('#111111');
+        delete DEFAULT_THEME_COLORS['test-no-prefix'];
+
+        // 2. Line 60 & 64: theme from state.savedThemes with keys without '--'
+        state.savedThemes = {
+            'saved-no-prefix': {
+                'bg-main': '#121212'
+            }
+        };
+        const savedColors = themeModule.getThemeColors('saved-no-prefix', null);
+        expect(savedColors['bg-main']).toBe('#121212');
+
+        // 3. Line 76 & 77: getThemeDisplayName
+        expect(themeModule.getThemeDisplayName('default-dark')).toBe('Default Dark');
+        expect(themeModule.getThemeDisplayName('default-light')).toBe('Default Light');
+
+        // 4. Line 102 & 103: updateDeleteThemeBtnVisibility (true branch)
+        document.body.innerHTML = '<button id="delete-theme-btn"></button>';
+        state.isThemeUnsaved = false;
+        state.activeThemeId = 'custom-del';
+        state.savedThemes = { 'custom-del': { '--bg-main': '#000000' } };
+        themeModule.updateDeleteThemeBtnVisibility();
+        expect(document.getElementById('delete-theme-btn').style.display).toBe('inline-block');
+
+        // 5. Line 115: updateUnsavedBadge (true branch)
+        document.body.innerHTML = '<span id="theme-unsaved-badge"></span>';
+        state.isThemeUnsaved = true;
+        themeModule.updateUnsavedBadge();
+        expect(document.getElementById('theme-unsaved-badge').style.display).toBe('inline');
+
+        // 6. Line 123: setThemeUnsaved early return
+        state.isThemeUnsaved = true;
+        themeModule.setThemeUnsaved(true); // matches current state -> returns early
+
+        // 7. Line 136: applyTheme('default-light')
+        themeModule.applyTheme('default-light');
+        expect(document.body.classList.contains('light-mode')).toBe(true);
+
+        // 8. Line 146 & 150: applyTheme with key without '--' in savedThemes
+        state.savedThemes = {
+            'no-dash-theme': {
+                'bg-main': '#aabbcc'
+            }
+        };
+        themeModule.applyTheme('no-dash-theme', null);
+        expect(document.body.style.getPropertyValue('--bg-main')).toBe('#aabbcc');
+
+        // 9. Line 171, 203, 206: populateThemeDropdown with isThemeUnsaved = true
+        document.body.innerHTML = '<select id="theme-selector"></select><span id="theme-unsaved-badge"></span><button id="delete-theme-btn"></button>';
+        state.isThemeUnsaved = true;
+        state.activeThemeId = 'Nord';
+        themeModule.populateThemeDropdown();
+        const sel = document.getElementById('theme-selector');
+        expect(sel.value).toBe('__unsaved__');
+
+        // populateThemeDropdown with activeThemeId = null (line 206 fallback 'default-dark')
+        state.isThemeUnsaved = false;
+        state.activeThemeId = null;
+        state.savedThemes = null; // line 196 fallback || {}
+        themeModule.populateThemeDropdown();
+        expect(sel.value).toBe('default-dark');
+
+        // 10. Line 220 & 223: initThemeEngine with activeTheme and missing customThemes
+        const origGet = storage.get;
+        storage.get = jest.fn().mockResolvedValue({ activeTheme: 'Nord' }); // customThemes undefined
+        await themeModule.initThemeEngine();
+        expect(state.activeThemeId).toBe('Nord');
+        storage.get = origGet;
+
+        // 11. Line 300, 303, 320: saveCustomTheme with color inputs, state.savedThemes null, and saveBtn timer
+        jest.useFakeTimers();
+        document.body.innerHTML = `
+            <input id="theme-name-input" value="CleanTheme" />
+            <button id="save-theme-btn"></button>
+            <input id="color-bg-main" value="#112233" />
+            <select id="theme-selector"></select>
+            <span id="theme-unsaved-badge"></span>
+            <button id="delete-theme-btn"></button>
+        `;
+        state.savedThemes = null; // triggers line 303 `if (!state.savedThemes) state.savedThemes = {};`
+        await themeModule.saveCustomTheme();
+        expect(document.getElementById('save-theme-btn').textContent).toBe('✅');
+        jest.advanceTimersByTime(1600);
+        expect(document.getElementById('save-theme-btn').textContent).toBe('💾');
+        expect(document.getElementById('save-theme-btn').disabled).toBe(false);
+        jest.useRealTimers();
+
+        // 12. deleteCustomTheme successful path
+        state.isThemeUnsaved = false;
+        state.activeThemeId = 'CleanTheme';
+        await themeModule.deleteCustomTheme();
+        expect(state.activeThemeId).toBe('default-dark');
+
+        // 13. Line 60 & 146 & 148: applyTheme and getThemeColors when theme does not exist anywhere
+        state.savedThemes = {};
+        expect(themeModule.getThemeColors('completely-unknown-theme', {})).toBeDefined();
+        themeModule.applyTheme('completely-unknown-theme', {}); // hits line 148 if (theme) false branch
+
+        // 14. Line 151: applyTheme with non-string and invalid color values
+        state.savedThemes = {
+            'invalid-colors-theme': {
+                '--bg-main': 'not-a-hex-color',
+                '--bg-panel': 12345
+            }
+        };
+        themeModule.applyTheme('invalid-colors-theme');
+
+        // 15. Line 247: initViewerTheme when browser.storage.onChanged.addListener is missing
+        const origBrowser = global.browser;
+        global.browser = {};
+        await themeModule.initViewerTheme();
+        global.browser = origBrowser;
     });
 });

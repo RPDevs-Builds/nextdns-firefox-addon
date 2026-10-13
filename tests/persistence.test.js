@@ -209,5 +209,116 @@ describe('Storage Persistence & Auto-Heal', () => {
         await storage.init();
         expect(storage.initialized).toBe(true);
     });
+
+    test('StorageManager: Exhaustive Branch Coverage to 100%', async () => {
+        const { storage } = await import('../src/storage.js');
+
+        // 1. Line 34: init() when already initialized
+        storage.initialized = true;
+        expect(await storage.init()).toBeUndefined();
+
+        // 2. Line 35: init() when initPromise is already in progress
+        storage.initialized = false;
+        const dummyPromise = Promise.resolve('in-flight');
+        storage.initPromise = dummyPromise;
+        expect(await storage.init()).toBe('in-flight');
+        storage.initPromise = null;
+
+        // 3. Lines 45, 48, 64, 68: init() when browser.storage APIs are missing
+        const origStorage = global.browser.storage;
+        storage.initialized = false;
+        global.browser.storage = {}; // no sync, local, onChanged
+        await storage.init();
+        expect(storage.initialized).toBe(true);
+
+        // Line 64: healObj has keys, but browser.storage.local.set is missing
+        storage.initialized = false;
+        global.browser.storage = {
+            sync: { get: jest.fn().mockResolvedValue({ syncK: 'syncV' }) },
+            local: { get: jest.fn().mockResolvedValue({}) }
+        };
+        await storage.init();
+        expect(storage.initialized).toBe(true);
+
+        // Line 82: catch block fallback when this.cache is falsy
+        jest.useFakeTimers();
+        storage.initialized = false;
+        storage.cache = null;
+        global.browser.storage = {
+            sync: { get: jest.fn(() => new Promise(() => {})) },
+            local: { get: jest.fn(() => new Promise(() => {})) }
+        };
+        const hangPromise = storage.init();
+        jest.advanceTimersByTime(2500);
+        await hangPromise;
+        expect(storage.cache).toEqual({});
+        jest.useRealTimers();
+
+        // Restore browser.storage
+        global.browser.storage = origStorage;
+
+        // 4. Line 101, 102, 103, 109: get() branches
+        // Line 102: get() when uninitialized
+        storage.initialized = false;
+        const resUninit = await storage.get('autoInitKey', 'default');
+        expect(resUninit).toBe('default');
+
+        // Line 101: get() with default params (no arguments)
+        const allData = await storage.get();
+        expect(typeof allData).toBe('object');
+
+        // Line 103: get(undefined)
+        const undefData = await storage.get(undefined);
+        expect(typeof undefData).toBe('object');
+
+        // Line 109: get(array, nonObjectDefault)
+        await storage.set({ presentKey: 'val123' });
+        const arrResult = await storage.get(['presentKey', 'absentKey'], 'not-an-object');
+        expect(arrResult.presentKey).toBe('val123');
+        expect(arrResult.absentKey).toBeUndefined();
+
+        const arrResultNull = await storage.get(['absentKey'], null);
+        expect(arrResultNull.absentKey).toBeUndefined();
+
+        // 5. Line 124, 125, 132, 139, 142: set() branches
+        // Line 124: set() when uninitialized
+        storage.initialized = false;
+        await storage.set('uninitSetKey', 'uninitVal');
+        expect(await storage.get('uninitSetKey')).toBe('uninitVal');
+
+        // Line 125: set() with null key (non-object branch: { [null]: value })
+        await storage.set(null, 'nullVal');
+        expect(storage.cache['null']).toBe('nullVal');
+
+        // Line 139: set() with only LOCAL_ONLY_KEYS so syncObj is empty
+        global.browser.storage.sync.set = jest.fn();
+        await storage.set({ localLogs: ['log1'] });
+        expect(global.browser.storage.sync.set).not.toHaveBeenCalled();
+
+        // Line 139 & 142: set() when browser.storage.sync.set or local.set are missing
+        global.browser.storage = {
+            sync: {},
+            local: {}
+        };
+        await expect(storage.set('missingMethodsKey', 'val')).resolves.not.toThrow();
+
+        // Line 132: set() when browser.storage is undefined
+        delete global.browser.storage;
+        await expect(storage.set('noStorageKey', 'val')).resolves.not.toThrow();
+
+        // 6. Line 155, 161, 162, 163: remove() branches
+        // Line 161: remove() when browser.storage is undefined
+        await expect(storage.remove('noStorageRemoveKey')).resolves.not.toThrow();
+
+        // Restore global.browser.storage with missing remove methods
+        global.browser.storage = {
+            sync: {},
+            local: {}
+        };
+        await expect(storage.remove(['missingRemoveMethodKey'])).resolves.not.toThrow();
+
+        // Restore original browser.storage
+        global.browser.storage = origStorage;
+    });
 });
 

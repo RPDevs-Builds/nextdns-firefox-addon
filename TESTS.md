@@ -378,7 +378,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/background/logStream.js`
 - **Category**: **Background Engine**
-- **Total Tests**: **19 tests**
+- **Total Tests**: **20 tests**
 - **Overview**: Validates streaming fetch and EventSource fallback listeners, auto-reconnect schedules, duplicate stream prevention, JSON parse error recovery, and reader cancellation.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -402,6 +402,7 @@ npm run test:watch
 | 17 | _startEventSourceStream logs warning on invalid JSON | *LogStreamManager* | [L262](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/logStream.test.js#L262) |
 | 18 | start logs error and returns failure if initialization throws | *LogStreamManager* | [L286](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/logStream.test.js#L286) |
 | 19 | handleLogPayload safely swallows rejected sendMessage promises | *LogStreamManager* | [L305](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/logStream.test.js#L305) |
+| 20 | logStreamManager: Exhaustive Branch Coverage to 100% | *LogStreamManager* | [L318](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/logStream.test.js#L318) |
 
 ---
 
@@ -448,7 +449,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/storage.js`
 - **Category**: **Core Infrastructure**
-- **Total Tests**: **9 tests**
+- **Total Tests**: **10 tests**
 - **Overview**: Tests StorageManager synchronization across sync and local storage areas, auto-healing cache mismatches, and graceful rejection handling on browser storage quotas.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -462,6 +463,7 @@ npm run test:watch
 | 7 | StorageManager: handles init timeout or failure gracefully | *Storage Persistence & Auto-Heal* | [L147](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/persistence.test.js#L147) |
 | 8 | StorageManager: Supports removing array of keys | *Storage Persistence & Auto-Heal* | [L160](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/persistence.test.js#L160) |
 | 9 | StorageManager: Safely catches errors in sync/local get, set, remove, and healing | *Storage Persistence & Auto-Heal* | [L170](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/persistence.test.js#L170) |
+| 10 | StorageManager: Exhaustive Branch Coverage to 100% | *Storage Persistence & Auto-Heal* | [L213](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/persistence.test.js#L213) |
 
 ---
 
@@ -555,7 +557,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/ui/theme.js`
 - **Category**: **UI & Styling**
-- **Total Tests**: **12 tests**
+- **Total Tests**: **13 tests**
 - **Overview**: Comprehensive testing of preset themes, color variable mappings, custom theme deletion, and dropdown synchronization.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -572,6 +574,7 @@ npm run test:watch
 | 10 | saveCustomTheme: Timers reset placeholder and button state correctly | *Theme Engine & Custom Palette (Phase 8.1)* | [L239](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/themes.test.js#L239) |
 | 11 | initThemeEngine: Catches and logs initialization warnings gracefully | *Theme Engine & Custom Palette (Phase 8.1)* | [L269](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/themes.test.js#L269) |
 | 12 | theme.js - Exhaustive Statement & Branch Coverage Deep Dive | *Theme Engine & Custom Palette (Phase 8.1)* | [L280](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/themes.test.js#L280) |
+| 13 | theme.js - 100% Branch Coverage Target | *Theme Engine & Custom Palette (Phase 8.1)* | [L376](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/themes.test.js#L376) |
 
 ---
 
