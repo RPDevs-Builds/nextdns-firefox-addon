@@ -2022,7 +2022,8 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             window.confirm = global.confirm;
             const fakeFile2 = new Blob([JSON.stringify({ type: 'DNS_FORGE_BACKUP' })], { type: 'application/json' });
             await uiMain.importFullConfiguration({ target: { files: [fakeFile2], value: 'fake' } });
-            await new Promise(r => setTimeout(r, 60));
+            await new Promise(r => setTimeout(r, 850));
+            browser.runtime.reload.mockClear();
             global.confirm = origGlobalConfirm;
             window.confirm = origWindowConfirm;
 
