@@ -1588,6 +1588,16 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             const saveBtn = document.getElementById('save-settings-btn');
             saveBtn?.remove();
             await uiMain.saveSettings(); // should return early without error
+
+            // 5. Window pagehide / unload cleanup listener (line 802)
+            const origSendMsg = global.browser.runtime.sendMessage;
+            global.browser.runtime.sendMessage = jest.fn((msg) => {
+                if (msg?.type === "STOP_STREAM") return Promise.reject(new Error("Stream already stopped"));
+                return Promise.resolve({ success: true });
+            });
+            window.dispatchEvent(new Event('pagehide'));
+            await new Promise(r => setTimeout(r, 40));
+            global.browser.runtime.sendMessage = origSendMsg;
         });
     });
 });

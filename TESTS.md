@@ -174,7 +174,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/ui/blocks.js`
 - **Category**: **UI & Components**
-- **Total Tests**: **16 tests**
+- **Total Tests**: **17 tests**
 - **Overview**: Tests toggle switches, category filtering, parent/sub-category navigation, domain allowlist/denylist management, bulk add queues, and search empty states.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -195,6 +195,7 @@ npm run test:watch
 | 14 | Blocks UI - TLD grid search query filtering | *Popup UI - Blocks Expansion Suite* | [L411](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L411) |
 | 15 | Blocks UI - syncLists handles force re-sync and message rejection | *Popup UI - Blocks Expansion Suite* | [L420](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L420) |
 | 16 | Blocks UI - renderLists shows empty state when custom list search yields zero matches | *Popup UI - Blocks Expansion Suite* | [L427](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L427) |
+| 17 | Blocks UI - renderBlocklistsGrid with active blocklists and sorting | *Popup UI - Blocks Expansion Suite* | [L434](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L434) |
 
 ---
 
@@ -218,26 +219,26 @@ npm run test:watch
 | 9 | Bulk Add button on allowlist/denylist page splits domains and dispatches messages | *Content Script (NextDNS Web Console Enhancements)* | [L286](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L286) |
 | 10 | Profile note and switcher are injected into header | *Content Script (NextDNS Web Console Enhancements)* | [L322](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L322) |
 | 11 | Logs page controls and filter toggle are injected into logs view | *Content Script (NextDNS Web Console Enhancements)* | [L370](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L370) |
-| 12 | TLD page buttons enable search filtering and list toggling | *Content Script (NextDNS Web Console Enhancements)* | [L397](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L397) |
-| 13 | browser.runtime.onMessage handles TOGGLE_TLD_LIST and TOGGLE_BLOCKLIST_LIST | *Content Script (NextDNS Web Console Enhancements)* | [L431](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L431) |
-| 14 | injectHeaderFilteredLogsButton injects eye button and dropdown item | *Content Script (NextDNS Web Console Enhancements)* | [L452](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L452) |
-| 15 | applyDomainListStyling injects Sort A-Z button and styles domain items | *Content Script (NextDNS Web Console Enhancements)* | [L480](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L480) |
-| 16 | Domain notes and bulk management checkboxes on allowlist | *Content Script (NextDNS Web Console Enhancements)* | [L521](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L521) |
-| 17 | Log row actions (Allow, Deny, Hide) and live timestamps | *Content Script (NextDNS Web Console Enhancements)* | [L598](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L598) |
-| 18 | Filtered logs modal manager: adding, searching, deleting, and clearing filters | *Content Script (NextDNS Web Console Enhancements)* | [L655](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L655) |
-| 19 | Scrapes parental services, blocklists, and TLDs when visiting respective pages | *Content Script (NextDNS Web Console Enhancements)* | [L741](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L741) |
-| 20 | TLD bulk modal buttons: Enable All, Disable All, and Restore | *Content Script (NextDNS Web Console Enhancements)* | [L807](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L807) |
-| 21 | Profile note click in header prompts user and saves to storage | *Content Script (NextDNS Web Console Enhancements)* | [L855](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L855) |
-| 22 | Forced dark mode preserves NextDNS allowed, denied, and relayed log border highlights and applies high-contrast row tints | *Content Script (NextDNS Web Console Enhancements)* | [L886](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L886) |
-| 23 | Logs search with negative syntax and compact mode toggle | *Content Script (NextDNS Web Console Enhancements)* | [L937](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L937) |
-| 24 | Log filters regex, wildcard, and subdomain pattern matching | *Content Script (NextDNS Web Console Enhancements)* | [L984](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L984) |
-| 25 | Header profile switcher and dropdown manage filtered logs button | *Content Script (NextDNS Web Console Enhancements)* | [L1023](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1023) |
-| 26 | Root domain equality sorting and bulk add input validations | *Content Script (NextDNS Web Console Enhancements)* | [L1060](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1060) |
-| 27 | Content Script - comprehensive coverage for profile switcher, TLD restore, and account dropdown | *Content Script (NextDNS Web Console Enhancements)* | [L1109](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1109) |
-| 28 | Content Script - Section collapsing, log actions, search exclusions, and scraping edge cases | *Content Script (NextDNS Web Console Enhancements)* | [L1345](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1345) |
-| 29 | Content Script - fallback selectors when domSelectors fetch fails or lacks definitions | *Content Script (NextDNS Web Console Enhancements)* | [L1534](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1534) |
-| 30 | content.js - Exhaustive Statement & Function Coverage Deep Dive | *Content Script (NextDNS Web Console Enhancements)* | [L1604](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1604) |
-| 31 | Domain sorting button click and missing domain element branches | *Content Script (NextDNS Web Console Enhancements)* | [L1667](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1667) |
+| 12 | TLD page buttons enable search filtering and list toggling | *Content Script (NextDNS Web Console Enhancements)* | [L440](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L440) |
+| 13 | browser.runtime.onMessage handles TOGGLE_TLD_LIST and TOGGLE_BLOCKLIST_LIST | *Content Script (NextDNS Web Console Enhancements)* | [L474](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L474) |
+| 14 | injectHeaderFilteredLogsButton injects eye button and dropdown item | *Content Script (NextDNS Web Console Enhancements)* | [L495](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L495) |
+| 15 | applyDomainListStyling injects Sort A-Z button and styles domain items | *Content Script (NextDNS Web Console Enhancements)* | [L523](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L523) |
+| 16 | Domain notes and bulk management checkboxes on allowlist | *Content Script (NextDNS Web Console Enhancements)* | [L564](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L564) |
+| 17 | Log row actions (Allow, Deny, Hide) and live timestamps | *Content Script (NextDNS Web Console Enhancements)* | [L641](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L641) |
+| 18 | Filtered logs modal manager: adding, searching, deleting, and clearing filters | *Content Script (NextDNS Web Console Enhancements)* | [L698](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L698) |
+| 19 | Scrapes parental services, blocklists, and TLDs when visiting respective pages | *Content Script (NextDNS Web Console Enhancements)* | [L784](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L784) |
+| 20 | TLD bulk modal buttons: Enable All, Disable All, and Restore | *Content Script (NextDNS Web Console Enhancements)* | [L850](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L850) |
+| 21 | Profile note click in header prompts user and saves to storage | *Content Script (NextDNS Web Console Enhancements)* | [L898](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L898) |
+| 22 | Forced dark mode preserves NextDNS allowed, denied, and relayed log border highlights and applies high-contrast row tints | *Content Script (NextDNS Web Console Enhancements)* | [L929](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L929) |
+| 23 | Logs search with negative syntax and compact mode toggle | *Content Script (NextDNS Web Console Enhancements)* | [L980](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L980) |
+| 24 | Log filters regex, wildcard, and subdomain pattern matching | *Content Script (NextDNS Web Console Enhancements)* | [L1027](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1027) |
+| 25 | Header profile switcher and dropdown manage filtered logs button | *Content Script (NextDNS Web Console Enhancements)* | [L1066](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1066) |
+| 26 | Root domain equality sorting and bulk add input validations | *Content Script (NextDNS Web Console Enhancements)* | [L1103](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1103) |
+| 27 | Content Script - comprehensive coverage for profile switcher, TLD restore, and account dropdown | *Content Script (NextDNS Web Console Enhancements)* | [L1152](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1152) |
+| 28 | Content Script - Section collapsing, log actions, search exclusions, and scraping edge cases | *Content Script (NextDNS Web Console Enhancements)* | [L1388](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1388) |
+| 29 | Content Script - fallback selectors when domSelectors fetch fails or lacks definitions | *Content Script (NextDNS Web Console Enhancements)* | [L1577](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1577) |
+| 30 | content.js - Exhaustive Statement & Function Coverage Deep Dive | *Content Script (NextDNS Web Console Enhancements)* | [L1647](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1647) |
+| 31 | Domain sorting button click and missing domain element branches | *Content Script (NextDNS Web Console Enhancements)* | [L1710](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1710) |
 
 ---
 
@@ -274,30 +275,30 @@ npm run test:watch
 | 5 | returns false for null/undefined log | *matchesLogFilters* | [L136](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L136) |
 | 6 | matches everything when all is checked or filters empty | *matchesLogFilters* | [L141](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L141) |
 | 7 | handles status:default, status:allowed, status:blocked, reason:allowlist, reason:denylist | *matchesLogFilters* | [L147](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L147) |
-| 8 | handleLiveLog updates cachedLogs and prepends to UI if logs tab active | *handleLiveLog and renderLogs* | [L178](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L178) |
-| 9 | handleLiveLog caps cachedLogs at 200 items | *handleLiveLog and renderLogs* | [L192](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L192) |
-| 10 | renderLogs displays empty state when no logs exist | *handleLiveLog and renderLogs* | [L200](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L200) |
-| 11 | renderLogs filters logs by search query, device, and protocol | *handleLiveLog and renderLogs* | [L207](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L207) |
-| 12 | warns and returns when activeProfile is missing | *loadAnalytics* | [L237](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L237) |
-| 13 | fetches and renders analytics summary and trend data | *loadAnalytics* | [L247](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L247) |
-| 14 | handles loadAnalytics errors gracefully | *loadAnalytics* | [L268](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L268) |
-| 15 | warns when no profile is active | *loadNativeLogs* | [L281](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L281) |
-| 16 | fetches and stores native logs on success | *loadNativeLogs* | [L291](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L291) |
-| 17 | renders error state on API failure | *loadNativeLogs* | [L306](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L306) |
-| 18 | updateDashboardTabInfo populates domain input and tab requests | *Tab Requests and initTabLogEvents* | [L317](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L317) |
-| 19 | tab action buttons trigger allow and deny domain updates | *Tab Requests and initTabLogEvents* | [L340](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L340) |
-| 20 | clicking domain name sets domain input value | *Tab Requests and initTabLogEvents* | [L368](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L368) |
-| 21 | updateDynamicLinks updates anchor href attributes | *Dynamic Links, CSV Export, and Wipe Logs* | [L383](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L383) |
-| 22 | downloadLogsCSV warns when no logs to export | *Dynamic Links, CSV Export, and Wipe Logs* | [L392](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L392) |
-| 23 | downloadLogsCSV exports logs as formatted CSV | *Dynamic Links, CSV Export, and Wipe Logs* | [L401](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L401) |
-| 24 | wipeLogs clears remote and local logs when confirmed | *Dynamic Links, CSV Export, and Wipe Logs* | [L423](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L423) |
-| 25 | wipeLogs aborts when user cancels confirmation or when profile is missing | *Dynamic Links, CSV Export, and Wipe Logs* | [L439](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L439) |
-| 26 | tab log actions: add to denylist, failure handling, and domain click input fill | *Dynamic Links, CSV Export, and Wipe Logs* | [L451](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L451) |
-| 27 | updateDashboardTabInfo handles URL parse warnings and top-level errors | *Dynamic Links, CSV Export, and Wipe Logs* | [L488](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L488) |
-| 28 | handleLiveLog clears placeholder when container displays  | *Dynamic Links, CSV Export, and Wipe Logs* | [L507](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L507) |
-| 29 | loadAnalytics calculates rawBlockedPercent when summary data blockedPercent is NaN | *Dynamic Links, CSV Export, and Wipe Logs* | [L521](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L521) |
-| 30 | loadNativeLogs catches exception when sendMessage rejects | *Dynamic Links, CSV Export, and Wipe Logs* | [L541](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L541) |
-| 31 | dashboard.js - Exhaustive Statement & Branch Coverage Deep Dive | *Dynamic Links, CSV Export, and Wipe Logs* | [L552](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L552) |
+| 8 | handleLiveLog updates cachedLogs and prepends to UI if logs tab active | *handleLiveLog and renderLogs* | [L185](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L185) |
+| 9 | handleLiveLog caps cachedLogs at 200 items | *handleLiveLog and renderLogs* | [L199](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L199) |
+| 10 | renderLogs displays empty state when no logs exist | *handleLiveLog and renderLogs* | [L207](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L207) |
+| 11 | renderLogs filters logs by search query, device, and protocol | *handleLiveLog and renderLogs* | [L214](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L214) |
+| 12 | warns and returns when activeProfile is missing | *loadAnalytics* | [L244](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L244) |
+| 13 | fetches and renders analytics summary and trend data | *loadAnalytics* | [L254](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L254) |
+| 14 | handles loadAnalytics errors gracefully | *loadAnalytics* | [L275](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L275) |
+| 15 | warns when no profile is active | *loadNativeLogs* | [L288](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L288) |
+| 16 | fetches and stores native logs on success | *loadNativeLogs* | [L298](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L298) |
+| 17 | renders error state on API failure | *loadNativeLogs* | [L313](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L313) |
+| 18 | updateDashboardTabInfo populates domain input and tab requests | *Tab Requests and initTabLogEvents* | [L324](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L324) |
+| 19 | tab action buttons trigger allow and deny domain updates | *Tab Requests and initTabLogEvents* | [L347](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L347) |
+| 20 | clicking domain name sets domain input value | *Tab Requests and initTabLogEvents* | [L375](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L375) |
+| 21 | updateDynamicLinks updates anchor href attributes | *Dynamic Links, CSV Export, and Wipe Logs* | [L390](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L390) |
+| 22 | downloadLogsCSV warns when no logs to export | *Dynamic Links, CSV Export, and Wipe Logs* | [L399](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L399) |
+| 23 | downloadLogsCSV exports logs as formatted CSV | *Dynamic Links, CSV Export, and Wipe Logs* | [L408](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L408) |
+| 24 | wipeLogs clears remote and local logs when confirmed | *Dynamic Links, CSV Export, and Wipe Logs* | [L430](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L430) |
+| 25 | wipeLogs aborts when user cancels confirmation or when profile is missing | *Dynamic Links, CSV Export, and Wipe Logs* | [L446](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L446) |
+| 26 | tab log actions: add to denylist, failure handling, and domain click input fill | *Dynamic Links, CSV Export, and Wipe Logs* | [L458](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L458) |
+| 27 | updateDashboardTabInfo handles URL parse warnings and top-level errors | *Dynamic Links, CSV Export, and Wipe Logs* | [L495](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L495) |
+| 28 | handleLiveLog clears placeholder when container displays  | *Dynamic Links, CSV Export, and Wipe Logs* | [L514](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L514) |
+| 29 | loadAnalytics calculates rawBlockedPercent when summary data blockedPercent is NaN | *Dynamic Links, CSV Export, and Wipe Logs* | [L528](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L528) |
+| 30 | loadNativeLogs catches exception when sendMessage rejects | *Dynamic Links, CSV Export, and Wipe Logs* | [L548](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L548) |
+| 31 | dashboard.js - Exhaustive Statement & Branch Coverage Deep Dive | *Dynamic Links, CSV Export, and Wipe Logs* | [L559](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L559) |
 
 ---
 

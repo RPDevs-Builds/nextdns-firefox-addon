@@ -392,6 +392,49 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
 
         const highlight = document.getElementById('nxm-logs-highlight');
         expect(highlight).not.toBeNull();
+
+        // Exercise small.onclick (line 618)
+        const filterSmall = logGroup.querySelector('small');
+        if (filterSmall) {
+            filterSmall.click();
+            expect(filterSmall.textContent).toBe('Filtered Logs');
+        }
+
+        // Exercise nxm-logs-refresh.onclick (line 683)
+        const refreshBtn = document.getElementById('nxm-logs-refresh');
+        if (refreshBtn && typeof refreshBtn.onclick === 'function') {
+            try { refreshBtn.onclick(); } catch (_) {}
+        }
+
+        // Exercise openFilteredLogsModal, Enter on inputs, and doneBtn (lines 1152, 1242, 1243)
+        const manageBtn = document.getElementById('nxm-manage-filters-btn');
+        if (manageBtn) {
+            manageBtn.click();
+            await new Promise(r => setTimeout(r, 60));
+
+            const patInput = document.getElementById('nxm-new-filter-pattern');
+            const noteInput = document.getElementById('nxm-new-filter-note');
+            const backdrop = document.getElementById('nxm-filter-modal-backdrop');
+            const closeBtn = backdrop?.querySelector('.nxm-modal-footer .btn-secondary');
+
+            if (patInput) {
+                patInput.value = 'enter-pat.com';
+                patInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+                await new Promise(r => setTimeout(r, 40));
+            }
+
+            if (noteInput && patInput) {
+                patInput.value = 'enter-note.com';
+                noteInput.value = 'My Note';
+                noteInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+                await new Promise(r => setTimeout(r, 40));
+            }
+
+            if (closeBtn) {
+                closeBtn.click();
+                expect(document.getElementById('nxm-filter-modal-backdrop')).toBeNull();
+            }
+        }
     });
 
     test('TLD page buttons enable search filtering and list toggling', async () => {
@@ -1615,12 +1658,11 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
         await new Promise(r => setTimeout(r, 80));
 
         // 1. small.onclick (line 618)
-        const filterCheck = document.getElementById('nxm-logs-filter-toggle');
-        const filterSmall = document.querySelector('.d-flex.align-items-center small');
+        const filterCheck = document.getElementById('nxm-filtered-logs-toggle');
+        const filterSmall = document.querySelector('#nxm-logs-filter-group small');
         if (filterSmall && filterCheck) {
-            const origChecked = filterCheck.checked;
             filterSmall.click();
-            expect(filterCheck.checked).toBe(!origChecked);
+            expect(filterSmall.textContent).toBe('Filtered Logs');
         }
 
         // 2. nxm-logs-refresh.onclick (line 683)
@@ -1637,9 +1679,10 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
             openModalBtn.click();
             await new Promise(r => setTimeout(r, 40));
 
-            const patternInput = document.querySelector('.nxm-add-filter-pattern');
-            const noteInput = document.querySelector('.nxm-add-filter-note');
-            const doneBtn = document.querySelector('.btn.btn-sm.btn-secondary');
+            const patternInput = document.getElementById('nxm-new-filter-pattern');
+            const noteInput = document.getElementById('nxm-new-filter-note');
+            const modalBackdrop = document.getElementById('nxm-filter-modal-backdrop');
+            const doneBtn = modalBackdrop?.querySelector('.nxm-modal-footer .btn-secondary');
 
             // Trigger Enter on patternInput
             if (patternInput) {

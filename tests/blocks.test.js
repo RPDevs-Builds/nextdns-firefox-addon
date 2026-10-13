@@ -430,6 +430,28 @@ describe('Popup UI - Blocks Expansion Suite', () => {
         blocks.renderLists('xyznonexistent');
         expect(container.textContent).toContain('No domains match your search.');
     });
+
+    test('Blocks UI - renderBlocklistsGrid with active blocklists and sorting', async () => {
+        state.activeBlocksSubTab = 'blocklists';
+        state.lastBlocksData = {
+            privacy: {
+                blocklists: [{ id: 'oisd' }, { id: 'adguard' }]
+            }
+        };
+        state.blocksMeta = {
+            blocklists: [
+                { id: 'oisd', name: 'OISD', description: 'OISD blocklist', entries: 100000, updated_ts: 1700000000, popularity: 99 },
+                { id: 'adguard', name: 'AdGuard DNS Filter', description: 'AdGuard list', entries: 50000, updated_ts: 1690000000, popularity: 95 }
+            ]
+        };
+
+        await blocks.loadToggles();
+        const container = document.getElementById('toggles-container');
+        expect(container.textContent).toContain('OISD');
+        expect(container.textContent).toContain('AdGuard DNS Filter');
+        const removeBtns = container.querySelectorAll('.btn-deny');
+        expect(removeBtns.length).toBe(2);
+    });
 });
 
 

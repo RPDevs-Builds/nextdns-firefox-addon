@@ -169,6 +169,13 @@ describe('Dashboard UI Module (src/ui/dashboard.js)', () => {
             expect(matchesLogFilters(allowlistLog, ['reason:allowlist'])).toBe(true);
             expect(matchesLogFilters(blockedLog, ['reason:allowlist'])).toBe(false);
 
+            // Coverage for anonymous functions at line 129 and 134: reasons array with name property
+            const logWithAllowReason = { status: 'default', name: 'safe.org', reasons: [{ name: 'Custom Allow' }] };
+            expect(matchesLogFilters(logWithAllowReason, ['reason:allowlist'])).toBe(true);
+
+            const logWithDenyReason = { status: 'blocked', name: 'bad.org', reasons: [{ name: 'Custom Deny Rule' }] };
+            expect(matchesLogFilters(logWithDenyReason, ['reason:denylist'])).toBe(true);
+
             // All three top categories active matches everything
             expect(matchesLogFilters(standardLog, ['status:default', 'status:allowed', 'status:blocked'])).toBe(true);
         });
@@ -616,6 +623,56 @@ describe('Dashboard UI Module (src/ui/dashboard.js)', () => {
             resolveMsg({ success: true });
             await new Promise(r => setTimeout(r, 20));
             actionBtn.remove();
+
+            // 7. Tab action button with rejected syncLists callback (line 396)
+            const origTab = state.activeTab;
+            const origDenylist = state.currentDenylist;
+            const origAllowlist = state.currentAllowlist;
+            state.activeTab = 'lists';
+            state.currentDenylist = null;
+            state.currentAllowlist = null;
+
+            const listContainer = document.createElement('div');
+            listContainer.id = 'list-items-container';
+            document.body.appendChild(listContainer);
+
+            const listSelect = document.createElement('select');
+            listSelect.id = 'list-type-select';
+            const opt = document.createElement('option');
+            opt.value = 'denylist';
+            listSelect.appendChild(opt);
+            document.body.appendChild(listSelect);
+
+            const syncFailBtn = document.createElement('button');
+            syncFailBtn.className = 'tab-action-btn';
+            syncFailBtn.setAttribute('data-domain', 'sync-fail.com');
+            syncFailBtn.setAttribute('data-list', 'denylist');
+            syncFailBtn.setAttribute('data-action', 'delete');
+            tabLogContainer.appendChild(syncFailBtn);
+
+            global.browser.runtime.sendMessage = jest.fn((msg) => {
+                if (msg.type === "MANAGE_DOMAIN" && msg.action === "delete") {
+                    return Promise.resolve({ success: true });
+                }
+                if (msg.type === "MANAGE_DOMAIN" && msg.action === "list") {
+                    // return success with null data so state.currentDenylist remains null
+                    return Promise.resolve({ success: true, data: null });
+                }
+                if (msg.type === "GET_TAB_STATS") {
+                    return Promise.resolve({ requests: {} });
+                }
+                return Promise.resolve({ success: true });
+            });
+
+            syncFailBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 100));
+
+            syncFailBtn.remove();
+            listContainer.remove();
+            listSelect.remove();
+            state.activeTab = origTab;
+            state.currentDenylist = origDenylist;
+            state.currentAllowlist = origAllowlist;
         });
     });
 });
