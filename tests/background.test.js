@@ -2334,6 +2334,439 @@ describe('Background Script - Full Coverage Suite', () => {
     const errReq = requestListener({ tabId: 2, url: null });
     expect(errReq).toEqual({ cancel: false });
   });
+
+  test('background api.js & main.js - 100% Branch and Function Coverage', async () => {
+    const bgApi = await import('../src/background/api.js');
+    const bgMain = await import('../src/background/main.js');
+    const { apiClient } = await import('../src/apiClient.js');
+    const { state } = await import('../src/background/state.js');
+    const origFetch = apiClient.fetchWithRetry;
+
+    // --- src/background/api.js hardening ---
+
+    // 1. _resetUpdateCacheInFlight
+    bgApi._resetUpdateCacheInFlight();
+    bgApi._resetDetectInFlight();
+
+    // 2. manageDomain: action === 'list' with falsy res.error (line 42)
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: false, error: '' });
+    const listErrFallback = await bgApi.manageDomain('p123', 'allowlist', null, 'list');
+    expect(listErrFallback).toEqual({ error: 'Fetch Error' });
+
+    // 3. manageDomain: catch error without error.message (line 47)
+    apiClient.fetchWithRetry = jest.fn().mockRejectedValue({});
+    const manageNetErrFallback = await bgApi.manageDomain('p123', 'allowlist', 'domain.com', 'add');
+    expect(manageNetErrFallback).toEqual({ success: false, error: 'Network Error' });
+
+    // 4. detectActiveProfile: pData.data is not an array (line 98)
+    await global.storage.set('apiKey', 'test-key');
+    await global.storage.set('overrideProfileId', '');
+    await global.storage.set('activeProfile', '');
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('/profiles')) {
+        return { success: true, response: { json: async () => ({ data: 'not-an-array' }) } };
+      }
+      return { success: false };
+    });
+    bgApi._resetDetectInFlight();
+    await bgApi.detectActiveProfile();
+
+    // 5. detectActiveProfile: test.nextdns.io data.status falsy (line 142)
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url === 'https://test.nextdns.io/') {
+        return { success: true, response: { json: async () => ({ status: '' }) } };
+      }
+      return { success: false };
+    });
+    bgApi._resetDetectInFlight();
+    await bgApi.detectActiveProfile();
+    expect(state.networkStatus.status).toBe('unconfigured');
+
+    // 6. detectActiveProfile: info fallback with infoData.client (no ip), then state.networkStatus.clientIp, then '' (line 183)
+    state.networkStatus = { clientIp: '10.0.0.1' };
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('/info')) {
+        return { success: true, response: { json: async () => ({ pop: 'cdg', client: '1.2.3.4' }) } };
+      }
+      return { success: false };
+    });
+    bgApi._resetDetectInFlight();
+    await bgApi.detectActiveProfile();
+    expect(state.networkStatus.clientIp).toBe('1.2.3.4');
+
+    // infoData without ip or client, falling back to state.networkStatus.clientIp
+    state.networkStatus.clientIp = '10.0.0.1';
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('/info')) {
+        return { success: true, response: { json: async () => ({ pop: 'cdg' }) } };
+      }
+      return { success: false };
+    });
+    bgApi._resetDetectInFlight();
+    await bgApi.detectActiveProfile();
+    expect(state.networkStatus.clientIp).toBe('10.0.0.1');
+
+    // infoData without ip or client, state.networkStatus.clientIp falsy -> fallback to ''
+    state.networkStatus.clientIp = '';
+    bgApi._resetDetectInFlight();
+    await bgApi.detectActiveProfile();
+    expect(state.networkStatus.clientIp).toBe('');
+
+    // 7. updateProfileCache: activeProfileId.startsWith('fp') (line 228)
+    await global.storage.set('activeProfile', 'fp-guest');
+    bgApi._resetUpdateCacheInFlight();
+    await bgApi.updateProfileCache();
+
+    // 8. checkAndUpdateLinkedIP: activeProfileId.startsWith('fp') (line 257)
+    await global.storage.set('activeProfile', 'fp-guest');
+    await bgApi.checkAndUpdateLinkedIP();
+
+    // 9. checkAndUpdateLinkedIP: detected IP is invalid format (line 303-305)
+    await global.storage.set('activeProfile', 'pValid123');
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('/profiles/pValid123')) {
+        return { success: true, response: { json: async () => ({ data: { linkedIp: '1.1.1.1' } }) } };
+      }
+      if (url === 'https://test.nextdns.io/') {
+        return { success: true, response: { json: async () => ({ client: 'invalid-ip-string' }) } };
+      }
+      return { success: false };
+    });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await bgApi.checkAndUpdateLinkedIP();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[DDNS] Detected invalid IP format:'), 'invalid-ip-string');
+    warnSpy.mockRestore();
+
+    // 10. runNetworkDiagnostics: performance is undefined or has no now (lines 326, 347)
+    const origPerf = global.performance;
+    global.performance = { now: null };
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: true, response: { json: async () => ({}) } });
+    const noPerfDiag = await bgApi.runNetworkDiagnostics();
+    expect(noPerfDiag).toBeDefined();
+
+    delete global.performance;
+    const undefPerfDiag = await bgApi.runNetworkDiagnostics();
+    expect(undefPerfDiag).toBeDefined();
+    global.performance = origPerf;
+
+    // 11. runNetworkDiagnostics: activeProfile fallback to detectedProfileId, activeProfileName fallback to Unknown (lines 352-353)
+    await global.storage.set('activeProfile', null);
+    await global.storage.set('detectedProfileId', 'pDetFallback');
+    await global.storage.set('activeProfileName', null);
+    const diagDetProfile = await bgApi.runNetworkDiagnostics();
+    expect(diagDetProfile.activeProfileId).toBe('pDetFallback');
+    expect(diagDetProfile.activeProfileName).toBe('pDetFallback');
+
+    await global.storage.set('detectedProfileId', null);
+    const diagUnknownProfile = await bgApi.runNetworkDiagnostics();
+    expect(diagUnknownProfile.activeProfileName).toBe('Unknown');
+
+    // 12. runNetworkDiagnostics: activeProfileId fallback to testData.profile, manifest version fallback (lines 369-371)
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url === 'https://test.nextdns.io/') {
+        return { success: true, response: { json: async () => ({ profile: 'pFromTestData' }) } };
+      }
+      return { success: true, response: { json: async () => ({}) } };
+    });
+    const origGetManifest = global.browser.runtime.getManifest;
+    global.browser.runtime.getManifest = () => ({}); // no version property
+    const diagManifestFallback = await bgApi.runNetworkDiagnostics();
+    expect(diagManifestFallback.activeProfileId).toBe('pFromTestData');
+    expect(diagManifestFallback.extensionVersion).toBe('1.2.2');
+
+    // browser.runtime.getManifest with valid version
+    global.browser.runtime.getManifest = () => ({ version: '2.0.0' });
+    const diagManifestWithVersion = await bgApi.runNetworkDiagnostics();
+    expect(diagManifestWithVersion.extensionVersion).toBe('2.0.0');
+
+    // browser.runtime.getManifest is undefined
+    delete global.browser.runtime.getManifest;
+    const diagNoManifestFn = await bgApi.runNetworkDiagnostics();
+    expect(diagNoManifestFn.extensionVersion).toBe('1.2.2');
+    global.browser.runtime.getManifest = origGetManifest;
+
+    // browser is undefined
+    const origBrowser = global.browser;
+    delete global.browser;
+    const diagNoBrowser = await bgApi.runNetworkDiagnostics();
+    expect(diagNoBrowser.extensionVersion).toBe('1.2.2');
+    global.browser = origBrowser;
+
+    // --- src/background/main.js hardening ---
+
+    // 13. initializeBackground: state.isInitialized is already true (line 38)
+    state.isInitialized = true;
+    await bgMain.initializeBackground();
+
+    // 14. onMessage: handler throws error without message (line 106)
+    const { messageHandlers } = await import('../src/background/handlers.js');
+    const origGetLogs = messageHandlers.GET_LOGS;
+    messageHandlers.GET_LOGS = jest.fn().mockRejectedValue({});
+    let msgResponse = null;
+    messageHandlerRef({ type: 'GET_LOGS' }, { id: browser.runtime.id }, r => msgResponse = r);
+    await new Promise(r => setTimeout(r, 20));
+    expect(msgResponse).toEqual({ success: false, error: 'Handler error' });
+    messageHandlers.GET_LOGS = origGetLogs;
+
+    // 15. onMessage: sender with tab.url but no sender.url (line 85)
+    let webTabResponse = null;
+    messageHandlerRef({ type: 'DISALLOWED_ACTION' }, { tab: { url: 'https://evil.com' } }, r => webTabResponse = r);
+    expect(webTabResponse).toEqual({ success: false, error: 'Unauthorized action from web tab' });
+
+    // onMessage: sender with no url and no tab.url
+    let emptySenderResponse = null;
+    messageHandlerRef({ type: 'DISALLOWED_ACTION' }, { tab: {} }, r => emptySenderResponse = r);
+    expect(emptySenderResponse).toEqual({ success: false, error: 'Unauthorized action from web tab' });
+
+    // 16. action.onClicked: sidebar fallback when sidebarAction.open is falsy (line 185)
+    await global.storage.set('iconClickAction', 'sidebar');
+    const origSidebarOpen = global.browser.sidebarAction.open;
+    delete global.browser.sidebarAction.open;
+    await actionClickListenerRef();
+    expect(global.browser.tabs.create).toHaveBeenCalledWith(expect.objectContaining({ url: expect.stringContaining('mode=tab') }));
+    global.browser.sidebarAction.open = origSidebarOpen;
+
+    // Sidebar fallback when both sidebarAction.open and tabs.create are falsy
+    const origTabsCreate = global.browser.tabs.create;
+    delete global.browser.tabs.create;
+    delete global.browser.sidebarAction.open;
+    await global.storage.set('iconClickAction', 'sidebar');
+    await actionClickListenerRef();
+    global.browser.tabs.create = origTabsCreate;
+    global.browser.sidebarAction.open = origSidebarOpen;
+
+    // 17. action.onClicked: popout fallback when windows.create is falsy (line 197)
+    await global.storage.set('iconClickAction', 'popout');
+    const origWinCreate = global.browser.windows.create;
+    delete global.browser.windows.create;
+    await actionClickListenerRef();
+    expect(global.browser.tabs.create).toHaveBeenCalledWith(expect.objectContaining({ url: expect.stringContaining('mode=popout') }));
+    global.browser.windows.create = origWinCreate;
+
+    // Popout fallback when both windows.create and tabs.create are falsy
+    delete global.browser.windows.create;
+    delete global.browser.tabs.create;
+    await global.storage.set('iconClickAction', 'popout');
+    await actionClickListenerRef();
+    global.browser.tabs.create = origTabsCreate;
+    global.browser.windows.create = origWinCreate;
+
+    // action.onClicked: unknown iconClickAction
+    await global.storage.set('iconClickAction', 'other-unknown');
+    await actionClickListenerRef();
+
+    // 18. menus.onClicked: info with pageUrl (no linkUrl), and tab with url (no linkUrl, no pageUrl) (line 240)
+    await global.storage.set('overrideProfileId', 'profMenuTest');
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: true });
+    await menuClickListenerRef({ menuItemId: 'dns-forge-allow', pageUrl: 'https://page-url.com' }, {});
+    expect(apiClient.fetchWithRetry).toHaveBeenCalledWith('/profiles/profMenuTest/allowlist', expect.objectContaining({ body: expect.stringContaining('page-url.com') }));
+
+    await menuClickListenerRef({ menuItemId: 'dns-forge-allow' }, { url: 'https://tab-url.com' });
+    expect(apiClient.fetchWithRetry).toHaveBeenCalledWith('/profiles/profMenuTest/allowlist', expect.objectContaining({ body: expect.stringContaining('tab-url.com') }));
+
+    // 19. menus.onClicked: URL with empty domain (line 250)
+    const origURL = global.URL;
+    class MockEmptyHostURL extends origURL {
+      constructor(u) {
+        super(u);
+        Object.defineProperty(this, 'hostname', { value: '' });
+      }
+    }
+    global.URL = MockEmptyHostURL;
+    await menuClickListenerRef({ menuItemId: 'dns-forge-allow', linkUrl: 'https://empty-host.com' }, {});
+    global.URL = origURL;
+
+    // 20. menus.onClicked: activeProfileId from detectedProfileId (line 252)
+    await global.storage.set('overrideProfileId', null);
+    await global.storage.set('activeProfile', null);
+    await global.storage.set('detectedProfileId', 'profDetectedMenu');
+    await menuClickListenerRef({ menuItemId: 'dns-forge-allow', linkUrl: 'https://detected-profile.com' }, {});
+    expect(apiClient.fetchWithRetry).toHaveBeenCalledWith('/profiles/profDetectedMenu/allowlist', expect.any(Object));
+
+    // menus.onClicked: activeProfileId === 'auto' (line 253)
+    await global.storage.set('detectedProfileId', 'auto');
+    await menuClickListenerRef({ menuItemId: 'dns-forge-allow', linkUrl: 'https://auto-profile.com' }, {});
+
+    // menus.onClicked: activeProfileId starts with 'fp' (line 253)
+    await global.storage.set('detectedProfileId', 'fp-fingerprint');
+    await menuClickListenerRef({ menuItemId: 'dns-forge-allow', linkUrl: 'https://fp-profile.com' }, {});
+
+    // menus.onClicked: non-allow, non-deny menuItemId (line 260)
+    await global.storage.set('detectedProfileId', 'profDetectedMenu');
+    await menuClickListenerRef({ menuItemId: 'dns-forge-other', linkUrl: 'https://other-action.com' }, {});
+
+    // 21. main.js top-level fallback when browser.menus is undefined
+    await jest.isolateModulesAsync(async () => {
+      const savedMenus = global.browser.menus;
+      delete global.browser.menus;
+      await import('../src/background/main.js');
+      global.browser.menus = savedMenus;
+    });
+
+    // 22. Additional detectActiveProfile edge cases (lines 154-165)
+    // Case A: fingerprint match in accountProfiles
+    await global.storage.set('overrideProfileId', '');
+    await global.storage.set('activeProfile', '');
+    await global.storage.set('apiKey', 'valid-key');
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url === 'https://test.nextdns.io/') {
+        return { success: true, response: { json: async () => ({ status: 'ok', profile: 'fp123' }) } };
+      }
+      if (url.includes('/profiles')) {
+        return { success: true, response: { json: async () => ({ data: [{ id: 'p1', name: 'Profile 1', fingerprint: 'fp123' }] }) } };
+      }
+      return { success: false };
+    });
+    bgApi._resetDetectInFlight();
+    const fpMatch = await bgApi.detectActiveProfile();
+    expect(fpMatch.id).toBe('p1');
+
+    // Case B: accountProfiles.length === 1 and isConnected === false
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url === 'https://test.nextdns.io/') {
+        return { success: true, response: { json: async () => ({ status: 'unconfigured', profile: 'differentProf' }) } };
+      }
+      if (url.includes('/profiles')) {
+        return { success: true, response: { json: async () => ({ data: [{ id: 'p1', name: 'Profile 1' }] }) } };
+      }
+      return { success: false };
+    });
+    bgApi._resetDetectInFlight();
+    await bgApi.detectActiveProfile();
+
+    // Case C: accountProfiles.length > 1, none matched
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url === 'https://test.nextdns.io/') {
+        return { success: true, response: { json: async () => ({ status: 'ok', profile: 'differentProf' }) } };
+      }
+      if (url.includes('/profiles')) {
+        return { success: true, response: { json: async () => ({ data: [{ id: 'p1', name: 'Profile 1' }, { id: 'p2', name: 'Profile 2' }] }) } };
+      }
+      return { success: false };
+    });
+    bgApi._resetDetectInFlight();
+    await bgApi.detectActiveProfile();
+
+    // Case D: accountProfiles.length === 0, networkProfile.startsWith('fp')
+    await global.storage.set('apiKey', '');
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url === 'https://test.nextdns.io/') {
+        return { success: true, response: { json: async () => ({ status: 'ok', profile: 'fp-unconfigured' }) } };
+      }
+      return { success: false };
+    });
+    bgApi._resetDetectInFlight();
+    await bgApi.detectActiveProfile();
+
+    // Case E: accountProfiles.length === 0, !networkProfile.startsWith('fp')
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url === 'https://test.nextdns.io/') {
+        return { success: true, response: { json: async () => ({ status: 'ok', profile: 'directNetProf' }) } };
+      }
+      return { success: false };
+    });
+    bgApi._resetDetectInFlight();
+    const directProf = await bgApi.detectActiveProfile();
+    expect(directProf.id).toBe('directNetProf');
+
+    // 23. Additional checkAndUpdateLinkedIP edge cases (lines 293, 309)
+    // Case F: ipify res.ok is false (line 293)
+    await global.storage.set('activeProfile', 'pValid123');
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('/profiles/pValid123')) {
+        return { success: true, response: { json: async () => ({ data: { linkedIp: '1.1.1.1' } }) } };
+      }
+      return { success: false };
+    });
+    const origGlobalFetch = global.fetch;
+    global.fetch = jest.fn().mockResolvedValue({ ok: false });
+    await bgApi.checkAndUpdateLinkedIP();
+
+    // Case G: updateRes.success is false (line 309)
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ ip: '2.2.2.2' }) });
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('/profiles/pValid123/linked-ip')) {
+        return { success: false };
+      }
+      if (url.includes('/profiles/pValid123')) {
+        return { success: true, response: { json: async () => ({ data: { linkedIp: '1.1.1.1' } }) } };
+      }
+      return { success: false };
+    });
+    await bgApi.checkAndUpdateLinkedIP();
+    global.fetch = origGlobalFetch;
+
+    // 24. updateProfileCache filter items without id (lines 235-236)
+    await global.storage.set('activeProfile', 'pValidCache');
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('allowlist')) {
+        return { success: true, response: { json: async () => ({ data: [{ id: 'good.com' }, {}, null] }) } };
+      }
+      if (url.includes('denylist')) {
+        return { success: true, response: { json: async () => ({ data: [{ id: 'bad.com' }, { id: '' }] }) } };
+      }
+      return { success: false };
+    });
+    bgApi._resetUpdateCacheInFlight();
+    await bgApi.updateProfileCache();
+
+    // 25. runNetworkDiagnostics when state.networkStatus is null (line 374)
+    state.networkStatus = null;
+    const diagNullNetStatus = await bgApi.runNetworkDiagnostics();
+    expect(diagNullNetStatus).toBeDefined();
+
+    // 26. manageDomain list with JSON parse error (line 41 .catch callback)
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: { json: async () => { throw new Error('Corrupt JSON'); } }
+    });
+    const listCorruptRes = await bgApi.manageDomain('p123', 'allowlist', null, 'list');
+    expect(listCorruptRes).toEqual({ data: [] });
+
+    // 27. manageDomain with unrecognized action (line 39 false branch)
+    const badActionRes = await bgApi.manageDomain('p123', 'allowlist', 'domain.com', 'unknown_action');
+    expect(badActionRes.success).toBe(false);
+
+    // 28. detectActiveProfile when state.networkStatus is null (line 138 false branch)
+    state.networkStatus = null;
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url === 'https://test.nextdns.io/') {
+        return { success: true, response: { json: async () => ({ status: 'ok', profile: 'pNet' }) } };
+      }
+      return { success: false };
+    });
+    bgApi._resetDetectInFlight();
+    await bgApi.detectActiveProfile();
+
+    // 29. alarmListenerRef with missing parameters (line 122 false branch)
+    const { ALARM_PREFIX } = await import('../src/background/state.js');
+    await alarmListenerRef({ name: `${ALARM_PREFIX}?p=profOnly` });
+
+    // 30. messageHandlerRef with unrecognized message type (line 101 false branch)
+    const unknownTypeHandled = messageHandlerRef({ type: 'UNKNOWN_MSG_TYPE' }, { id: browser.runtime.id }, () => {});
+    expect(unknownTypeHandled).toBeUndefined();
+
+    // 31. initializeBackground when browser.webRequest is undefined (line 58 false branch)
+    state.isInitialized = false;
+    const origWebRequest = global.browser.webRequest;
+    delete global.browser.webRequest;
+    await bgMain.initializeBackground();
+    global.browser.webRequest = origWebRequest;
+
+    // 32. detectActiveProfile accountProfiles json parsing error (line 97 catch callback)
+    await global.storage.set('apiKey', 'test-key');
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('/profiles')) {
+        return { success: true, response: { json: async () => { throw new Error('pRes JSON corrupt'); } } };
+      }
+      return { success: false };
+    });
+    bgApi._resetDetectInFlight();
+    await bgApi.detectActiveProfile();
+
+    // Restore fetch
+    apiClient.fetchWithRetry = origFetch;
+  });
 });
 
 

@@ -315,4 +315,245 @@ describe('APIClient Unit Tests', () => {
             expect(results[2]).toBe('processed_ok2');
         });
     });
+
+    test('APIClient - Exhaustive Branch Hardening for 100% Branch Coverage', async () => {
+        const client = new APIClient();
+
+        // 1. Line 41 & 63: endpoint starts with http, and Line 62 default parameters
+        global.fetch.mockResolvedValueOnce({
+            status: 200,
+            ok: true,
+            json: async () => ({ success: true })
+        });
+        const defaultParamsRes = await client.fetchWithRetry("/profiles");
+        expect(defaultParamsRes.success).toBe(true);
+
+        global.fetch.mockResolvedValueOnce({
+            status: 200,
+            ok: true,
+            json: async () => ({ success: true })
+        });
+        const httpEndpointRes = await client.fetchWithRetry("https://api.nextdns.io/profiles", undefined, 1, 10);
+        expect(httpEndpointRes.success).toBe(true);
+
+        // 2. Line 83-88: 500 error exhausted with clone not function, json not function, errData.error as string, errData.error object without message, and errData empty
+        global.fetch.mockResolvedValueOnce({
+            status: 500,
+            ok: false,
+            json: null
+        });
+        const errNoClone = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errNoClone.error).toBe("HTTP 500");
+
+        // 500 error with json() throwing error (line 89 catch)
+        global.fetch.mockResolvedValueOnce({
+            status: 500,
+            ok: false,
+            clone: () => ({ json: async () => { throw new Error("JSON fail"); } })
+        });
+        const errJsonFail = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errJsonFail.error).toBe("HTTP 500");
+
+        // 500 error with errData.error as string (line 87)
+        global.fetch.mockResolvedValueOnce({
+            status: 500,
+            ok: false,
+            clone: () => ({ json: async () => ({ error: "Server string error" }) })
+        });
+        const errString500 = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errString500.error).toBe("Server string error");
+
+        // 500 error with errData.error as object without message
+        global.fetch.mockResolvedValueOnce({
+            status: 500,
+            ok: false,
+            clone: () => ({ json: async () => ({ error: {} }) })
+        });
+        const errObjNoMsg500 = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errObjNoMsg500.error).toBe("undefined");
+
+        // 500 error with errData having neither errors nor error
+        global.fetch.mockResolvedValueOnce({
+            status: 500,
+            ok: false,
+            clone: () => ({ json: async () => ({ otherKey: 123 }) })
+        });
+        const errNoKeys500 = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errNoKeys500.error).toBe("HTTP 500");
+
+        // 3. Line 93-94: 500/429 retry where headers is null (no .get) and retryAfter is null
+        global.fetch
+            .mockResolvedValueOnce({
+                status: 500,
+                ok: false,
+                headers: null
+            })
+            .mockResolvedValueOnce({
+                status: 200,
+                ok: true,
+                json: async () => ({ ok: true })
+            });
+        const retryNoHeaders = await client.fetchWithRetry("/profiles", {}, 2, 5);
+        expect(retryNoHeaders.success).toBe(true);
+
+        // 4. Line 102-120: !response.ok branches
+        // statusText falsy (line 102)
+        global.fetch.mockResolvedValueOnce({
+            status: 404,
+            statusText: '',
+            ok: false,
+            clone: null,
+            json: null
+        });
+        const errNoStatusText = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errNoStatusText.error).toBe("HTTP 404");
+
+        // clone not a function on 400
+        global.fetch.mockResolvedValueOnce({
+            status: 400,
+            statusText: 'Bad Request',
+            ok: false,
+            clone: null,
+            json: async () => ({ error: "Direct json" })
+        });
+        const errCloneNotFn = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errCloneNotFn.error).toBe("Direct json");
+
+        // json is not a function on 400
+        global.fetch.mockResolvedValueOnce({
+            status: 400,
+            statusText: 'Bad Request',
+            ok: false,
+            clone: () => ({ json: null })
+        });
+        const errJsonNotFn = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errJsonNotFn.error).toBe("HTTP 400 Bad Request");
+
+        // errData is null/falsy
+        global.fetch.mockResolvedValueOnce({
+            status: 400,
+            statusText: 'Bad Request',
+            ok: false,
+            clone: () => ({ json: async () => null })
+        });
+        const errDataNull = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errDataNull.error).toBe("HTTP 400 Bad Request");
+
+        // errData.errors is empty array []
+        global.fetch.mockResolvedValueOnce({
+            status: 400,
+            statusText: 'Bad Request',
+            ok: false,
+            clone: () => ({ json: async () => ({ errors: [] }) })
+        });
+        const errErrorsEmpty = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errErrorsEmpty.error).toBe("HTTP 400 Bad Request");
+
+        // errData.errors[0] is object with detail (no message) (line 111)
+        global.fetch.mockResolvedValueOnce({
+            status: 400,
+            statusText: 'Bad Request',
+            ok: false,
+            clone: () => ({ json: async () => ({ errors: [{ detail: "Detailed field problem" }] }) })
+        });
+        const errDetailOnly = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errDetailOnly.error).toBe("Detailed field problem");
+
+        // errData.errors[0] is object with neither message nor detail
+        global.fetch.mockResolvedValueOnce({
+            status: 400,
+            statusText: 'Bad Request',
+            ok: false,
+            clone: () => ({ json: async () => ({ errors: [{}] }) })
+        });
+        const errObjNoDetail = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errObjNoDetail.error).toBe("HTTP 400 Bad Request");
+
+        // errData.errors[0] is null
+        global.fetch.mockResolvedValueOnce({
+            status: 400,
+            statusText: 'Bad Request',
+            ok: false,
+            clone: () => ({ json: async () => ({ errors: [null] }) })
+        });
+        const errNullFirst = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errNullFirst.error).toBe("HTTP 400 Bad Request");
+
+        // errData.error is object with message (line 114)
+        global.fetch.mockResolvedValueOnce({
+            status: 400,
+            statusText: 'Bad Request',
+            ok: false,
+            clone: () => ({ json: async () => ({ error: { message: "Nested error object" } }) })
+        });
+        const errObjMsg = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errObjMsg.error).toBe("Nested error object");
+
+        // errData.error is object without message
+        global.fetch.mockResolvedValueOnce({
+            status: 400,
+            statusText: 'Bad Request',
+            ok: false,
+            clone: () => ({ json: async () => ({ error: {} }) })
+        });
+        const errObjWithoutMsg = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errObjWithoutMsg.error).toBe("HTTP 400 Bad Request");
+
+        // errData has no errors, error, or message
+        global.fetch.mockResolvedValueOnce({
+            status: 400,
+            statusText: 'Bad Request',
+            ok: false,
+            clone: () => ({ json: async () => ({ statusCode: 400 }) })
+        });
+        const errOtherFields = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(errOtherFields.error).toBe("HTTP 400 Bad Request");
+
+        // 5. Line 125-128: Last-Modified header fallback (when X-Conf-Last-Modified is null)
+        global.fetch.mockResolvedValueOnce({
+            status: 200,
+            ok: true,
+            headers: {
+                get: (h) => (h.toLowerCase() === 'last-modified' ? 'Mon, 12 Oct 2026 10:00:00 GMT' : null)
+            },
+            json: async () => ({})
+        });
+        const resLastMod = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(resLastMod.success).toBe(true);
+        expect(client.lastModified).toBe('Mon, 12 Oct 2026 10:00:00 GMT');
+
+        // Headers has .get but neither Last-Modified nor X-Conf-Last-Modified exists
+        global.fetch.mockResolvedValueOnce({
+            status: 200,
+            ok: true,
+            headers: { get: () => null },
+            json: async () => ({})
+        });
+        const resNoMod = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(resNoMod.success).toBe(true);
+
+        // Headers is undefined/null (line 125 false branch)
+        global.fetch.mockResolvedValueOnce({
+            status: 200,
+            ok: true,
+            headers: null,
+            json: async () => ({})
+        });
+        const resNullHeaders = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(resNullHeaders.success).toBe(true);
+
+        // 6. Line 133: Network error without message (fallback to "Network Error")
+        global.fetch.mockRejectedValueOnce({});
+        const netErrNoMsg = await client.fetchWithRetry("/profiles", {}, 1, 10);
+        expect(netErrNoMsg.success).toBe(false);
+        expect(netErrNoMsg.error).toBe("Network Error");
+
+        // 7. Line 150 & 160: mapConcurrent with default concurrency and error without message
+        const { mapConcurrent } = await import('../src/apiClient.js');
+        const defaultConcRes = await mapConcurrent([1, 2], undefined, async (x) => x * 10);
+        expect(defaultConcRes).toEqual([10, 20]);
+
+        const workerErrNoMsg = await mapConcurrent(['bad'], 2, async () => { throw 'String exception'; });
+        expect(workerErrNoMsg[0]).toEqual({ error: 'String exception' });
+    });
 });

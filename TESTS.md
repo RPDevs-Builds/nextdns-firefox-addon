@@ -93,7 +93,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/apiClient.js`
 - **Category**: **Core Infrastructure**
-- **Total Tests**: **19 tests**
+- **Total Tests**: **20 tests**
 - **Overview**: Exhaustive verification of APIClient networking, credential isolation (X-Api-Key scoping), retry logic, exponential backoff, rate-limit caching, and mapConcurrent bounded promise worker.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -117,6 +117,7 @@ npm run test:watch
 | 17 | preserves result order across items | *mapConcurrent* | [L283](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/apiClient.test.js#L283) |
 | 18 | strictly bounds maximum active concurrency | *mapConcurrent* | [L289](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/apiClient.test.js#L289) |
 | 19 | captures worker exceptions without failing other tasks | *mapConcurrent* | [L306](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/apiClient.test.js#L306) |
+| 20 | APIClient - Exhaustive Branch Hardening for 100% Branch Coverage | *mapConcurrent* | [L319](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/apiClient.test.js#L319) |
 
 ---
 
@@ -124,7 +125,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/background/main.js, src/background/api.js, src/background/handlers.js, src/background/requestListener.js`
 - **Category**: **Background Engine**
-- **Total Tests**: **40 tests**
+- **Total Tests**: **41 tests**
 - **Overview**: Core extension lifecycle testing covering profile detection, message handlers, context menu routing, alarm listeners, sender verification, DDNS synchronization, and mirror mode replication.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -169,6 +170,7 @@ npm run test:watch
 | 38 | handlers.js & api.js - Exhaustive Statement, Function & Branch Coverage Deep Dive | *Background Script - Full Coverage Suite* | [L1546](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/background.test.js#L1546) |
 | 39 | handlers.js - Targeted Branch Hardening for 90%+ Branch Coverage | *Background Script - Full Coverage Suite* | [L1885](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/background.test.js#L1885) |
 | 40 | requestListener - Exhaustive Branch Coverage to 100% | *Background Script - Full Coverage Suite* | [L2256](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/background.test.js#L2256) |
+| 41 | background api.js & main.js - 100% Branch and Function Coverage | *Background Script - Full Coverage Suite* | [L2338](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/background.test.js#L2338) |
 
 ---
 

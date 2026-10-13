@@ -139,7 +139,7 @@ async function _detectActiveProfile() {
                 state.networkStatus = {
                     ...state.networkStatus,
                     isConnected,
-                    status: data?.status || (isConnected ? 'ok' : 'unconfigured'),
+                    status: data?.status || 'unconfigured',
                     protocol: data?.protocol || 'Unknown',
                     popServer: data?.server || 'Unknown',
                     clientIp: data?.client || data?.srcIP || '',
