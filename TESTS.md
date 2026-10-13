@@ -613,7 +613,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/ui/main.js`
 - **Category**: **UI & Components**
-- **Total Tests**: **55 tests**
+- **Total Tests**: **59 tests**
 - **Overview**: Main popup controller suite covering sub-tabs, window mode redirects, profile dropdown, settings form synchronization, error recovery cards, and WAI-ARIA tab navigation.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -673,6 +673,10 @@ npm run test:watch
 | 53 | UI Main - handleAddDomain empty, handleBulkAdd, sub-tabs, alerts, and mirror UI | *Global Event Listeners and Delegations* | [L1331](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1331) |
 | 54 | UI Main - alerts settings listeners, web GUI toggles, and profile status catch blocks | *Global Event Listeners and Delegations* | [L1430](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1430) |
 | 55 | ui/main.js - Exhaustive Statement & Branch Coverage Deep Dive | *Global Event Listeners and Delegations* | [L1552](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1552) |
+| 56 | ui/main.js - Branch Hardening: Domain Management & Modes | *Global Event Listeners and Delegations* | [L1603](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1603) |
+| 57 | ui/main.js - Branch Hardening: Filter Checkboxes, Delegations & Cache | *Global Event Listeners and Delegations* | [L1800](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1800) |
+| 58 | ui/main.js - Branch Hardening: Settings, Import/Export & Alerts | *Global Event Listeners and Delegations* | [L1959](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1959) |
+| 59 | ui/main.js - Final 24 Branches Hardening to 100% | *Global Event Listeners and Delegations* | [L2057](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L2057) |
 
 ---
 

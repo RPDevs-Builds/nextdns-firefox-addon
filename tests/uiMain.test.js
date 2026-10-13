@@ -1599,6 +1599,595 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             await new Promise(r => setTimeout(r, 40));
             global.browser.runtime.sendMessage = origSendMsg;
         });
+
+        test('ui/main.js - Branch Hardening: Domain Management & Modes', async () => {
+            document.body.innerHTML = html;
+            uiMain.initGlobalEventListeners();
+
+            // 1. Group 1: Bootstrap & Retry UI (L86, L95)
+            const dashOverview = document.getElementById('dash-overview');
+            dashOverview?.remove();
+            const origProp = Object.getOwnPropertyDescriptor(stateModule.state, 'activeProfile');
+            Object.defineProperty(stateModule.state, 'activeProfile', {
+                set: () => { throw new Error('Crash without dashContainer'); },
+                configurable: true
+            });
+            document.dispatchEvent(new Event('DOMContentLoaded'));
+            await new Promise(r => setTimeout(r, 60));
+            if (origProp) Object.defineProperty(stateModule.state, 'activeProfile', origProp);
+            if (stateModule?.state?.tabTrackingIntervalId) {
+                clearInterval(stateModule.state.tabTrackingIntervalId);
+                stateModule.state.tabTrackingIntervalId = null;
+            }
+
+            // L95 false branch: dashContainer exists but retryBtn is null
+            document.body.innerHTML = html;
+            const dashOverview2 = document.getElementById('dash-overview');
+            if (dashOverview2) {
+                const origQS = dashOverview2.querySelector;
+                dashOverview2.querySelector = jest.fn(() => null);
+                const origProp2 = Object.getOwnPropertyDescriptor(stateModule.state, 'activeProfile');
+                Object.defineProperty(stateModule.state, 'activeProfile', {
+                    set: () => { throw new Error('Crash with retryBtn null'); },
+                    configurable: true
+                });
+                document.dispatchEvent(new Event('DOMContentLoaded'));
+                await new Promise(r => setTimeout(r, 60));
+                dashOverview2.querySelector = origQS;
+                if (origProp2) Object.defineProperty(stateModule.state, 'activeProfile', origProp2);
+                if (stateModule?.state?.tabTrackingIntervalId) {
+                    clearInterval(stateModule.state.tabTrackingIntervalId);
+                    stateModule.state.tabTrackingIntervalId = null;
+                }
+            }
+
+            // 2. Domain management branches (L113, L127, L131, L136, L151, L167, L170, L172, L187, L210, L212)
+            document.body.innerHTML = html;
+            uiMain.initGlobalEventListeners();
+
+            // L127 'removed' branch: handleDashboardDomain with action='delete'
+            const domainInput = document.getElementById('domain-input');
+            domainInput.value = 'remove-me.com';
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            await uiMain.handleDashboardDomain('allowlist', 'delete');
+
+            // L131 'Unknown error' branch: handleDashboardDomain when res.success is false and res.error is falsy
+            domainInput.value = 'fail-me.com';
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: false });
+            await uiMain.handleDashboardDomain('allowlist', 'add');
+
+            // L113 & L136 false branches: handleDashboardDomain when btn is null
+            document.getElementById('allow-btn')?.remove();
+            domainInput.value = 'no-btn.com';
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            await uiMain.handleDashboardDomain('allowlist', 'add');
+
+            // L151 & L172 false branches: handleAddDomain when btn is null
+            document.getElementById('list-new-domain').value = 'add-no-btn.com';
+            document.getElementById('list-add-btn')?.remove();
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            await uiMain.handleAddDomain();
+
+            // L167 'Unknown error' branch: handleAddDomain when res.success is false and res.error is falsy
+            document.body.innerHTML = html;
+            document.getElementById('list-new-domain').value = 'fail-add.com';
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: false });
+            await uiMain.handleAddDomain();
+
+            // L170 & L210 'Communication error' branches: when syncLists rejects without message
+            const blocksModule = await import('../src/ui/blocks.js');
+            const syncListsSpy = jest.spyOn(blocksModule, 'syncLists').mockRejectedValueOnce({});
+            document.getElementById('list-new-domain').value = 'err-domain.com';
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            await uiMain.handleAddDomain();
+
+            // L187 & L212 false branches: handleBulkAdd when btn is null
+            document.getElementById('list-bulk-domains').value = 'd1.com\nd2.com';
+            document.getElementById('list-bulk-submit-btn')?.remove();
+            browser.runtime.sendMessage.mockResolvedValue({ success: true });
+            await uiMain.handleBulkAdd();
+
+            // L210 'Communication error' branch: handleBulkAdd when syncLists rejects without message
+            document.body.innerHTML = html;
+            document.getElementById('list-bulk-domains').value = 'd1.com';
+            browser.runtime.sendMessage.mockResolvedValue({ success: true });
+            syncListsSpy.mockRejectedValueOnce({});
+            await uiMain.handleBulkAdd();
+            syncListsSpy.mockRestore();
+
+            // 3. Window Mode Redirects (L258, L268)
+            const { storage: mainStorage } = await import('../src/storage.js');
+            stateModule.isPopoutMode = false;
+            stateModule.isSidebarMode = false;
+            stateModule.isTabMode = false;
+            window.browser = global.browser;
+            const origWindows = global.browser.windows;
+            delete global.browser.windows;
+            if (window.browser) delete window.browser.windows;
+            await mainStorage.set('iconClickAction', 'popout');
+            global.browser.tabs.create = jest.fn().mockResolvedValue({});
+            if (window.browser?.tabs) window.browser.tabs.create = global.browser.tabs.create;
+            await uiMain.handleIconClickModeRedirect();
+            expect(global.browser.tabs.create).toHaveBeenCalled();
+
+            // L258 false branch: when tabs.create is also missing
+            const origTabsCreate = global.browser.tabs.create;
+            delete global.browser.tabs.create;
+            if (window.browser?.tabs) delete window.browser.tabs.create;
+            await uiMain.handleIconClickModeRedirect();
+
+            // restore tabs.create
+            global.browser.tabs.create = origTabsCreate;
+            if (window.browser?.tabs) window.browser.tabs.create = origTabsCreate;
+
+            await mainStorage.set('iconClickAction', 'sidebar');
+            const origSidebar = global.browser.sidebarAction;
+            delete global.browser.sidebarAction;
+            if (window.browser) delete window.browser.sidebarAction;
+            await uiMain.handleIconClickModeRedirect();
+            expect(global.browser.tabs.create).toHaveBeenCalled();
+
+            // L268 false branch: when tabs.create is also missing in sidebar redirect
+            delete global.browser.tabs.create;
+            if (window.browser?.tabs) delete window.browser.tabs.create;
+            await uiMain.handleIconClickModeRedirect();
+
+            // restore all mocks
+            global.browser.tabs.create = origTabsCreate;
+            if (window.browser?.tabs) window.browser.tabs.create = origTabsCreate;
+            global.browser.windows = origWindows;
+            if (window.browser) window.browser.windows = origWindows;
+            global.browser.sidebarAction = origSidebar;
+            if (window.browser) window.browser.sidebarAction = origSidebar;
+            await mainStorage.set('iconClickAction', 'popup');
+
+            // 4. Tab Bar & Sub-Tabs (L323, L353, L354, L358, L361)
+            document.body.innerHTML = html;
+            uiMain.initGlobalEventListeners();
+
+            // L323: tabBar keydown with currentIndex === -1
+            stateModule.state.activeTab = 'nonexistent-tab';
+            const tabBar = document.querySelector('.tab-bar');
+            tabBar?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+
+            // L353 false branch: Sub-tab click in dashboard where subId !== 'overview'
+            const dashSubBtn = document.createElement('button');
+            dashSubBtn.className = 'sub-tab-btn';
+            dashSubBtn.dataset.sub = 'tab-logs';
+            const dashContent = document.getElementById('tab-dashboard');
+            dashContent?.appendChild(dashSubBtn);
+            uiMain.initGlobalEventListeners();
+            dashSubBtn.click();
+
+            // L358: Sub-tab click with parentTab === 'settings' and subId === 'analytics'
+            const settingsContent = document.getElementById('tab-settings');
+            const analyticsSubBtn = document.createElement('button');
+            analyticsSubBtn.className = 'sub-tab-btn';
+            analyticsSubBtn.dataset.sub = 'analytics';
+            settingsContent?.appendChild(analyticsSubBtn);
+            uiMain.initGlobalEventListeners();
+            analyticsSubBtn.click();
+
+            // L361 false branch: Sub-tab click with subId === 'customize' and state.isThemeUnsaved = true
+            const custSubBtn = document.createElement('button');
+            custSubBtn.className = 'sub-tab-btn';
+            custSubBtn.dataset.sub = 'customize';
+            settingsContent?.appendChild(custSubBtn);
+            uiMain.initGlobalEventListeners();
+            stateModule.state.isThemeUnsaved = true;
+            custSubBtn.click();
+            stateModule.state.isThemeUnsaved = false;
+
+            // L354 false branch: Sub-tab click with unknown parent tab
+            const customTab = document.createElement('div');
+            customTab.className = 'tab-content';
+            customTab.id = 'tab-other';
+            const otherSubBtn = document.createElement('button');
+            otherSubBtn.className = 'sub-tab-btn';
+            otherSubBtn.dataset.sub = 'sub1';
+            customTab.appendChild(otherSubBtn);
+            document.body.appendChild(customTab);
+            uiMain.initGlobalEventListeners();
+            otherSubBtn.click();
+
+            // 5. Tab Actions & Clear Tab Log with missing tab ID (L402 false branch)
+            global.browser.tabs.query = jest.fn().mockResolvedValue([]);
+            document.getElementById('clear-tab-log-btn')?.click();
+            await new Promise(r => setTimeout(r, 20));
+            global.browser.tabs.query = jest.fn().mockResolvedValue([{ id: 10, url: 'https://example.com' }]);
+        }, 45000);
+
+        test('ui/main.js - Branch Hardening: Filter Checkboxes, Delegations & Cache', async () => {
+            document.body.innerHTML = html;
+            uiMain.initGlobalEventListeners();
+
+            // 1. Log Filters Checkboxes (L427-435, L438, L439, L458, L460, L467-469)
+            document.getElementById('filter-standard')?.remove();
+            document.getElementById('filter-allowed')?.remove();
+            document.getElementById('filter-blocked')?.remove();
+            document.getElementById('filter-allowlist')?.remove();
+            document.getElementById('filter-denylist')?.remove();
+            const fAll = document.getElementById('filter-all');
+            if (fAll) {
+                fAll.checked = true;
+                fAll.dispatchEvent(new Event('change', { bubbles: true }));
+                fAll.checked = false;
+                fAll.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            document.body.innerHTML = html;
+            uiMain.initGlobalEventListeners();
+            const fAllowlist = document.getElementById('filter-allowlist');
+            if (fAllowlist) {
+                fAllowlist.checked = false;
+                fAllowlist.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            document.getElementById('filter-all')?.remove();
+            if (fAllowlist) {
+                fAllowlist.checked = true;
+                fAllowlist.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            document.body.innerHTML = html;
+            uiMain.initGlobalEventListeners();
+            document.getElementById('filter-all')?.remove();
+            const fStd = document.getElementById('filter-standard');
+            const fAlw = document.getElementById('filter-allowed');
+            const fBlk = document.getElementById('filter-blocked');
+            if (fStd && fAlw && fBlk) {
+                fStd.checked = true;
+                fAlw.checked = true;
+                fBlk.checked = true;
+                fStd.dispatchEvent(new Event('change', { bubbles: true }));
+                fStd.checked = false;
+                fStd.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            document.body.innerHTML = html;
+            uiMain.initGlobalEventListeners();
+            document.getElementById('filter-standard')?.remove();
+            document.getElementById('filter-allowed')?.remove();
+            document.getElementById('filter-blocked')?.remove();
+            document.querySelectorAll('#status-filter-content input').forEach(i => i.checked = false);
+            document.getElementById('filter-allowlist')?.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // 2. Tools & Popout Fallbacks (L495, L529, L554, L576, L578)
+            document.body.innerHTML = html;
+            uiMain.initGlobalEventListeners();
+            stateModule.state.activeProfile = '';
+            global.browser.tabs = { query: jest.fn().mockResolvedValue([]), create: jest.fn() };
+            document.getElementById('launch-full-manager-btn')?.click();
+            expect(global.browser.tabs.create).toHaveBeenCalledWith({ url: 'chrome-extension://test/src/viewer.html' });
+
+            document.getElementById('theme-name-input')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+
+            const origWindows = global.browser.windows;
+            delete global.browser.windows;
+            if (window.browser) delete window.browser.windows;
+            document.getElementById('popout-ui-btn')?.click();
+            expect(global.browser.tabs.create).toHaveBeenCalled();
+            global.browser.windows = origWindows;
+            if (window.browser) window.browser.windows = origWindows;
+
+            document.getElementById('web-gui-tlds-toggle')?.dispatchEvent(new Event('change', { bubbles: true }));
+
+            document.getElementById('web-gui-features')?.remove();
+            document.getElementById('web-gui-master-toggle')?.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // 3. Dynamic Delegations (L607, L621, L627, L642, L662, L665)
+            document.body.innerHTML = html;
+            uiMain.initGlobalEventListeners();
+            stateModule.state.activeProfile = '';
+            mockStorageData.activeProfile = '';
+            mockStorageData.overrideProfileId = 'override-p1';
+            const toggle = document.createElement('input');
+            toggle.type = 'checkbox';
+            toggle.className = 'api-toggle';
+            toggle.dataset.cat = 'privacy';
+            toggle.dataset.id = 'blocklists';
+            toggle.dataset.type = 'boolean';
+            document.body.appendChild(toggle);
+
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            toggle.dispatchEvent(new Event('change', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 20));
+
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: false });
+            toggle.dispatchEvent(new Event('change', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 20));
+
+            browser.runtime.sendMessage.mockRejectedValueOnce('Raw string error');
+            toggle.dispatchEvent(new Event('change', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 20));
+
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'api-toggle-btn';
+            toggleBtn.dataset.cat = 'parentalcontrol/services';
+            toggleBtn.dataset.id = 'youtube';
+            toggleBtn.dataset.active = 'false';
+            document.body.appendChild(toggleBtn);
+
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            toggleBtn.click();
+            await new Promise(r => setTimeout(r, 20));
+
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: false });
+            toggleBtn.click();
+            await new Promise(r => setTimeout(r, 20));
+
+            browser.runtime.sendMessage.mockRejectedValueOnce('Raw string error');
+            toggleBtn.click();
+            await new Promise(r => setTimeout(r, 20));
+
+            // 4. updateLocalBlocksCache (L690, L710)
+            stateModule.state.lastBlocksData = { settings: {} };
+            uiMain.updateLocalBlocksCache('settings/performance', 'cache_boost', 'add');
+            expect(stateModule.state.lastBlocksData.settings.performance.cache_boost).toBe(true);
+            uiMain.updateLocalBlocksCache(null, 'test-id', 'add');
+            uiMain.updateLocalBlocksCache('', 'test-id', 'add');
+
+            // 5. Storage Listeners (L738, L746, L747, L748)
+            window._hasAliasStorageListener = false;
+            const changeListeners = [];
+            global.browser.storage.onChanged.addListener = jest.fn(cb => changeListeners.push(cb));
+            mockStorageData.hostnameAliases = null;
+            await uiMain.initializeApp();
+            if (stateModule?.state?.tabTrackingIntervalId) {
+                clearInterval(stateModule.state.tabTrackingIntervalId);
+                stateModule.state.tabTrackingIntervalId = null;
+            }
+
+            changeListeners.forEach(cb => cb({ otherKey: { newValue: 123 } }));
+            changeListeners.forEach(cb => cb({ hostnameAliases: {} }));
+            stateModule.state.activeTab = 'dashboard';
+            changeListeners.forEach(cb => cb({ hostnameAliases: { newValue: { 'ip': 'name' } } }));
+
+            // 6. initCustomizeUI (L836, L840, L841, L846, L847, L848)
+            document.body.innerHTML = '<div>No toggles</div>';
+            mockStorageData.webGuiForcedTheme = '';
+            mockStorageData.webGuiMaster = false;
+            await uiMain.initCustomizeUI();
+
+            // 7. handleFetchProfilesClick (L948, L950, L953)
+            document.body.innerHTML = html;
+            await uiMain.handleFetchProfilesClick();
+            document.getElementById('setting-fetch-profiles')?.remove();
+            await uiMain.handleFetchProfilesClick();
+        }, 45000);
+
+        test('ui/main.js - Branch Hardening: Settings, Import/Export & Alerts', async () => {
+            document.body.innerHTML = html;
+
+            // 1. Network Status Badges (L983)
+            browser.runtime.sendMessage.mockImplementation(async (msg) => {
+                if (msg.type === 'GET_PROFILE') return { id: 'p1', name: 'Profile 1' };
+                if (msg.type === 'GET_NETWORK_STATUS') return { networkStatus: { isConnected: true } };
+                return { success: true };
+            });
+            await uiMain.refreshActiveProfileAndUI();
+            expect(document.getElementById('profile-status')?.innerHTML).toContain('DoH');
+
+            browser.runtime.sendMessage.mockImplementation(async (msg) => {
+                if (msg.type === 'GET_PROFILE') return { id: 'p1', name: 'Profile 1' };
+                if (msg.type === 'GET_NETWORK_STATUS') return { networkStatus: { isConnected: true, protocol: 'DoT', popServer: 'fra-2' } };
+                return { success: true };
+            });
+            await uiMain.refreshActiveProfileAndUI();
+            expect(document.getElementById('profile-status')?.innerHTML).toContain('(fra-2)');
+
+            // 2. initSettingsUI (L1039, L1040, L1044, L1046, L1051, L1053, L1064)
+            document.body.innerHTML = '<div>No inputs</div>';
+            mockStorageData.apiKey = '';
+            mockStorageData.iconClickAction = '';
+            mockStorageData.autoRefreshTime = null;
+            mockStorageData.overrideProfileId = 'auto';
+            mockStorageData.activeProfile = '';
+            await uiMain.initSettingsUI();
+
+            document.body.innerHTML = html;
+            const apiKeyInput = document.getElementById('setting-api-key');
+            await uiMain.initSettingsUI();
+            if (apiKeyInput) {
+                apiKeyInput.value = 'short';
+                apiKeyInput.dispatchEvent(new Event('input', { bubbles: true }));
+                await new Promise(r => setTimeout(r, 450));
+            }
+
+            // 3. saveSettings & toggleAutoRefresh (L1099, L1123, L1147)
+            const profileSel = document.getElementById('setting-profile-select');
+            const iconActionSel = document.getElementById('setting-icon-action');
+            if (profileSel) profileSel.value = '';
+            if (iconActionSel) iconActionSel.value = 'sidebar';
+            stateModule.state.lastIconAction = 'popup';
+            await uiMain.saveSettings();
+            await new Promise(r => setTimeout(r, 1600));
+            expect(browser.runtime.reload).toHaveBeenCalled();
+
+            const { storage: storageMod } = await import('../src/storage.js');
+            await storageMod.set('autoRefreshTime', 'invalid');
+            await uiMain.toggleAutoRefresh(true);
+            await uiMain.toggleAutoRefresh(false);
+
+            // 4. importFullConfiguration (L1190, L1191, L1192)
+            const origConfirm = window.confirm;
+            window.confirm = jest.fn(() => false);
+            const fakeFile1 = new Blob([JSON.stringify({ type: 'DNS_FORGE_BACKUP', sync: {}, local: {} })], { type: 'application/json' });
+            await uiMain.importFullConfiguration({ target: { files: [fakeFile1], value: 'fake' } });
+            await new Promise(r => setTimeout(r, 60));
+
+            window.confirm = jest.fn(() => true);
+            const fakeFile2 = new Blob([JSON.stringify({ type: 'DNS_FORGE_BACKUP' })], { type: 'application/json' });
+            await uiMain.importFullConfiguration({ target: { files: [fakeFile2], value: 'fake' } });
+            await new Promise(r => setTimeout(r, 60));
+            window.confirm = origConfirm;
+
+            // 5. Alerts Form & Test Alert (L1246, L1254, L1269, L1278, L1291, L1304, L1313)
+            document.body.innerHTML = '<button id="alert-save-btn">Save</button>';
+            await uiMain.saveAlertSettings();
+
+            document.body.innerHTML = html;
+            document.getElementById('alert-save-btn')?.remove();
+            await uiMain.saveAlertSettings();
+
+            document.body.innerHTML = html;
+            const storageSpy = jest.spyOn(storageMod, 'set').mockRejectedValueOnce(new Error('Storage failure'));
+            await uiMain.saveAlertSettings();
+            expect(document.getElementById('alert-save-btn')?.textContent).toBe('❌ Error');
+
+            document.getElementById('alert-save-btn')?.remove();
+            storageSpy.mockRejectedValueOnce(new Error('Storage failure'));
+            await uiMain.saveAlertSettings();
+            storageSpy.mockRestore();
+
+            document.body.innerHTML = html;
+            document.getElementById('alert-test-btn')?.remove();
+            await uiMain.sendTestAlert();
+
+            document.body.innerHTML = html;
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Message failure'));
+            await uiMain.sendTestAlert();
+            expect(document.getElementById('alert-test-btn')?.textContent).toBe('❌ Failed');
+
+            document.getElementById('alert-test-btn')?.remove();
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Message failure'));
+            await uiMain.sendTestAlert();
+        }, 45000);
+
+        test('ui/main.js - Final 24 Branches Hardening to 100%', async () => {
+            const { storage: storageMod } = await import('../src/storage.js');
+
+            // 1. Branches 70-77, 96-98: Minimal status filter content with only filter-all
+            document.body.innerHTML = `
+                <div id="status-filter-content">
+                    <input type="checkbox" id="filter-all" checked />
+                </div>
+            `;
+            uiMain.initGlobalEventListeners();
+            const fAll = document.getElementById('filter-all');
+            fAll.dispatchEvent(new Event('change', { bubbles: true }));
+            fAll.checked = false;
+            fAll.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // 2. Branch 81: Minimal status filter with only filter-allowlist and filter-denylist
+            document.body.innerHTML = `
+                <div id="status-filter-content">
+                    <input type="checkbox" id="filter-allowlist" />
+                </div>
+            `;
+            uiMain.initGlobalEventListeners();
+            const fAllowlist = document.getElementById('filter-allowlist');
+            fAllowlist.checked = true;
+            fAllowlist.dispatchEvent(new Event('change', { bubbles: true }));
+
+            document.body.innerHTML = `
+                <div id="status-filter-content">
+                    <input type="checkbox" id="filter-denylist" />
+                </div>
+            `;
+            uiMain.initGlobalEventListeners();
+            const fDenylist = document.getElementById('filter-denylist');
+            fDenylist.checked = true;
+            fDenylist.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // 3. Branches 92 & 93: Minimal status filter with untracked checkbox (when filterAll is missing)
+            document.body.innerHTML = `
+                <div id="status-filter-content">
+                    <input type="checkbox" id="filter-standard" checked />
+                    <input type="checkbox" id="filter-allowed" checked />
+                    <input type="checkbox" id="filter-blocked" checked />
+                    <input type="checkbox" id="other-filter" />
+                </div>
+            `;
+            uiMain.initGlobalEventListeners();
+            const otherFilter = document.getElementById('other-filter');
+            otherFilter.dispatchEvent(new Event('change', { bubbles: true }));
+            document.getElementById('filter-standard').checked = false;
+            otherFilter.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // 4. Branch 104: popout-ui-btn when browser.windows and browser.tabs are missing
+            document.body.innerHTML = '<button id="popout-ui-btn"></button>';
+            const origWindows = browser.windows;
+            const origTabs = browser.tabs;
+            delete browser.windows;
+            delete browser.tabs;
+            uiMain.initGlobalEventListeners();
+            document.getElementById('popout-ui-btn').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            browser.windows = origWindows;
+            browser.tabs = origTabs;
+
+            // 5. Branch 106: webGuiMaster toggle change when #web-gui-features is missing
+            document.body.innerHTML = '<input type="checkbox" id="web-gui-master-toggle" />';
+            uiMain.initGlobalEventListeners();
+            const masterToggle = document.getElementById('web-gui-master-toggle');
+            masterToggle.checked = true;
+            masterToggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // 6. Branch 123: .api-toggle-btn when state.activeProfile and stored profiles are falsy
+            document.body.innerHTML = `
+                <button class="api-toggle-btn" data-cat="security" data-id="test-id" data-type="toggle" data-active="false">Add</button>
+            `;
+            stateModule.state.activeProfile = '';
+            await storageMod.set('activeProfile', '');
+            await storageMod.set('overrideProfileId', '');
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            document.querySelector('.api-toggle-btn').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 40));
+
+            await storageMod.set('activeProfile', '');
+            await storageMod.set('overrideProfileId', 'override-prof-99');
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            document.querySelector('.api-toggle-btn').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 40));
+
+            // 7. Branch 136: updateLocalBlocksCache performance called twice
+            uiMain.updateLocalBlocksCache('settings/performance', 'id1', 'add');
+            uiMain.updateLocalBlocksCache('settings/performance', 'id2', 'add');
+
+            // 8. Branch 144: initializeApp when hostnameAliases in storage is falsy
+            await storageMod.set('hostnameAliases', null);
+            document.body.innerHTML = html;
+            await uiMain.initializeApp();
+
+            // 9. Branches 159, 161, 162: initCustomizeUI with falsy webGuiForcedTheme and webGuiMaster: false
+            document.body.innerHTML = html;
+            await storageMod.set('webGuiForcedTheme', '');
+            await storageMod.set('webGuiMaster', false);
+            await uiMain.initCustomizeUI();
+
+            // 10. Branches 217 & 219: saveSettings with activeProfile set and iconClickAction unchanged
+            document.body.innerHTML = html;
+            const profSel = document.getElementById('setting-profile-select');
+            const iconSel = document.getElementById('setting-icon-action');
+            if (profSel) {
+                const opt = document.createElement('option');
+                opt.value = 'profile-active-123';
+                opt.textContent = 'Active 123';
+                profSel.appendChild(opt);
+                profSel.value = 'profile-active-123';
+            }
+            if (iconSel) iconSel.value = 'popup';
+            stateModule.state.lastIconAction = 'popup';
+            browser.runtime.reload.mockClear();
+            await uiMain.saveSettings();
+            await new Promise(r => setTimeout(r, 1600));
+            expect(browser.runtime.reload).not.toHaveBeenCalled();
+
+            // 11. Branch 155: tabTrackingInterval callback when paused or tab not dashboard
+            stateModule.state.isTabTrackingPaused = true;
+            stateModule.state.activeTab = 'settings';
+            await new Promise(r => setTimeout(r, 1100));
+
+            // Clean up intervals
+            if (stateModule.state.tabTrackingIntervalId) {
+                clearInterval(stateModule.state.tabTrackingIntervalId);
+                stateModule.state.tabTrackingIntervalId = null;
+            }
+            if (stateModule.state.autoRefreshInterval) {
+                clearInterval(stateModule.state.autoRefreshInterval);
+                stateModule.state.autoRefreshInterval = null;
+            }
+        }, 45000);
     });
 });
 
