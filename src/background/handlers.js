@@ -343,32 +343,25 @@ export const messageHandlers = {
         const logs = Array.isArray(logsData?.data) ? logsData.data : [];
 
         const correlations = [];
-        const seenDomains = new Set();
 
         for (const domain of requestedDomains) {
             const isLocalBlocked = tabData[domain]?.status === 'blocked';
             const logMatch = logs.find(l => (l.name === domain || l.domain === domain) && (l.status === 'blocked' || l.status === 'denied'));
 
             if (logMatch) {
-                if (!seenDomains.has(domain)) {
-                    seenDomains.add(domain);
-                    correlations.push({
-                        domain,
-                        reasons: logMatch.reasons || [logMatch.reason || "Cloud Blocklist"],
-                        timestamp: logMatch.timestamp || tabData[domain]?.timestamp || Date.now(),
-                        device: logMatch.device?.name || logMatch.clientIp || "NextDNS Profile"
-                    });
-                }
+                correlations.push({
+                    domain,
+                    reasons: logMatch.reasons || [logMatch.reason || "Cloud Blocklist"],
+                    timestamp: logMatch.timestamp || tabData[domain]?.timestamp || Date.now(),
+                    device: logMatch.device?.name || logMatch.clientIp || "NextDNS Profile"
+                });
             } else if (isLocalBlocked) {
-                if (!seenDomains.has(domain)) {
-                    seenDomains.add(domain);
-                    correlations.push({
-                        domain,
-                        reasons: [{ id: 'denylist', name: tabData[domain]?.reason || 'Deny List' }],
-                        timestamp: tabData[domain]?.timestamp || Date.now(),
-                        device: 'Local Browser'
-                    });
-                }
+                correlations.push({
+                    domain,
+                    reasons: [{ id: 'denylist', name: tabData[domain]?.reason || 'Deny List' }],
+                    timestamp: tabData[domain]?.timestamp || Date.now(),
+                    device: 'Local Browser'
+                });
             }
         }
 

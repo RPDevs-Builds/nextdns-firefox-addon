@@ -2767,6 +2767,302 @@ describe('Background Script - Full Coverage Suite', () => {
     // Restore fetch
     apiClient.fetchWithRetry = origFetch;
   });
+
+  test('handlers.js - 100% Branch Coverage Final Push', async () => {
+    const { messageHandlers } = await import('../src/background/handlers.js');
+    const { apiClient } = await import('../src/apiClient.js');
+    const { state } = await import('../src/background/state.js');
+    const origFetch = apiClient.fetchWithRetry;
+
+    // 1. TEMP_ALLOW branches (lines 60, 61)
+    // msg.domain falsy
+    const tempNoDomain = await messageHandlers.TEMP_ALLOW({ profileId: 'prof123' });
+    expect(tempNoDomain.success).toBe(false);
+
+    // msg.duration provided without durationInMinutes
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: true });
+    const tempWithDuration = await messageHandlers.TEMP_ALLOW({ profileId: 'prof123', domain: 'temp-dur.com', duration: 15 });
+    expect(tempWithDuration.success).toBe(true);
+
+    // msg.duration is non-numeric string, falls back to 5
+    const tempNaN = await messageHandlers.TEMP_ALLOW({ profileId: 'prof123', domain: 'temp-nan.com', duration: 'invalid-dur' });
+    expect(tempNaN.success).toBe(true);
+
+    // line 60: manageDomain fails (res.success is false)
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: false });
+    const tempFail = await messageHandlers.TEMP_ALLOW({ profileId: 'prof123', domain: 'temp-fail.com' });
+    expect(tempFail.success).toBe(false);
+
+    // 2. GET_LOGS branches (lines 93, 103, 108-110, 116)
+    // line 93: state.localLogs is null on invalid profileId
+    const origLocalLogs = state.localLogs;
+    state.localLogs = null;
+    const getLogsBadProfile = await messageHandlers.GET_LOGS({ profileId: '' });
+    expect(getLogsBadProfile.success).toBe(false);
+    expect(getLogsBadProfile.data).toEqual([]);
+
+    // line 101: r.success is false with state.localLogs = null
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: false });
+    const getLogsFetchFail = await messageHandlers.GET_LOGS({ profileId: 'prof123' });
+    expect(getLogsFetchFail.success).toBe(true);
+    expect(getLogsFetchFail.data).toEqual([]);
+
+    // line 116: catch block when fetchWithRetry throws and state.localLogs is null
+    apiClient.fetchWithRetry = jest.fn().mockRejectedValue(new Error('fetch error'));
+    const getLogsCatchFail = await messageHandlers.GET_LOGS({ profileId: 'prof123' });
+    expect(getLogsCatchFail.success).toBe(false);
+    expect(getLogsCatchFail.data).toEqual([]);
+    state.localLogs = origLocalLogs;
+
+    // line 103: json is an array directly (json.data is undefined)
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: { json: async () => [{ domain: 'direct-array.com', timestamp: 10 }] }
+    });
+    const logsDirectArray = await messageHandlers.GET_LOGS({ profileId: 'prof123', raw: true });
+    expect(logsDirectArray.success).toBe(true);
+    expect(logsDirectArray.data[0].domain).toBe('direct-array.com');
+
+    // line 103: json is an object without data and not an array
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: { json: async () => ({ status: 'ok' }) }
+    });
+    const logsEmptyObj = await messageHandlers.GET_LOGS({ profileId: 'prof123', raw: true });
+    expect(logsEmptyObj.success).toBe(true);
+    expect(logsEmptyObj.data).toEqual([]);
+
+    // lines 108-110: log items without domain or name, and sorting items without timestamp
+    state.localLogs = [
+      { timestamp: 100 },
+      { domain: 'local-domain.com' }
+    ];
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: {
+        json: async () => ({
+          data: [
+            {},
+            { name: 'remote.com' }
+          ]
+        })
+      }
+    });
+    const logsSorting = await messageHandlers.GET_LOGS({ profileId: 'prof123', raw: false });
+    expect(logsSorting.success).toBe(true);
+
+    // 3. GET_PROFILE_DATA branches (lines 130, 131, 134, 135)
+    // allow.success is false
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('allowlist')) return { success: false };
+      return { success: true, response: { json: async () => ({ data: [{ id: 'deny1.com' }] }) } };
+    });
+    const pDataAllowFail = await messageHandlers.GET_PROFILE_DATA({ profileId: 'prof123' });
+    expect(pDataAllowFail.allowlist).toEqual([]);
+    expect(pDataAllowFail.denylist).toEqual(['deny1.com']);
+
+    // deny.success is false
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('denylist')) return { success: false };
+      return { success: true, response: { json: async () => ({ data: [{ id: 'allow1.com' }] }) } };
+    });
+    const pDataDenyFail = await messageHandlers.GET_PROFILE_DATA({ profileId: 'prof123' });
+    expect(pDataDenyFail.allowlist).toEqual(['allow1.com']);
+    expect(pDataDenyFail.denylist).toEqual([]);
+
+    // aJson and dJson are objects without data array and not arrays (fallback to [])
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async () => {
+      return { success: true, response: { json: async () => ({ status: 'ok' }) } };
+    });
+    const pDataEmptyObj = await messageHandlers.GET_PROFILE_DATA({ profileId: 'prof123' });
+    expect(pDataEmptyObj.allowlist).toEqual([]);
+    expect(pDataEmptyObj.denylist).toEqual([]);
+
+    // 4. GET_ANALYTICS branches (lines 147, 162, 163)
+    // msg is null/undefined
+    const analyticsNullMsg = await messageHandlers.GET_ANALYTICS(null);
+    expect(analyticsNullMsg.success).toBe(false);
+
+    // json.data is null/empty for status endpoint
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: { json: async () => ({}) }
+    });
+    const analyticsEmptyData = await messageHandlers.GET_ANALYTICS({ profileId: 'prof123', endpoint: 'status' });
+    expect(analyticsEmptyData.success).toBe(true);
+    expect(analyticsEmptyData.data.queries).toBe(0);
+
+    // curr.queries is undefined in reduce, find returns item without queries
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({
+      success: true,
+      response: {
+        json: async () => ({
+          data: [
+            { status: 'allowed' },
+            { status: 'blocked' }
+          ]
+        })
+      }
+    });
+    const analyticsNoQueriesProp = await messageHandlers.GET_ANALYTICS({ profileId: 'prof123', endpoint: 'status' });
+    expect(analyticsNoQueriesProp.success).toBe(true);
+    expect(analyticsNoQueriesProp.data.blockedQueries).toBe(0);
+
+    // 5. GET_NETWORK_STATUS branches (line 192)
+    // state.networkStatus is fresh with lastChecked missing (falsy || 0)
+    state.networkStatus = { lastChecked: null };
+    const netStatusNoLastChecked = await messageHandlers.GET_NETWORK_STATUS();
+    expect(netStatusNoLastChecked.success).toBe(true);
+
+    // state.networkStatus is fresh (lastChecked recent)
+    state.networkStatus = { lastChecked: Date.now(), isConnected: true, status: 'ok' };
+    const netStatusRecent = await messageHandlers.GET_NETWORK_STATUS();
+    expect(netStatusRecent.success).toBe(true);
+    expect(netStatusRecent.networkStatus.status).toBe('ok');
+
+    // 6. GET_PROFILES_LIST branches (line 217)
+    // r.success is false
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: false });
+    const profilesListFail = await messageHandlers.GET_PROFILES_LIST({});
+    expect(profilesListFail.success).toBe(false);
+    expect(profilesListFail.data).toEqual([]);
+
+    // 7. TOGGLE_SETTING branches (lines 232, 269)
+    // msg is null/undefined
+    const toggleNullMsg = await messageHandlers.TOGGLE_SETTING(null);
+    expect(toggleNullMsg.success).toBe(false);
+
+    // r.error is undefined / falsy on error
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: false, error: '' });
+    const toggleNoErrStr = await messageHandlers.TOGGLE_SETTING({ profileId: 'prof123', category: 'security', id: 'block_ai' });
+    expect(toggleNoErrStr.success).toBe(false);
+
+    // 8. GET_ALL_SETTINGS branches (lines 299, 301, 315, 320-325)
+    // msg is null/undefined with no profiles in storage
+    await global.storage.set('activeProfile', null);
+    await global.storage.set('overrideProfileId', null);
+    const allSettingsNullMsg = await messageHandlers.GET_ALL_SETTINGS(null);
+    expect(allSettingsNullMsg.success).toBe(false);
+
+    // profileId omitted, activeProfile present in storage (line 301)
+    await global.storage.set('activeProfile', 'profActive');
+    await global.storage.set('overrideProfileId', null);
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: true, response: { json: async () => ({}) } });
+    const allSettingsFromActive = await messageHandlers.GET_ALL_SETTINGS({});
+    expect(allSettingsFromActive.success).toBe(true);
+
+    // profileId omitted, activeProfile null, overrideProfileId null (invalid profile ID)
+    await global.storage.set('activeProfile', null);
+    await global.storage.set('overrideProfileId', null);
+    const allSettingsNoProf = await messageHandlers.GET_ALL_SETTINGS({});
+    expect(allSettingsNoProf.success).toBe(false);
+
+    // profileId omitted, activeProfile null, overrideProfileId present in storage
+    await global.storage.set('activeProfile', null);
+    await global.storage.set('overrideProfileId', 'profFromOverride');
+    const allSettingsFromOverride = await messageHandlers.GET_ALL_SETTINGS({});
+    expect(allSettingsFromOverride.success).toBe(true);
+
+    // line 315: data['settings/performance'] present, but data.settings missing (!data.settings is true)
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('settings/performance')) return { success: true, response: { json: async () => ({ ecs: true, cacheBoost: true, cnameFlattening: true }) } };
+      if (url.endsWith('/settings')) return { success: false };
+      return { success: true, response: { json: async () => ({}) } };
+    });
+    const allSettingsNoSettingsObj = await messageHandlers.GET_ALL_SETTINGS({ profileId: 'prof123' });
+    expect(allSettingsNoSettingsObj.data.settings.ecs).toBe(true);
+
+    // line 315-319: data['settings/performance'] present, data.settings already exists (!data.settings is false), flags missing in settings/performance
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('settings/performance')) return { success: true, response: { json: async () => ({}) } };
+      if (url.endsWith('/settings')) return { success: true, response: { json: async () => ({ ecs: false, cacheBoost: false, cnameFlattening: false, performance: { old: true } }) } };
+      return { success: true, response: { json: async () => ({}) } };
+    });
+    const allSettingsPerfMissingFlags = await messageHandlers.GET_ALL_SETTINGS({ profileId: 'prof123' });
+    expect(allSettingsPerfMissingFlags.data.settings.ecs).toBe(false);
+
+    // lines 320-325: data['settings/performance'] missing, but data.settings.performance has flags
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('settings/performance')) return { success: false };
+      if (url.endsWith('/settings')) return { success: true, response: { json: async () => ({ performance: { ecs: true, cacheBoost: true, cnameFlattening: true } }) } };
+      return { success: true, response: { json: async () => ({}) } };
+    });
+    const allSettingsPerfFromNested = await messageHandlers.GET_ALL_SETTINGS({ profileId: 'prof123' });
+    expect(allSettingsPerfFromNested.data['settings/performance'].ecs).toBe(true);
+
+    // lines 320-325: data['settings/performance'] missing, data.settings.performance is empty object, falls back to data.settings.*
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('settings/performance')) return { success: false };
+      if (url.endsWith('/settings')) return { success: true, response: { json: async () => ({ ecs: false, cacheBoost: false, cnameFlattening: false, performance: {} }) } };
+      return { success: true, response: { json: async () => ({}) } };
+    });
+    const allSettingsPerfNestedFallback = await messageHandlers.GET_ALL_SETTINGS({ profileId: 'prof123' });
+    expect(allSettingsPerfNestedFallback.data.settings.ecs).toBe(false);
+
+    // line 320: neither data['settings/performance'] nor data.settings.performance exists
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('settings/performance')) return { success: false };
+      if (url.endsWith('/settings')) return { success: true, response: { json: async () => ({}) } };
+      return { success: true, response: { json: async () => ({}) } };
+    });
+    const allSettingsNoPerf = await messageHandlers.GET_ALL_SETTINGS({ profileId: 'prof123' });
+    expect(allSettingsNoPerf.data['settings/performance']).toBeUndefined();
+
+    // 9. DEBUG_TAB branches (line 333)
+    // msg is null/undefined
+    const debugNullMsg = await messageHandlers.DEBUG_TAB(null);
+    expect(debugNullMsg.success).toBe(false);
+
+    // 10. PUSH_NOTIFICATION branches (lines 538, 578, 585-597)
+    // state.notifications is null (line 578)
+    state.notifications = null;
+    await global.storage.set('alertSettings', { enabled: true, actionCenter: true, desktop: false });
+    const pushNullNotifs = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security', message: 'Alert' } });
+    expect(pushNullNotifs.success).toBe(true);
+    expect(state.notifications.length).toBe(1);
+
+    // payload is undefined/falsy (line 538)
+    const pushEmptyPayload = await messageHandlers.PUSH_NOTIFICATION({});
+    expect(pushEmptyPayload.success).toBe(true);
+
+    // desktop notifications: severity === 'high' (lines 585-594)
+    browser.notifications = {
+      create: jest.fn().mockResolvedValue('notif-id-1')
+    };
+    await global.storage.set('alertSettings', { enabled: true, actionCenter: true, desktop: true });
+    const pushDesktopHigh = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security', severity: 'high', message: 'Critical threat' } });
+    expect(pushDesktopHigh.success).toBe(true);
+    expect(browser.notifications.create).toHaveBeenCalledWith(expect.objectContaining({ title: 'NextDNS Alert' }));
+
+    // desktop notifications: severity !== 'high' (line 591)
+    const pushDesktopLow = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security', severity: 'low', message: 'Minor notice' } });
+    expect(pushDesktopLow.success).toBe(true);
+    expect(browser.notifications.create).toHaveBeenCalledWith(expect.objectContaining({ title: 'NextDNS Notice' }));
+
+    // desktop notifications: create throws error (catch block lines 595-597)
+    browser.notifications.create = jest.fn().mockRejectedValue(new Error('Notification failed'));
+    const pushDesktopErr = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security', severity: 'high', message: 'Alert' } });
+    expect(pushDesktopErr.success).toBe(true);
+
+    // desktop notifications: browser.notifications.create is undefined
+    delete browser.notifications.create;
+    const pushNoCreate = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security', message: 'Alert' } });
+    expect(pushNoCreate.success).toBe(true);
+
+    // actionCenter is explicitly false (line 577)
+    await global.storage.set('alertSettings', { enabled: true, actionCenter: false, desktop: false });
+    const pushNoActionCenter = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security', message: 'No Action Center' } });
+    expect(pushNoActionCenter.success).toBe(true);
+
+    // notification buffer length > 50 triggers pop() (line 580)
+    state.notifications = new Array(51).fill({ id: 'dummy' });
+    await global.storage.set('alertSettings', { enabled: true, actionCenter: true, desktop: false });
+    await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security', message: 'Pop test' } });
+    expect(state.notifications.length).toBe(51);
+
+    // Restore fetch
+    apiClient.fetchWithRetry = origFetch;
+  });
 });
 
 
