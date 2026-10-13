@@ -719,6 +719,16 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
         test('handles sub-tab switching across dashboard, settings, and toggles', () => {
             uiMain.initGlobalEventListeners();
 
+            // Dashboard sub-tab diagnostics
+            const diagSubBtn = document.querySelector('#dashboard-sub-nav .sub-tab-btn[data-sub="diagnostics"]');
+            if (diagSubBtn) {
+                diagSubBtn.click();
+                expect(diagSubBtn.classList.contains('active')).toBe(true);
+                const diagPanel = document.getElementById('dash-diagnostics');
+                expect(diagPanel?.classList.contains('active')).toBe(true);
+                expect(diagPanel?.classList.contains('hidden')).toBe(false);
+            }
+
             // Settings sub-tab alerts
             const alertsSubBtn = document.querySelector('#settings-sub-nav .sub-tab-btn[data-sub="alerts"]');
             if (alertsSubBtn) {
