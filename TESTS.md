@@ -202,7 +202,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/content.js, src/content.css`
 - **Category**: **Content Scripts & Web GUI**
-- **Total Tests**: **30 tests**
+- **Total Tests**: **31 tests**
 - **Overview**: DOM injections into NextDNS console (my.nextdns.io), forced dark mode log border highlight preservation, TLD bulk actions, log filtering modals, live search exclusions, and metadata scrapers.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -237,6 +237,7 @@ npm run test:watch
 | 28 | Content Script - Section collapsing, log actions, search exclusions, and scraping edge cases | *Content Script (NextDNS Web Console Enhancements)* | [L1345](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1345) |
 | 29 | Content Script - fallback selectors when domSelectors fetch fails or lacks definitions | *Content Script (NextDNS Web Console Enhancements)* | [L1534](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1534) |
 | 30 | content.js - Exhaustive Statement & Function Coverage Deep Dive | *Content Script (NextDNS Web Console Enhancements)* | [L1604](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1604) |
+| 31 | Domain sorting button click and missing domain element branches | *Content Script (NextDNS Web Console Enhancements)* | [L1667](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1667) |
 
 ---
 

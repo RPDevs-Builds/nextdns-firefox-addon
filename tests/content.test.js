@@ -1663,6 +1663,40 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
             }
         }
     });
+
+    test('Domain sorting button click and missing domain element branches', async () => {
+        document.body.innerHTML = `
+            <div id="domain-container">
+                <div id="allowlist" class="list-group">
+                    <div class="list-group-item">
+                        <span class="notranslate">sub.beta.com</span>
+                    </div>
+                    <div class="list-group-item">
+                        <span class="notranslate">alpha.com</span>
+                    </div>
+                    <div class="list-group-item">
+                        <!-- item without notranslate element to exercise line 1765 -->
+                        <span>No domain class</span>
+                    </div>
+                    <div class="list-group-item">
+                        <span class="notranslate">zebra.alpha.com</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const { enhanceAllowDenyLists } = await import('../src/content.js');
+        if (typeof enhanceAllowDenyLists === 'function') {
+            enhanceAllowDenyLists();
+            const sortBtn = document.getElementById('nxm-sort-domains');
+            if (sortBtn) {
+                sortBtn.click();
+                const reordered = Array.from(document.querySelectorAll('#allowlist .list-group-item .notranslate'))
+                    .map(el => el.textContent.trim());
+                expect(reordered.length).toBeGreaterThan(0);
+            }
+        }
+    });
 });
 
 

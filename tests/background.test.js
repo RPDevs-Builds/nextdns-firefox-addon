@@ -1687,6 +1687,196 @@ describe('Background Script - Full Coverage Suite', () => {
     const diagRes = await bgApi.runNetworkDiagnostics();
     expect(diagRes).toBeDefined();
 
+    // 9. handlers.js TOGGLE_SETTING input validations & settingType branches
+    // Invalid category
+    const catErr = await messageHandlers.TOGGLE_SETTING({ profileId: 'prof123', category: '' });
+    expect(catErr.error).toBe('Invalid setting category');
+    const catErr2 = await messageHandlers.TOGGLE_SETTING({ profileId: 'prof123', category: 'bad!cat' });
+    expect(catErr2.error).toBe('Invalid setting category');
+
+    // Invalid id with traversal
+    const idErr = await messageHandlers.TOGGLE_SETTING({ profileId: 'prof123', category: 'security', id: '../evil' });
+    expect(idErr.error).toBe('Invalid setting ID');
+
+    // settingType === 'list' with action delete
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: true, response: { json: async () => ({}) } });
+    const listDelRes = await messageHandlers.TOGGLE_SETTING({
+      profileId: 'prof123',
+      category: 'security',
+      id: 'item1',
+      settingType: 'list',
+      action: 'delete'
+    });
+    expect(listDelRes.success).toBe(true);
+    expect(apiClient.fetchWithRetry).toHaveBeenCalledWith('/profiles/prof123/security/item1', expect.objectContaining({ method: 'DELETE' }));
+
+    // settingType === 'boolean' with action delete (false)
+    const boolDelRes = await messageHandlers.TOGGLE_SETTING({
+      profileId: 'prof123',
+      category: 'security',
+      id: 'block_ai',
+      settingType: 'boolean',
+      action: 'delete'
+    });
+    expect(boolDelRes.success).toBe(true);
+
+    // TOGGLE_SETTING fallback to storage.get("activeProfile") when profileId omitted
+    await global.storage.set('activeProfile', 'profActiveFallback');
+    const noProfRes = await messageHandlers.TOGGLE_SETTING({
+      category: 'security',
+      id: 'block_ai',
+      settingType: 'boolean',
+      action: 'add'
+    });
+    expect(noProfRes.success).toBe(true);
+
+    // 10. handlers.js TEMP_ALLOW durationInMinutes branches & missing parameters
+    const tempMissing = await messageHandlers.TEMP_ALLOW({ profileId: '' });
+    expect(tempMissing.error).toBe('Missing parameters');
+
+    // TEMP_ALLOW with custom duration and invalid duration fallback
+    const tempValid = await messageHandlers.TEMP_ALLOW({ profileId: 'prof123', domain: 'temp-ok.com', durationInMinutes: 15 });
+    expect(tempValid.success).toBe(true);
+
+    const tempBadDuration = await messageHandlers.TEMP_ALLOW({ profileId: 'prof123', domain: 'temp-bad.com', durationInMinutes: -5 });
+    expect(tempBadDuration.success).toBe(true);
+
+    // 11. handlers.js GET_ANALYTICS status endpoint vs custom endpoint
+    const statusAnalytics = await messageHandlers.GET_ANALYTICS({ profileId: 'prof123', endpoint: 'status', series: true });
+    expect(statusAnalytics.success).toBe(true);
+
+    const customAnalytics = await messageHandlers.GET_ANALYTICS({ profileId: 'prof123', endpoint: 'reasons' });
+    expect(customAnalytics.success).toBe(true);
+
+    // 12. handlers.js PUSH_NOTIFICATION trigger filters & alert settings branches
+    // Alert disabled completely
+    await global.storage.set('alertSettings', { enabled: false });
+    const pushDisabled = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'ddns', severity: 'low', message: 'test' } });
+    expect(pushDisabled.reason).toBe('alerts_disabled');
+
+    // Specific trigger type disabled (threats, denylist, parental)
+    await global.storage.set('alertSettings', { enabled: true, triggerThreats: false, triggerDenylist: false, triggerParental: false });
+    const pushSecDisabled = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security', severity: 'high', message: 'test' } });
+    expect(pushSecDisabled.reason).toBe('trigger_type_disabled');
+    const pushDenyDisabled = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'denylist', severity: 'high', message: 'test' } });
+    expect(pushDenyDisabled.reason).toBe('trigger_type_disabled');
+    const pushBlockDisabled = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'block', severity: 'high', message: 'test' } });
+    expect(pushBlockDisabled.reason).toBe('trigger_type_disabled');
+    const pushParentalDisabled = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'parental', severity: 'high', message: 'test' } });
+    expect(pushParentalDisabled.reason).toBe('trigger_type_disabled');
+
+    // Desktop notification branch with browser.notifications and action center pruning > 50
+    state.notifications = Array.from({ length: 50 }, (_, i) => ({ id: `n_${i}` }));
+    global.browser.notifications = {
+      create: jest.fn().mockImplementation((opts) => {
+        if (opts.title.includes('Throw')) throw new Error('Notification creation failed');
+        return Promise.resolve('notif1');
+      })
+    };
+    await global.storage.set('alertSettings', { enabled: true, triggerThreats: true, desktop: true, actionCenter: true });
+    const pushDesktopOk = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security', severity: 'high', message: 'alert message' } });
+    expect(pushDesktopOk.success).toBe(true);
+    expect(state.notifications.length).toBe(50);
+    expect(global.browser.notifications.create).toHaveBeenCalled();
+
+    // Desktop notification branch with error catch
+    await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security', severity: 'low', message: 'Throw err' } });
+
+    // 13. handlers.js SAVE_SCRAPED_META invalid payload & metaType checks
+    const badScrapedPayload = await messageHandlers.SAVE_SCRAPED_META({});
+    expect(badScrapedPayload.error).toBe('Invalid payload');
+
+    const badMetaType = await messageHandlers.SAVE_SCRAPED_META({ payload: { metaType: 'invalid_type', data: [] } });
+    expect(badMetaType.error).toBe('Invalid metaType or data format');
+
+    // 14. handlers.js MANAGE_DOMAIN mirror mode with empty mirror list and self-only mirror list
+    await global.storage.set('mirrorProfiles', ['prof123']); // only self in mirrors
+    const manageMirrorSelfOnly = await messageHandlers.MANAGE_DOMAIN({ profileId: 'prof123', listType: 'allowlist', domain: 'selfonly.com', action: 'add' });
+    expect(manageMirrorSelfOnly.success).toBe(true);
+
+    // 15. handlers.js GET_ALL_SETTINGS settings/performance structure branches
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.includes('/settings/performance')) {
+        return { success: true, response: { json: async () => ({ ecs: true, cacheBoost: true, cnameFlattening: false }) } };
+      }
+      return { success: true, response: { json: async () => ({}) } };
+    });
+    const settingsFlatPerf = await messageHandlers.GET_ALL_SETTINGS({ profileId: 'prof123' });
+    expect(settingsFlatPerf.success).toBe(true);
+    expect(settingsFlatPerf.data.settings.ecs).toBe(true);
+
+    // Test alternate branch: data.settings.performance already present and settings/performance missing
+    apiClient.fetchWithRetry = jest.fn().mockImplementation(async (url) => {
+      if (url.endsWith('/settings')) {
+        return { success: true, response: { json: async () => ({ performance: { ecs: false, cacheBoost: false, cnameFlattening: true } }) } };
+      }
+      if (url.includes('/settings/performance')) {
+        return { success: false };
+      }
+      return { success: true, response: { json: async () => ({}) } };
+    });
+    const settingsNestedPerf = await messageHandlers.GET_ALL_SETTINGS({ profileId: 'prof123' });
+    expect(settingsNestedPerf.success).toBe(true);
+    expect(settingsNestedPerf.data.settings.ecs).toBe(false);
+
+    // 16. handlers.js CREATE_SNAPSHOT default generated name and quota byte pruning
+    const largeObj = { chunk: 'x'.repeat(600000) };
+    await global.storage.set('profileSnapshots', {
+      prof123: [
+        { id: 'old1', name: 'Snap 1', timestamp: 1, data: largeObj },
+        { id: 'old2', name: 'Snap 2', timestamp: 2, data: largeObj },
+        { id: 'old3', name: 'Snap 3', timestamp: 3, data: largeObj },
+        { id: 'old4', name: 'Snap 4', timestamp: 4, data: largeObj }
+      ]
+    });
+    // Create unnamed snapshot triggering default fallback name and 2MB byte pruning
+    const unnamedSnap = await messageHandlers.CREATE_SNAPSHOT({ profileId: 'prof123', name: '' });
+    expect(unnamedSnap.success).toBe(true);
+    expect(unnamedSnap.snapshot.name).toMatch(/Snapshot /);
+
+    // 17. handlers.js SAVE_REWRITE & DELETE_REWRITE error propagation
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: false, error: 'Rewrite save failed' });
+    const saveErr = await messageHandlers.SAVE_REWRITE({ profileId: 'prof123', name: 'domain.com', content: '1.2.3.4' });
+    expect(saveErr.success).toBe(false);
+    expect(saveErr.error).toBe('Rewrite save failed');
+
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: true });
+    const delById = await messageHandlers.DELETE_REWRITE({ profileId: 'prof123', id: 'target-rewrite-id' });
+    expect(delById.success).toBe(true);
+    expect(apiClient.fetchWithRetry).toHaveBeenCalledWith('/profiles/prof123/rewrites/target-rewrite-id', { method: 'DELETE' });
+
+    apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: false, error: 'Rewrite deletion failed' });
+    const delErr = await messageHandlers.DELETE_REWRITE({ profileId: 'prof123', id: 'target-rewrite-id' });
+    expect(delErr.success).toBe(false);
+    expect(delErr.error).toBe('Rewrite deletion failed');
+
+    // 18. handlers.js RUN_DIAGNOSTICS, GET_NOTIFICATIONS, CLEAR_NOTIFICATIONS
+    const runDiagRes = await messageHandlers.RUN_DIAGNOSTICS();
+    expect(runDiagRes.success).toBe(true);
+
+    const notifsRes = await messageHandlers.GET_NOTIFICATIONS();
+    expect(notifsRes.success).toBe(true);
+    expect(Array.isArray(notifsRes.notifications)).toBe(true);
+
+    // Test GET_NOTIFICATIONS when state.notifications is undefined/falsy
+    const origNotifs = state.notifications;
+    state.notifications = null;
+    const notifsNullRes = await messageHandlers.GET_NOTIFICATIONS();
+    expect(notifsNullRes.notifications).toEqual([]);
+    state.notifications = origNotifs;
+
+    const clearNotifsRes = await messageHandlers.CLEAR_NOTIFICATIONS();
+    expect(clearNotifsRes.success).toBe(true);
+    expect(state.notifications).toEqual([]);
+
+    // Test PUSH_NOTIFICATION when browser.notifications is undefined
+    const origBrowserNotifs = global.browser.notifications;
+    delete global.browser.notifications;
+    await global.storage.set('alertSettings', { enabled: true, triggerThreats: true, desktop: true, actionCenter: false });
+    const pushNoNotifApi = await messageHandlers.PUSH_NOTIFICATION({ payload: { type: 'security', severity: 'high', message: 'No browser API' } });
+    expect(pushNoNotifApi.success).toBe(true);
+    global.browser.notifications = origBrowserNotifs;
+
     // Restore mocks
     apiClient.fetchWithRetry = origFetch;
     global.fetch = origGlobalFetch;
