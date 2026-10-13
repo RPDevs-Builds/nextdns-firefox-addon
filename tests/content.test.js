@@ -1740,6 +1740,874 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
             }
         }
     });
+
+    test('content.js - Branch Hardening: Config, Aliases, Mutations & Page Guards', async () => {
+        // 1. domSelectors.json fetch failure (L36, L38)
+        global.fetch.mockImplementationOnce(() => Promise.resolve({ ok: false, status: 404 }));
+        global.browser.storage.sync.get.mockResolvedValueOnce({});
+        global.browser.storage.local.get.mockResolvedValueOnce({});
+        window.history.pushState({}, '', '/abc123/setup');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // 2. storage.onChanged edge cases (L214, L230, L237)
+        expect(storageChangedListener).toBeDefined();
+        storageChangedListener({ webGuiMaster: { newValue: true } }, 'managed');
+        storageChangedListener({ webGuiCustomKey: { newValue: true } }, 'sync');
+        storageChangedListener({}, 'sync');
+
+        // 3. MutationObserver edge cases (L255, L264)
+        const dummyNode = document.createElement('div');
+        Object.defineProperty(dummyNode, 'className', { value: { baseVal: 'svg-class' }, configurable: true });
+        dummyNode.textContent = 'Some random text without trigger keywords';
+        document.body.appendChild(dummyNode);
+        await new Promise(r => setTimeout(r, 60));
+
+        // 4. Device aliases permutations (L283, L288, L295, L296, L297, L299)
+        await jest.isolateModulesAsync(async () => {
+            global.browser.storage.sync.get = jest.fn().mockImplementation(async () => ({
+                webGuiMaster: true,
+                hostnameAliases: {
+                    '10.0.0.1': 'Already Done',
+                    '10.0.0.2': { name: 'Named Device' },
+                    '10.0.0.3': { alias: 'Aliased Device' },
+                    '10.0.0.4': { id: '10.0.0.4' },
+                    '10.0.0.5': { model: 'Smart Speaker' },
+                    '10.0.0.6': { ip: '10.0.0.6' },
+                    '10.0.0.7': 'String Device'
+                }
+            }));
+            document.body.innerHTML = '';
+            await import('../src/content.js');
+            await new Promise(r => setTimeout(r, 60));
+
+            const container = document.createElement('div');
+            container.id = 'alias-container';
+            container.innerHTML = `
+                <span class="notranslate" id="dev-already-aliased" data-nxm-aliased="true">10.0.0.1</span>
+                <span class="notranslate" id="dev-name-obj">10.0.0.2</span>
+                <span class="notranslate" id="dev-alias-obj">10.0.0.3</span>
+                <span class="notranslate" id="dev-id-obj">10.0.0.4</span>
+                <span class="notranslate" id="dev-model-only">10.0.0.5</span>
+                <span class="notranslate" id="dev-ip-only">10.0.0.6</span>
+                <span class="notranslate" id="dev-str">10.0.0.7</span>
+            `;
+            document.body.appendChild(container);
+            await new Promise(r => setTimeout(r, 60));
+
+            expect(document.getElementById('dev-name-obj')?.textContent).toBe('Named Device');
+            expect(document.getElementById('dev-alias-obj')?.textContent).toBe('Aliased Device');
+            expect(document.getElementById('dev-id-obj')?.textContent).toBe('10.0.0.4');
+            expect(document.getElementById('dev-str')?.textContent).toBe('String Device');
+        });
+
+        // Test L283: when hostnameAliases is empty
+        await jest.isolateModulesAsync(async () => {
+            global.browser.storage.sync.get = jest.fn().mockImplementation(async () => ({
+                webGuiMaster: true,
+                hostnameAliases: {}
+            }));
+            document.body.innerHTML = '';
+            await import('../src/content.js');
+            await new Promise(r => setTimeout(r, 60));
+
+            const container = document.createElement('div');
+            container.innerHTML = `
+                <span class="notranslate" id="dev-none">10.0.0.99</span>
+            `;
+            document.body.appendChild(container);
+            await new Promise(r => setTimeout(r, 60));
+            expect(document.getElementById('dev-none')?.textContent).toBe('10.0.0.99');
+        });
+
+        // 5. Account page API key extraction (L349, L354, L359)
+        window.history.pushState({}, '', '/account');
+        document.body.innerHTML = `
+            <code>0123456789abcdef01234567</code>
+        `;
+        global.browser.storage.sync.get.mockResolvedValueOnce({ apiKey: '0123456789abcdef01234567' });
+        global.browser.storage.local.get.mockResolvedValueOnce({ apiKey: '0123456789abcdef01234567' });
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // 6. Security & Privacy navigation with desc=false (L160, L166)
+        global.browser.storage.sync.get.mockResolvedValueOnce({
+            webGuiMaster: true,
+            webGuiDesc: false,
+            webGuiNotes: false,
+            webGuiTlds: true,
+            webGuiBlocklists: true
+        });
+        window.history.pushState({}, '', '/abc123/security');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        window.history.pushState({}, '', '/abc123/privacy');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // 7. Already existing controls early return (L373, L459)
+        document.body.innerHTML = `
+            <div id="nxm-privacy-controls"></div>
+            <div id="nxm-tld-controls"></div>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+    });
+
+    test('content.js - Branch Hardening: Modals, Log Filtering, Badges & TLDs', async () => {
+        window.history.pushState({}, '', '/abc123/logs');
+        document.body.innerHTML = `
+            <div class="Logs">
+                <div class="list-group-item bg-2">
+                    <div class="d-md-flex"></div>
+                </div>
+                <div class="list-group-item" id="row-empty-domain">
+                    <span class="notranslate"></span>
+                </div>
+                <div class="list-group-item" id="row-space-domain">
+                    <span class="notranslate">domain with space</span>
+                    <time datetime="2026-10-13T12:00:00Z"></time>
+                </div>
+                <div class="list-group-item" id="row-filtered" data-nxm-filtered="true" style="display: none;">
+                    <span class="notranslate">allowed-again.com</span>
+                </div>
+                <div class="list-group-item" id="row-time-no-parent">
+                    <span class="notranslate">valid-domain.com</span>
+                </div>
+            </div>
+            <div class="dropdown">
+                <a class="dropdown-item" href="/account">Account</a>
+                <div class="dropdown-menu"></div>
+            </div>
+            <input type="checkbox" id="nxm-logs-compact" />
+            <input type="checkbox" id="nxm-logs-highlight" />
+            <input type="text" id="nxm-logs-search" />
+        `;
+
+        global.browser.storage.sync.get.mockResolvedValue({
+            webGuiMaster: true,
+            webGuiLogs: true,
+            webGuiFilter: true,
+            logFilters: {
+                '*.wildcard.com': 'Wildcard Rule',
+                'exact.com': ''
+            }
+        });
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 80));
+
+        // 1. isHighlight false branch (L708)
+        const hlCheck = document.getElementById('nxm-logs-highlight');
+        if (hlCheck) {
+            hlCheck.checked = false;
+            hlCheck.dispatchEvent(new Event('change'));
+        }
+
+        // 2. Open Filtered Logs Modal and test all branches (L1029, L1055, L1183, L1201, L1204, L1229, L1246, L1256)
+        const manageBtn = document.getElementById('nxm-manage-filters-btn');
+        manageBtn?.click();
+        await new Promise(r => setTimeout(r, 60));
+
+        const modalBackdrop = document.getElementById('nxm-filter-modal-backdrop');
+        expect(modalBackdrop).not.toBeNull();
+
+        // Search in modal matching note (L1172) and matching nothing (L1183)
+        const searchInput = modalBackdrop.querySelector('.nxm-modal-body input[type="search"]');
+        if (searchInput) {
+            searchInput.value = 'Wildcard Rule';
+            searchInput.dispatchEvent(new Event('input'));
+            searchInput.value = 'non-matching-term-xyz';
+            searchInput.dispatchEvent(new Event('input'));
+            expect(modalBackdrop.textContent).toContain('No filter rules match your search.');
+        }
+
+        // Add filter with empty / invalid pattern (L1229)
+        const patternInput = document.getElementById('nxm-new-filter-pattern');
+        const addBtn = modalBackdrop.querySelector('.nxm-filter-add-box button');
+        if (patternInput && addBtn) {
+            patternInput.value = '   ';
+            addBtn.click();
+        }
+
+        // Clear All filters with confirm returning false (L1246)
+        const clearAllBtn = modalBackdrop.querySelector('.nxm-modal-footer .btn-outline-danger');
+        global.confirm.mockReturnValueOnce(false);
+        clearAllBtn?.click();
+
+        // Escape key to close modal (L1256)
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        expect(document.getElementById('nxm-filter-modal-backdrop')).toBeNull();
+
+        // Reopen and test closeBtn.onclick (L1055)
+        manageBtn?.click();
+        await new Promise(r => setTimeout(r, 40));
+        const closeBtn = document.querySelector('.nxm-modal-close');
+        closeBtn?.click();
+        expect(document.getElementById('nxm-filter-modal-backdrop')).toBeNull();
+
+        // Reopen and test backdrop click (L1029)
+        manageBtn?.click();
+        await new Promise(r => setTimeout(r, 40));
+        const backdropEl = document.getElementById('nxm-filter-modal-backdrop');
+        backdropEl?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        // 3. Log Action buttons (Allow, Deny) with confirm returning false (L1270, L1271)
+        const logActionBtns = document.querySelectorAll('.nxm-log-actions button');
+        global.confirm.mockReturnValueOnce(false);
+        if (logActionBtns.length > 0) {
+            logActionBtns[0].click();
+        }
+
+        // 4. TLD Enable All / Disable All / Restore prompts canceled or empty (L1365-L1386)
+        window.history.pushState({}, '', '/abc123/security');
+        document.body.innerHTML = `
+            <div class="modal-dialog modal-lg modal-dialog-scrollable"></div>
+            <button id="nxm-restore" style="display: none;"></button>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const enableAllBtn = document.getElementById('nxm-modal-enable-all');
+        const disableAllBtn = document.getElementById('nxm-modal-disable-all');
+
+        global.confirm.mockReturnValueOnce(false);
+        enableAllBtn?.click();
+
+        global.confirm.mockReturnValueOnce(false);
+        disableAllBtn?.click();
+
+        global.confirm.mockReturnValueOnce(true);
+        enableAllBtn?.click();
+
+        global.confirm.mockReturnValueOnce(true);
+        global.fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: [] }) });
+        disableAllBtn?.click();
+    });
+
+    test('content.js - Branch Hardening: Bulk Actions, Allow/Deny Lists & Themes', async () => {
+        // 1. Allowlist & Denylist Bulk Delete (L905, L906, L909, L933, L938)
+        window.history.pushState({}, '', '/abc123/denylist');
+        document.body.innerHTML = `
+            <div id="domain-container">
+                <form>
+                    <button type="submit">Add Domain</button>
+                </form>
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <span class="notranslate">sub.example.com</span>
+                        <button class="btn-danger">Delete</button>
+                    </div>
+                    <div class="list-group-item">
+                        <span class="notranslate">simple.org</span>
+                        <button class="btn-danger">Delete</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        global.browser.storage.sync.get.mockResolvedValue({
+            webGuiMaster: true,
+            webGuiDesc: true,
+            domainDescriptions: { 'simple.org': 'My simple org' }
+        });
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 80));
+
+        // Click "Delete Selected" with 0 selected (L905)
+        const delSelectedBtn = document.querySelector('#nxm-bulk-header button');
+        delSelectedBtn?.click();
+
+        // Select checkbox and click with confirm returning false (L906)
+        const cb = document.querySelector('.nxm-bulk-cb');
+        if (cb) cb.checked = true;
+        global.confirm.mockReturnValueOnce(false);
+        delSelectedBtn?.click();
+
+        // Note edit prompt canceled (L867 false branch) and empty note saving (L933/938 false branch)
+        const noteBtn = document.querySelector('.nxm-domain-desc button');
+        global.prompt.mockReturnValueOnce(null);
+        noteBtn?.click();
+
+        global.prompt.mockReturnValueOnce('');
+        noteBtn?.click();
+
+        // 2. Bulk Add Button on denylist (L1697, L1700, L1701, L1703, L1704)
+        const bulkAddBtn = document.getElementById('nxm-bulk-add-btn');
+        global.prompt.mockReturnValueOnce(null);
+        bulkAddBtn?.click();
+
+        global.prompt.mockReturnValueOnce('no-dot-domain');
+        bulkAddBtn?.click();
+
+        global.prompt.mockReturnValueOnce('good1.com, good2.com');
+        global.confirm.mockReturnValueOnce(false);
+        bulkAddBtn?.click();
+
+        // 3. Domain List Sorting button click (L1744, L1745, L1753, L1780)
+        const sortDomainsBtn = document.getElementById('nxm-sort-domains');
+        sortDomainsBtn?.click();
+
+        // 4. Blocklist Modal Sort (L1659, L1661, L1669, L1672, L1673)
+        const modalDiv = document.createElement('div');
+        modalDiv.className = 'modal-content';
+        modalDiv.innerHTML = `
+            <div class="modal-header"></div>
+            <div class="list-group">
+                <div class="item"><h5>Zebra List</h5></div>
+                <div class="item"><span>Alpha List</span></div>
+                <div class="item">Plain Text Item</div>
+            </div>
+        `;
+        document.body.appendChild(modalDiv);
+        messageListener({ type: 'TOGGLE_BLOCKLIST_LIST' }, {}, jest.fn());
+        const modalSortBtn = modalDiv.querySelector('#nxm-sort-blocklists');
+        modalSortBtn?.click();
+
+        // 5. Account dropdown strategies (L1564, L1571, L1577, L1579, L1613)
+        document.body.innerHTML = `
+            <div class="dropdown">
+                <button class="dropdown-toggle">
+                    <span class="notranslate">user@example.com</span>
+                </button>
+                <div class="dropdown-menu"></div>
+            </div>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // 6. Profile switcher with array response (L1467)
+        global.browser.runtime.sendMessage.mockResolvedValueOnce([
+            { id: 'p1', name: 'First Profile' },
+            { id: 'p2', name: 'Second Profile' }
+        ]);
+        window.history.pushState({}, '', '/abc123/setup');
+        document.body.innerHTML = `
+            <div class="navbar-brand"></div>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // 7. Profile Note prompt canceled (L1448 false branch)
+        const profileNoteEl = document.getElementById('nxm-profile-note');
+        global.prompt.mockReturnValueOnce(null);
+        profileNoteEl?.click();
+
+        // 8. Forced theme permutations (L1502, L1508, L1516, L1522, L1501)
+        storageChangedListener({ webGuiForcedTheme: { newValue: 'default' } }, 'sync');
+        storageChangedListener({ webGuiForcedTheme: { newValue: 'dark' } }, 'sync');
+        storageChangedListener({ webGuiForcedTheme: { newValue: 'light' } }, 'sync');
+        storageChangedListener({ webGuiForcedTheme: { newValue: '' } }, 'sync');
+    });
+
+    test('content.js - Branch Hardening: Final 100% Sweep', async () => {
+        // 1. initConfig with loaded=null, empty sync storage (L38, L50, L59, L1529, L1530)
+        await jest.isolateModulesAsync(async () => {
+            const origMO = global.MutationObserver;
+            const origAddListener = global.browser.storage.onChanged.addListener;
+            const origSyncGet = global.browser.storage.sync.get;
+            const origLocalGet = global.browser.storage.local.get;
+            const origFetch = global.fetch;
+
+            global.browser.storage.onChanged.addListener = jest.fn();
+
+            global.fetch = jest.fn().mockImplementation((url) => {
+                if (url.includes('domSelectors.json')) {
+                    return Promise.resolve({ ok: true, json: async () => null });
+                }
+                return Promise.resolve({ ok: true, json: async () => ({}) });
+            });
+            global.browser.storage.sync.get = jest.fn().mockImplementation(async () => {
+                delete global.MutationObserver;
+                return {};
+            });
+            global.browser.storage.local.get = jest.fn().mockResolvedValue({});
+
+            await import('../src/content.js');
+            await new Promise(r => setTimeout(r, 60));
+
+            global.MutationObserver = origMO;
+            global.browser.storage.onChanged.addListener = origAddListener;
+            global.browser.storage.sync.get = origSyncGet;
+            global.browser.storage.local.get = origLocalGet;
+            global.fetch = origFetch;
+        });
+
+        // 2. applyForcedTheme and evaluatePage with document.body null (L120, L1507, L1515, L1501)
+        const origBody = document.body;
+        Object.defineProperty(document, 'body', { value: null, configurable: true });
+
+        // Trigger cleanupUI with null body (L120 Branch 20 [1])
+        storageChangedListener({ webGuiMaster: { newValue: false } }, 'sync');
+
+        // Trigger dark, light, empty-theme with master=true while body is null
+        storageChangedListener({
+            webGuiMaster: { newValue: true },
+            webGuiForcedTheme: { newValue: 'dark' }
+        }, 'sync');
+        storageChangedListener({
+            webGuiForcedTheme: { newValue: 'light' }
+        }, 'sync');
+        storageChangedListener({
+            webGuiForcedTheme: { newValue: '' }
+        }, 'sync');
+
+        Object.defineProperty(document, 'body', { value: origBody, configurable: true });
+
+        // 3. cleanupUI with IDs present (L109, L131, L169, L175)
+        document.body.innerHTML = `
+            <div id="nxm-profile-note"></div>
+            <div id="nxm-progress-ui"></div>
+            <div class="list-group-item" style="display: none;"></div>
+        `;
+        storageChangedListener({
+            webGuiMaster: { newValue: false }
+        }, 'sync');
+        await new Promise(r => setTimeout(r, 60));
+
+        // Re-enable master with notes and logs disabled
+        storageChangedListener({
+            webGuiMaster: { newValue: true },
+            webGuiProfileNotes: { newValue: false },
+            webGuiLogActions: { newValue: false }
+        }, 'sync');
+        window.history.pushState({}, '', '/abc123/logs');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // 4. MutationObserver with generic modal (L264)
+        const genericModal = document.createElement('div');
+        genericModal.className = 'modal';
+        genericModal.textContent = 'Generic Confirmation Modal';
+        document.body.appendChild(genericModal);
+        await new Promise(r => setTimeout(r, 60));
+
+        // 5. Already injected controls early return (L375, L461)
+        const origGetId = document.getElementById.bind(document);
+        let privacyCalls = 0;
+        let tldCalls = 0;
+        const spyGetId = jest.spyOn(document, 'getElementById').mockImplementation((id) => {
+            if (id === 'nxm-privacy-controls' && window.location.pathname.endsWith('/privacy')) {
+                privacyCalls++;
+                if (privacyCalls === 1) return null;
+                return document.createElement('div');
+            }
+            if (id === 'nxm-tld-controls' && window.location.pathname.endsWith('/security')) {
+                tldCalls++;
+                if (tldCalls === 1) return null;
+                return document.createElement('div');
+            }
+            return origGetId(id);
+        });
+
+        window.history.pushState({}, '', '/abc123/privacy');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        window.history.pushState({}, '', '/abc123/security');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+        spyGetId.mockRestore();
+
+        // 6. Missing listGroup parent for privacy & TLD controls (L411, L515)
+        document.body.innerHTML = `
+            <div class="wrap-privacy list-group-item"><h5>Blocklists</h5></div>
+            <div class="wrap-tld list-group-item"><h5>Block Top-Level Domains (TLDs)</h5></div>
+        `;
+        const wrapPriv = document.querySelector('.wrap-privacy');
+        Object.defineProperty(wrapPriv, 'parentElement', { value: null, configurable: true });
+        const wrapTld = document.querySelector('.wrap-tld');
+        Object.defineProperty(wrapTld, 'parentElement', { value: null, configurable: true });
+
+        window.history.pushState({}, '', '/abc123/privacy');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        window.history.pushState({}, '', '/abc123/security');
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // 7. Subdomain pattern mismatch (L828) and log actions with detached timeEl (L960)
+        window.history.pushState({}, '', '/abc123/logs');
+        document.body.innerHTML = `
+            <div class="Logs">
+                <div class="list-group-item bg-2"><div class="d-md-flex"></div></div>
+                <div class="list-group-item" id="row-detach-time">
+                    <span class="notranslate">sub.mismatch.com</span>
+                    <time datetime="2026-10-13T12:00:00Z"></time>
+                </div>
+            </div>
+            <input type="text" id="nxm-logs-search" />
+        `;
+        const timeElDetach = document.querySelector('#row-detach-time time');
+        if (timeElDetach) {
+            Object.defineProperty(timeElDetach, 'parentElement', { value: null, configurable: true });
+        }
+
+        global.browser.storage.sync.get.mockImplementation(async (keys) => {
+            return {
+                webGuiMaster: true,
+                webGuiDesc: true,
+                webGuiLogs: true,
+                webGuiFilter: true,
+                logFilters: {
+                    '*.wildcard.org': 'Wildcard Rule'
+                }
+            };
+        });
+
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 80));
+
+        // 8. Filter modal backdrop click when target !== backdrop (L1031), keys (L1244, L1245, L1258)
+        const manageBtn = document.getElementById('nxm-manage-filters-btn');
+        manageBtn?.click();
+        await new Promise(r => setTimeout(r, 60));
+        const modalBackdrop = document.getElementById('nxm-filter-modal-backdrop');
+        if (modalBackdrop) {
+            modalBackdrop.onclick({ target: document.body });
+        }
+
+        const patternInp = document.getElementById('nxm-new-filter-pattern');
+        patternInp?.onkeydown({ key: 'a' });
+        const noteInp = modalBackdrop?.querySelector('.nxm-filter-add-box input:last-of-type');
+        noteInp?.onkeydown({ key: 'b' });
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }));
+
+        const clearBtn = modalBackdrop?.querySelector('.nxm-modal-footer .btn-outline-danger');
+        global.confirm.mockReturnValueOnce(true);
+        clearBtn?.click();
+        await new Promise(r => setTimeout(r, 60));
+
+        // 9. Denylist delete selected with confirm=true (L909) and save note with empty domainDescriptions default (L934)
+        window.history.pushState({}, '', '/abc123/denylist');
+        document.body.innerHTML = `
+            <div id="domain-container">
+                <form><button type="submit">Add Domain</button></form>
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <span class="notranslate">denydomain.com</span>
+                        <button class="btn-danger">Delete</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        global.browser.storage.sync.get.mockImplementation(async (keys) => {
+            if (keys === 'domainDescriptions') return {}; // default {} on line 934
+            return { webGuiMaster: true, webGuiDesc: true };
+        });
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const cbSelect = document.querySelector('.nxm-bulk-cb');
+        if (cbSelect) cbSelect.checked = true;
+        const delBtnDeny = document.querySelector('#nxm-bulk-header button');
+        global.confirm.mockReturnValueOnce(true);
+        global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+        delBtnDeny?.click();
+        await new Promise(r => setTimeout(r, 60));
+
+        // Save domain note using empty default argument (L934)
+        global.prompt.mockReturnValueOnce('New Deny Note');
+        document.querySelector('.nxm-domain-desc button')?.click();
+        await new Promise(r => setTimeout(r, 60));
+
+        // 10. Scraping edge cases on each page
+        // Privacy: scrapeBlocklists (L1293, L1296, L1298)
+        window.history.pushState({}, '', '/abc123/privacy');
+        document.body.innerHTML = `
+            <div class="list-group">
+                <div class="list-group-item">
+                    <span style="font-weight: 500">Blocklist One</span>
+                    entries
+                </div>
+                <div class="list-group-item">
+                    <span style="font-weight: 500">Blocklist One</span>
+                    100 entries
+                </div>
+                <div class="list-group-item">
+                    <span style="font-weight: 500"></span>
+                    100 entries
+                </div>
+                <div class="list-group-item">
+                    <span style="font-weight: 500">No Entries List</span>
+                    no count here
+                </div>
+            </div>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // Parental control: scrapeServices (L1314, L1315)
+        window.history.pushState({}, '', '/abc123/parentalcontrol');
+        document.body.innerHTML = `
+            <div class="list-group">
+                <div class="list-group-item"><span style="font-weight: 500">Porn</span></div>
+                <div class="list-group-item"><span style="font-weight: 500">Gambling</span></div>
+                <div class="list-group-item"><span style="font-weight: 500">Service A</span></div>
+                <div class="list-group-item"><span style="font-weight: 500">Service A</span></div>
+                <div class="list-group-item"><span style="font-weight: 500"></span></div>
+            </div>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // Security: scrapeTLDs with invalid chars (L1329)
+        window.history.pushState({}, '', '/abc123/security');
+        document.body.innerHTML = `
+            <div class="list-group">
+                <div class="list-group-item"><span style="font-weight: 500">.invalid tld*</span></div>
+                <div class="list-group-item"><span style="font-weight: 500">.valid</span></div>
+            </div>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // 11. Actions without profileId in path (L1272, L1351, L1367, L1379, L1388)
+        window.history.pushState({}, '', '/logs');
+        document.body.innerHTML = `
+            <div class="list-group">
+                <div class="list-group-item">
+                    <span class="notranslate">noprofile.com</span>
+                </div>
+            </div>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+        document.querySelector('.nxm-log-actions button')?.click();
+
+        // Security page without profileId to inject TLD buttons and trigger checks
+        window.history.pushState({}, '', '/security');
+        document.body.innerHTML = `
+            <div class="list-group">
+                <div class="list-group-item">
+                    <h5>Block Top-Level Domains (TLDs)</h5>
+                </div>
+            </div>
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="list-group-item">.xyz</div>
+            </div>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // When injectPageButtons ran on /security without profileId, checkBackupStatus ran -> L1351 Branch 193 [0]
+        // Click restore, enable, and disable buttons without profileId
+        document.getElementById('nxm-restore')?.click();
+        document.getElementById('nxm-enable-all')?.click();
+        document.getElementById('nxm-modal-enable-all')?.click();
+        document.getElementById('nxm-disable-all')?.click();
+        document.getElementById('nxm-modal-disable-all')?.click();
+
+        // 12. TLD Restore with backup & currentTLDs calling processTLDs with alertOnFinish=false (L1422)
+        window.history.pushState({}, '', '/abc123/security');
+        global.browser.storage.sync.get.mockResolvedValue({
+            tldBackup_abc123: ['com', 'org'],
+            webGuiMaster: true,
+            webGuiTlds: true
+        });
+        global.fetch = jest.fn().mockImplementation((url, opts) => {
+            if (opts?.method === 'POST' || opts?.method === 'DELETE') {
+                return Promise.resolve({ ok: false, status: 500, json: async () => ({}) });
+            }
+            return Promise.resolve({ ok: true, status: 200, json: async () => ({ data: [{ id: 'xyz' }] }) });
+        });
+        document.body.innerHTML = `
+            <div class="list-group">
+                <div class="list-group-item">
+                    <h5>Block Top-Level Domains (TLDs)</h5>
+                </div>
+            </div>
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="list-group-item">.xyz</div>
+            </div>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 100));
+
+        const restoreBtnEl = document.getElementById('nxm-restore');
+        expect(restoreBtnEl?.style.display).toBe('inline-block');
+        await restoreBtnEl?.click();
+        await new Promise(r => setTimeout(r, 80));
+
+        // When backup is missing, restore button displays none (L1354 Branch 195 [1])
+        global.browser.storage.sync.get.mockResolvedValueOnce({
+            tldBackup_abc123: null,
+            webGuiMaster: true,
+            webGuiTlds: true
+        });
+        document.getElementById('nxm-tld-controls')?.remove();
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+        expect(document.getElementById('nxm-restore')?.style.display).toBe('none');
+
+        // Missing restoreBtn branch in checkBackupStatus (L1354 Branch 194 [1]):
+        // Fresh DOM with TLD header but remove #nxm-restore before calling handleEnableAll
+        document.body.innerHTML = `
+            <div class="list-group">
+                <div class="list-group-item">
+                    <h5>Block Top-Level Domains (TLDs)</h5>
+                </div>
+            </div>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const enableAllBtnEl = document.getElementById('nxm-enable-all');
+        if (enableAllBtnEl) enableAllBtnEl.disabled = false;
+        document.getElementById('nxm-restore')?.remove();
+        global.confirm.mockReturnValueOnce(true);
+        enableAllBtnEl?.click();
+        await new Promise(r => setTimeout(r, 80));
+
+        // Missing data.data in getCurrentActiveTLDs (L1361 Branch 196 [1]):
+        // fetch returns { data: null } on GET /security/tlds, trigger handleDisableAll
+        global.fetch.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({ data: null })
+        });
+        global.confirm.mockReturnValueOnce(true);
+        const disableAllBtnEl = document.getElementById('nxm-disable-all');
+        if (disableAllBtnEl) disableAllBtnEl.disabled = false;
+        disableAllBtnEl?.click();
+        await new Promise(r => setTimeout(r, 80));
+
+        // 13. Profile Note clear note prompt returning empty string (L1453)
+        window.history.pushState({}, '', '/abc123/setup');
+        document.body.innerHTML = `<div class="navbar-brand"></div>`;
+        global.browser.storage.sync.get.mockResolvedValueOnce({
+            webGuiMaster: true,
+            webGuiProfileNotes: true,
+            profileNotes: { abc123: 'Existing note' }
+        });
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        global.prompt.mockReturnValueOnce('');
+        document.getElementById('nxm-profile-note')?.click();
+        await new Promise(r => setTimeout(r, 60));
+
+        // 14. Bulk Add on /denylist (exercises L1693 fallback and L1694 denylist branch)
+        window.history.pushState({}, '', '/denylist');
+        document.body.innerHTML = `
+            <form>
+                <input type="text" />
+                <button type="submit">Submit</button>
+            </form>
+            <div class="list-group">
+                <div class="list-group-item">
+                    <span class="notranslate"></span>
+                </div>
+                <div class="list-group-item">
+                    <span class="notranslate"></span>
+                </div>
+            </div>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const bulkBtnDeny = document.getElementById('nxm-bulk-add-btn');
+        global.prompt.mockReturnValueOnce('rootdomain1.com, rootdomain2.com');
+        global.confirm.mockReturnValueOnce(true);
+        bulkBtnDeny?.click();
+        await new Promise(r => setTimeout(r, 60));
+
+        // Sort domains button with empty .notranslate (L1744, L1745)
+        document.getElementById('nxm-sort-domains')?.click();
+
+        // Empty form with no submit button and no children for submitBtn null (L1711)
+        document.body.innerHTML = `<form id="empty-form"></form><div class="list-group"></div>`;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        // 15. Dropdown search strategies and missing parent
+        document.body.innerHTML = `
+            <a href="/account">Direct Account Link</a>
+            <svg class="fa-user"></svg>
+            <div class="dropdown">
+                <button class="dropdown-toggle">Generic Button</button>
+            </div>
+            <div>
+                <button class="dropdown-toggle">
+                    <span class="notranslate">detached@test.com</span>
+                </button>
+            </div>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        const fakeDropdown = document.createElement('div');
+        fakeDropdown.className = 'dropdown';
+        fakeDropdown.innerHTML = '<a class="dropdown-item" href="/account">Account</a>';
+        Object.defineProperty(fakeDropdown, 'parentElement', { value: null, configurable: true });
+        const spyQuery = jest.spyOn(document, 'querySelector').mockImplementation((sel) => {
+            if (sel.includes('href="/account"')) return fakeDropdown.querySelector('a');
+            return null;
+        });
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+        spyQuery.mockRestore();
+
+        // 16. Runtime onMessage unhandled message type (L1652)
+        messageListener({ type: "UNKNOWN_MESSAGE_TYPE" }, {}, jest.fn());
+
+        // 17. Blocklist Modal Sort edge cases (L1659, L1661, L1669, L1672, L1673)
+        const modalWithSort = document.createElement('div');
+        modalWithSort.className = 'modal';
+        modalWithSort.innerHTML = '<button id="nxm-sort-blocklists"></button>Add a blocklist';
+        document.body.appendChild(modalWithSort);
+        await new Promise(r => setTimeout(r, 120));
+
+        const modalNoHeader = document.createElement('div');
+        modalNoHeader.className = 'modal';
+        modalNoHeader.textContent = 'Add a blocklist without header';
+        document.body.appendChild(modalNoHeader);
+        await new Promise(r => setTimeout(r, 120));
+
+        const modalNoList = document.createElement('div');
+        modalNoList.className = 'modal';
+        modalNoList.innerHTML = '<div class="modal-header"></div>Add a blocklist';
+        document.body.appendChild(modalNoList);
+        await new Promise(r => setTimeout(r, 120));
+        modalNoList.querySelector('#nxm-sort-blocklists')?.click();
+
+        const modalPlainItems = document.createElement('div');
+        modalPlainItems.className = 'modal';
+        modalPlainItems.innerHTML = `
+            <div class="modal-header"></div>
+            Add a blocklist
+            <div class="list-group">
+                <div>Zebra item</div>
+                <div>Alpha item</div>
+            </div>
+        `;
+        document.body.appendChild(modalPlainItems);
+        await new Promise(r => setTimeout(r, 120));
+        modalPlainItems.querySelector('#nxm-sort-blocklists')?.click();
+
+        // 18. Domain styling with existing sort button, and items with missing .notranslate
+        window.history.pushState({}, '', '/abc123/allowlist');
+        document.body.innerHTML = `
+            <div id="container-with-sort">
+                <button id="nxm-sort-domains">Already Injected</button>
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <div>No class</div>
+                    </div>
+                    <div class="list-group-item">
+                        <span class="notranslate"></span>
+                    </div>
+                    <div class="list-group-item">
+                        <span class="notranslate">alpha.com</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        document.getElementById('nxm-sort-domains')?.click();
+    });
 });
 
 

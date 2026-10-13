@@ -221,7 +221,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/content.js, src/content.css`
 - **Category**: **Content Scripts & Web GUI**
-- **Total Tests**: **31 tests**
+- **Total Tests**: **35 tests**
 - **Overview**: DOM injections into NextDNS console (my.nextdns.io), forced dark mode log border highlight preservation, TLD bulk actions, log filtering modals, live search exclusions, and metadata scrapers.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -257,6 +257,10 @@ npm run test:watch
 | 29 | Content Script - fallback selectors when domSelectors fetch fails or lacks definitions | *Content Script (NextDNS Web Console Enhancements)* | [L1577](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1577) |
 | 30 | content.js - Exhaustive Statement & Function Coverage Deep Dive | *Content Script (NextDNS Web Console Enhancements)* | [L1647](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1647) |
 | 31 | Domain sorting button click and missing domain element branches | *Content Script (NextDNS Web Console Enhancements)* | [L1710](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1710) |
+| 32 | content.js - Branch Hardening: Config, Aliases, Mutations & Page Guards | *Content Script (NextDNS Web Console Enhancements)* | [L1744](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1744) |
+| 33 | content.js - Branch Hardening: Modals, Log Filtering, Badges & TLDs | *Content Script (NextDNS Web Console Enhancements)* | [L1858](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1858) |
+| 34 | content.js - Branch Hardening: Bulk Actions, Allow/Deny Lists & Themes | *Content Script (NextDNS Web Console Enhancements)* | [L1988](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L1988) |
+| 35 | content.js - Branch Hardening: Final 100% Sweep | *Content Script (NextDNS Web Console Enhancements)* | [L2102](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/content.test.js#L2102) |
 
 ---
 
@@ -676,7 +680,7 @@ npm run test:watch
 | 56 | ui/main.js - Branch Hardening: Domain Management & Modes | *Global Event Listeners and Delegations* | [L1603](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1603) |
 | 57 | ui/main.js - Branch Hardening: Filter Checkboxes, Delegations & Cache | *Global Event Listeners and Delegations* | [L1800](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1800) |
 | 58 | ui/main.js - Branch Hardening: Settings, Import/Export & Alerts | *Global Event Listeners and Delegations* | [L1959](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L1959) |
-| 59 | ui/main.js - Final 24 Branches Hardening to 100% | *Global Event Listeners and Delegations* | [L2057](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L2057) |
+| 59 | ui/main.js - Final 24 Branches Hardening to 100% | *Global Event Listeners and Delegations* | [L2061](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiMain.test.js#L2061) |
 
 ---
 

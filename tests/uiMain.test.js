@@ -2010,17 +2010,21 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             await uiMain.toggleAutoRefresh(false);
 
             // 4. importFullConfiguration (L1190, L1191, L1192)
-            const origConfirm = window.confirm;
-            window.confirm = jest.fn(() => false);
+            const origGlobalConfirm = global.confirm;
+            const origWindowConfirm = window.confirm;
+            global.confirm = jest.fn(() => false);
+            window.confirm = global.confirm;
             const fakeFile1 = new Blob([JSON.stringify({ type: 'DNS_FORGE_BACKUP', sync: {}, local: {} })], { type: 'application/json' });
             await uiMain.importFullConfiguration({ target: { files: [fakeFile1], value: 'fake' } });
             await new Promise(r => setTimeout(r, 60));
 
-            window.confirm = jest.fn(() => true);
+            global.confirm = jest.fn(() => true);
+            window.confirm = global.confirm;
             const fakeFile2 = new Blob([JSON.stringify({ type: 'DNS_FORGE_BACKUP' })], { type: 'application/json' });
             await uiMain.importFullConfiguration({ target: { files: [fakeFile2], value: 'fake' } });
             await new Promise(r => setTimeout(r, 60));
-            window.confirm = origConfirm;
+            global.confirm = origGlobalConfirm;
+            window.confirm = origWindowConfirm;
 
             // 5. Alerts Form & Test Alert (L1246, L1254, L1269, L1278, L1291, L1304, L1313)
             document.body.innerHTML = '<button id="alert-save-btn">Save</button>';

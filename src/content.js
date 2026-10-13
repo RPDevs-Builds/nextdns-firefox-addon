@@ -26,6 +26,8 @@ const DEFAULT_DOM_SELECTORS = {
 
 let domSelectors = DEFAULT_DOM_SELECTORS;
 let hostnameAliases = {};
+let themeObserver = null;
+let isSettingTheme = false;
 
 // Initialize config and listen for live changes
 async function initConfig() {
@@ -227,7 +229,7 @@ browser.storage.onChanged.addListener((changes, area) => {
                     'filter': 'filter',
                     'forcedtheme': 'forcedTheme'
                 };
-                const targetKey = map[configKey] || configKey;
+                const targetKey = map[configKey];
                 webGuiConfig[targetKey] = changes[k].newValue;
                 changed = true;
                 console.log(`[DNS Forge] Config changed: ${targetKey} = ${webGuiConfig[targetKey]}`);
@@ -1495,47 +1497,47 @@ async function injectProfileSwitcher() {
   header.appendChild(select);
 }
 
-let themeObserver = null;
-let isSettingTheme = false;
-
 function applyForcedTheme() {
-  const forced = webGuiConfig.master ? (webGuiConfig.forcedTheme || 'default') : 'default';
+  const forced = (webGuiConfig.master && webGuiConfig.forcedTheme) || 'default';
 
-  if (forced === 'dark') {
-    document.documentElement.setAttribute('data-bs-theme', 'dark');
-    document.documentElement.classList.add('nxm-forced-dark');
-    document.documentElement.classList.remove('nxm-forced-light');
-    if (document.body) {
-      document.body.classList.add('nxm-forced-dark');
-      document.body.classList.remove('nxm-forced-light');
+  isSettingTheme = true;
+  try {
+    if (forced === 'dark') {
+      document.documentElement.setAttribute('data-bs-theme', 'dark');
+      document.documentElement.classList.add('nxm-forced-dark');
+      document.documentElement.classList.remove('nxm-forced-light');
+      if (document.body) {
+        document.body.classList.add('nxm-forced-dark');
+        document.body.classList.remove('nxm-forced-light');
+      }
+    } else if (forced === 'light') {
+      document.documentElement.setAttribute('data-bs-theme', 'light');
+      document.documentElement.classList.add('nxm-forced-light');
+      document.documentElement.classList.remove('nxm-forced-dark');
+      if (document.body) {
+        document.body.classList.add('nxm-forced-light');
+        document.body.classList.remove('nxm-forced-dark');
+      }
+    } else {
+      document.documentElement.classList.remove('nxm-forced-dark', 'nxm-forced-light');
+      if (document.body) {
+        document.body.classList.remove('nxm-forced-dark', 'nxm-forced-light');
+      }
     }
-  } else if (forced === 'light') {
-    document.documentElement.setAttribute('data-bs-theme', 'light');
-    document.documentElement.classList.add('nxm-forced-light');
-    document.documentElement.classList.remove('nxm-forced-dark');
-    if (document.body) {
-      document.body.classList.add('nxm-forced-light');
-      document.body.classList.remove('nxm-forced-dark');
-    }
-  } else {
-    document.documentElement.classList.remove('nxm-forced-dark', 'nxm-forced-light');
-    if (document.body) {
-      document.body.classList.remove('nxm-forced-dark', 'nxm-forced-light');
-    }
+  } finally {
+    isSettingTheme = false;
   }
 }
 
 function setupThemeObserver() {
-  if (themeObserver) return;
   if (typeof MutationObserver === 'undefined') return;
 
   themeObserver = new MutationObserver(() => {
-    if (isSettingTheme) return;
-    if (!webGuiConfig.master || !webGuiConfig.forcedTheme || webGuiConfig.forcedTheme === 'default') {
+    if (isSettingTheme || !webGuiConfig.master || !webGuiConfig.forcedTheme || webGuiConfig.forcedTheme === 'default') {
       return;
     }
-    const current = document.documentElement.getAttribute('data-bs-theme');
-    if (current !== webGuiConfig.forcedTheme) {
+    const current = document.documentElement?.getAttribute('data-bs-theme');
+    if (current && current !== webGuiConfig.forcedTheme) {
       isSettingTheme = true;
       try {
         document.documentElement.setAttribute('data-bs-theme', webGuiConfig.forcedTheme);
@@ -1543,10 +1545,10 @@ function setupThemeObserver() {
         isSettingTheme = false;
       }
     }
-    if (webGuiConfig.forcedTheme === 'dark' && !document.documentElement.classList.contains('nxm-forced-dark')) {
-      document.documentElement.classList.add('nxm-forced-dark');
-    } else if (webGuiConfig.forcedTheme === 'light' && !document.documentElement.classList.contains('nxm-forced-light')) {
-      document.documentElement.classList.add('nxm-forced-light');
+    if (webGuiConfig.forcedTheme === 'dark' && !document.documentElement?.classList.contains('nxm-forced-dark')) {
+      document.documentElement?.classList.add('nxm-forced-dark');
+    } else if (webGuiConfig.forcedTheme === 'light' && !document.documentElement?.classList.contains('nxm-forced-light')) {
+      document.documentElement?.classList.add('nxm-forced-light');
     }
   });
 
@@ -1567,16 +1569,14 @@ function findAccountDropdown() {
   // Strategy 2: Button with fa-user icon inside a dropdown
   const userIcon = document.querySelector('.dropdown button.dropdown-toggle svg.fa-user, .dropdown button.dropdown-toggle svg[data-icon="user"], .dropdown svg.fa-user, .dropdown svg[data-icon="user"]');
   if (userIcon) {
-    const dd = userIcon.closest('.dropdown');
-    if (dd) return dd;
+    return userIcon.closest('.dropdown');
   }
 
   // Strategy 3: Any dropdown toggle with notranslate email/user text in header
   const dropdownToggles = document.querySelectorAll('.dropdown > button.dropdown-toggle, .dropdown > .dropdown-toggle');
   for (const btn of dropdownToggles) {
     if (btn.querySelector('.fa-user, [data-icon="user"], span.notranslate')) {
-      const dd = btn.closest('.dropdown');
-      if (dd) return dd;
+      return btn.closest('.dropdown');
     }
   }
 
@@ -1700,7 +1700,7 @@ function injectBulkAddDomains() {
         if (domains.length === 0) return showToast("No valid domains found.", "warning");
         if (!confirm(`Add ${domains.length} domains?`)) return;
         
-        const profileId = window.location.pathname.split('/')[1] || getProfileId();
+        const profileId = getProfileId() || window.location.pathname.split('/')[1];
         const listType = window.location.pathname.includes('allowlist') ? 'allowlist' : 'denylist';
         
         btn.disabled = true;
