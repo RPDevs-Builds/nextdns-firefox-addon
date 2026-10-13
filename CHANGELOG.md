@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.2.4] - 2026-10-13
+
+### Fixed
+- **MutationObserver Theme Loop Guard:** Resolved an infinite theme re-application recursion loop in `src/content.js` by adding an atomic `isSettingTheme` lock and guarding `setupThemeObserver()`. This eliminates runaway DOM mutation cascades in JSDOM and browser engines when toggling Web GUI customizations.
+- **Full Configuration Import Cancellation:** Fixed confirmation branch resolution in `importFullConfiguration` (`src/ui/main.js:1190`) to ensure settings imports cleanly cancel and reset file input values when the user dismisses the overwrite dialog.
+
+### Hardened & Automated
+- **CI & Local Timeout Safeguards:** Configured a 30-second per-test timeout guard (`"testTimeout": 30000`) in `package.json` for Jest, and established a hard 10-minute runner timeout (`timeout-minutes: 10`) across both `.github/workflows/pipeline.yml` and `.github/workflows/nightly.yml` to prevent remote execution hangs.
+- **Absolute 100% Threshold Enforcement:** Ratcheted `package.json` Jest coverage thresholds to **100% Branches, 100% Functions, 100% Lines, and 100% Statements**.
+
+### Tests & Quality
+- **100.0% Hall of Fame Coverage (All 21 Modules):** Achieved **100.0% Branch Coverage**, **100.0% Function Coverage**, **100.0% Line Coverage**, and **100.0% Statement Coverage** repository-wide across all 21 source modules in `src/`, `src/background/`, and `src/ui/`.
+- **Complete Test Suite Validation:** All 394 unit tests across 25 test suites pass in ~110s with zero regressions.
+- **Mozilla AMO Compliance:** Zero errors, zero warnings, zero notices on Mozilla `addons-linter`.
+
 ## [1.2.3] - 2026-10-12
 
 ### Fixed
