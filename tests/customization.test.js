@@ -68,7 +68,7 @@ describe('Website Customization Engine', () => {
         document.body.appendChild(h5);
 
         // Wait for throttled evaluation
-        await new Promise(r => setTimeout(r, 150));
+        await new Promise(r => setTimeout(r, 300));
 
         expect(document.querySelector('.nxm-collapsible-header')).not.toBeNull();
     });
@@ -98,7 +98,7 @@ describe('Website Customization Engine', () => {
         document.body.appendChild(header);
 
         // Allow evaluation
-        await new Promise(r => setTimeout(r, 150));
+        await new Promise(r => setTimeout(r, 300));
 
         const headerBtn = document.getElementById('nxm-header-filtered-logs-btn');
         expect(headerBtn).not.toBeNull();

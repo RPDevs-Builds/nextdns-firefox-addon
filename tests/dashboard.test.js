@@ -674,6 +674,566 @@ describe('Dashboard UI Module (src/ui/dashboard.js)', () => {
             state.currentDenylist = origDenylist;
             state.currentAllowlist = origAllowlist;
         });
+
+        test('dashboard.js - 100% Branch Coverage Final Push', async () => {
+            const downloadSpy = jest.spyOn(utils, 'downloadAsFile').mockImplementation(() => {});
+
+            // 1. formatLogRow branches
+            // log.status === 'relayed' (line 34)
+            const rowRelayed = formatLogRow({ status: 'relayed', name: 'relay.com' });
+            expect(rowRelayed.textContent).toContain('RELAYED');
+
+            // log.status === 'whitelisted' (line 22)
+            const rowWhitelisted = formatLogRow({ status: 'whitelisted', name: 'white.com' });
+            expect(rowWhitelisted.textContent).toContain('ALLOWLIST');
+
+            // log.reasons contains item with name including 'allow' (line 23)
+            const rowReasonAllowName = formatLogRow({
+                status: 'unknown',
+                name: 'reason-allow.com',
+                reasons: [{ name: 'Allowed by admin' }]
+            });
+            expect(rowReasonAllowName.textContent).toContain('ALLOWLIST');
+
+            // device resolution branches (lines 43-47)
+            state.hostnameAliases = {
+                '192.168.1.50': 'AliasFromIP',
+                '10.0.0.1': 'AliasFromClientIP'
+            };
+            // alias from log.device.ip
+            const rowAliasDevIp = formatLogRow({
+                name: 'devip.com',
+                device: { ip: '192.168.1.50' }
+            });
+            expect(rowAliasDevIp.textContent).toContain('AliasFromIP');
+
+            // alias from log.clientIp
+            const rowAliasClientIp = formatLogRow({
+                name: 'clientip.com',
+                clientIp: '10.0.0.1'
+            });
+            expect(rowAliasClientIp.textContent).toContain('AliasFromClientIP');
+
+            // baseName from log.device.id
+            const rowBaseDevId = formatLogRow({
+                name: 'devid.com',
+                device: { id: 'dev-123' }
+            });
+            expect(rowBaseDevId.textContent).toContain('dev-123');
+
+            // baseName from log.clientIp (no device)
+            const rowBaseClientIp = formatLogRow({
+                name: 'clientip2.com',
+                clientIp: '8.8.8.8'
+            });
+            expect(rowBaseClientIp.textContent).toContain('8.8.8.8');
+
+            // baseName fallback to 'Unknown Device'
+            const rowUnknownDev = formatLogRow({ name: 'nodev.com' });
+            expect(rowUnknownDev.textContent).toContain('Unknown Device');
+
+            // model already included in baseName (line 46)
+            const rowModelIncluded = formatLogRow({
+                name: 'model-inc.com',
+                device: { name: 'Pixel 7 Pro', model: 'Pixel 7' }
+            });
+            expect(rowModelIncluded.textContent).not.toContain('(Pixel 7)');
+
+            // timestamp missing (line 48)
+            const rowNoTimestamp = formatLogRow({ name: 'notime.com', timestamp: null });
+            expect(rowNoTimestamp.textContent).toContain('🕒 ---');
+
+            // reasons array with various item structures (line 55): r.id only, r as string
+            const rowReasonVariants = formatLogRow({
+                name: 'reasons.com',
+                status: 'blocked',
+                reasons: [{ id: 'block-id' }, 'raw-reason-string']
+            });
+            expect(rowReasonVariants.textContent).toContain('block-id, raw-reason-string');
+
+            // log.reason === 'Default' (line 56)
+            const rowReasonDefault = formatLogRow({
+                name: 'default-reason.com',
+                status: 'blocked',
+                reason: 'Default'
+            });
+            expect(rowReasonDefault.textContent).not.toContain('(Default)');
+
+            // log.reason is not a string (line 56)
+            const rowReasonNonString = formatLogRow({
+                name: 'nonstring-reason.com',
+                status: 'blocked',
+                reason: 12345
+            });
+            expect(rowReasonNonString.textContent).not.toContain('(');
+
+            // log.reason custom string (line 56 truthy)
+            const rowReasonCustom = formatLogRow({
+                name: 'custom-reason.com',
+                status: 'blocked',
+                reason: 'CustomSecurityRule'
+            });
+            expect(rowReasonCustom.textContent).toContain('(CustomSecurityRule)');
+
+            // log.reason undefined (line 56)
+            const rowReasonUndefined = formatLogRow({
+                name: 'undef-reason.com',
+                status: 'blocked',
+                reason: undefined
+            });
+            expect(rowReasonUndefined.textContent).not.toContain('(');
+
+            // log.name missing, falls back to log.domain (line 64)
+            const rowDomainFallback = formatLogRow({ domain: 'domain-fallback.com' });
+            expect(rowDomainFallback.textContent).toContain('domain-fallback.com');
+
+            // 2. handleLiveLog branches
+            // state.cachedLogs length > 200 (line 80)
+            state.cachedLogs = new Array(201).fill({ name: 'seed.com' });
+            handleLiveLog({ name: 'live-overflow.com' });
+            expect(state.cachedLogs.length).toBe(201);
+
+            // state.activeTab is not 'logs' (line 83 false branch)
+            state.activeTab = 'settings';
+            handleLiveLog({ name: 'not-logs-tab.com' });
+
+            // state.activeTab is 'logs', container is missing (line 85 false branch)
+            state.activeTab = 'logs';
+            const logsContainer = document.getElementById('logs-container');
+            logsContainer.remove();
+            handleLiveLog({ name: 'no-container.com' });
+
+            // Restore logsContainer
+            const newLogsContainer = document.createElement('div');
+            newLogsContainer.id = 'logs-container';
+            document.body.appendChild(newLogsContainer);
+
+            // handleLiveLog query matching via log.name, log.domain, and missing domain (line 98)
+            document.getElementById('log-search').value = 'target';
+            document.getElementById('filter-all').checked = true;
+
+            // 1. log.name is present and matches query
+            handleLiveLog({ name: 'target-name.com', protocol: 'udp', status: 'default' });
+            expect(newLogsContainer.textContent).toContain('target-name.com');
+
+            // 2. log.name is present but does NOT match query (line 98 false branch)
+            handleLiveLog({ name: 'unrelated-name.com', protocol: 'udp', status: 'default' });
+            expect(newLogsContainer.textContent).not.toContain('unrelated-name.com');
+
+            // 3. log.name is missing, log.domain is present and matches query
+            handleLiveLog({ domain: 'target-domain.com', protocol: 'udp', status: 'default' });
+            expect(newLogsContainer.textContent).toContain('target-domain.com');
+
+            // 4. log.name is missing, log.domain is present but does NOT match query
+            handleLiveLog({ domain: 'unrelated-domain.com', protocol: 'udp', status: 'default' });
+            expect(newLogsContainer.textContent).not.toContain('unrelated-domain.com');
+
+            // 5. fails query when neither name nor domain is present
+            handleLiveLog({ status: 'default' });
+
+            // 6. log matches query, but matchesLogFilters returns false (line 101 false branch)
+            document.getElementById('filter-all').checked = false;
+            document.getElementById('filter-blocked').checked = true;
+            handleLiveLog({ name: 'target-allowed.com', status: 'default' });
+            document.getElementById('filter-all').checked = true;
+
+            // reset query
+            document.getElementById('log-search').value = '';
+
+            // Device filter matching and mismatching (lines 98-100)
+            const devFilterSelect = document.getElementById('log-device-filter');
+            devFilterSelect.innerHTML = '<option value="">All</option><option value="my-device-id">Dev 1</option>';
+            devFilterSelect.value = 'my-device-id';
+            handleLiveLog({ name: 'dev-match.com', device: { id: 'my-device-id' }, status: 'default' });
+            handleLiveLog({ name: 'dev-mismatch.com', device: { id: 'other-device-id' }, status: 'default' });
+            handleLiveLog({ name: 'dev-clientip.com', clientIp: 'my-device-id', status: 'default' });
+            devFilterSelect.value = '';
+
+            // Protocol filter matching and mismatching (lines 98-100)
+            const protoFilterSelect = document.getElementById('log-type-filter');
+            protoFilterSelect.innerHTML = '<option value="">All</option><option value="doh">DOH</option>';
+            protoFilterSelect.value = 'doh';
+            handleLiveLog({ name: 'proto-match.com', protocol: 'doh', status: 'default' });
+            handleLiveLog({ name: 'proto-mismatch.com', protocol: 'udp', status: 'default' });
+            protoFilterSelect.value = '';
+
+            // Optional chaining on input elements missing in DOM (lines 91-93)
+            const searchInput = document.getElementById('log-search');
+            searchInput.remove();
+            devFilterSelect.remove();
+            protoFilterSelect.remove();
+            handleLiveLog({ name: 'no-inputs.com', status: 'default' });
+
+            // Restore inputs
+            document.body.appendChild(searchInput);
+            document.body.appendChild(devFilterSelect);
+            document.body.appendChild(protoFilterSelect);
+
+            // 3. matchesLogFilters branches (lines 129-155)
+            // isAllowlist via string reason containing 'allow' (line 130)
+            const logReasonAllowStr = { status: 'default', reason: 'Allowlisted by policy' };
+            expect(matchesLogFilters(logReasonAllowStr, ['status:allowed'])).toBe(true);
+
+            // isDenylist via log.reasons array with r.name containing 'deny' (line 134)
+            const logDenyReasonName = { status: 'blocked', reasons: [{ name: 'Deny rule active' }] };
+            expect(matchesLogFilters(logDenyReasonName, ['reason:denylist'])).toBe(true);
+
+            // isDenylist via log.reason string containing 'deny' (line 135)
+            const logDenyReasonStr = { status: 'blocked', reason: 'Custom Denylist' };
+            expect(matchesLogFilters(logDenyReasonStr, ['reason:denylist'])).toBe(true);
+
+            // hasAllowed and (!hasStandard && isStandard) (line 151)
+            const logStandardTraffic = { status: 'default' };
+            expect(matchesLogFilters(logStandardTraffic, ['status:allowed'])).toBe(true);
+
+            // hasStandard and hasAllowed and hasBlocked and !hasAllowlist and !hasDenylist (line 145)
+            expect(matchesLogFilters(logStandardTraffic, ['status:default', 'status:allowed', 'status:blocked'])).toBe(true);
+
+            // none match (line 156 returns false)
+            expect(matchesLogFilters(logStandardTraffic, ['status:blocked'])).toBe(false);
+
+            // 4. renderLogs branches
+            // container missing (line 166)
+            newLogsContainer.remove();
+            renderLogs([]);
+            document.body.appendChild(newLogsContainer);
+
+            // logsOverride === null (uses state.cachedLogs) (line 168)
+            state.cachedLogs = [{ name: 'cached-log.com', status: 'default' }];
+            document.getElementById('filter-all').checked = true;
+            renderLogs(null);
+            expect(newLogsContainer.textContent).toContain('cached-log.com');
+
+            // renderLogs matchesLogFilters filtering (line 190 true and false branches)
+            document.getElementById('filter-all').checked = false;
+            document.getElementById('filter-blocked').checked = true;
+            document.getElementById('filter-allowed').checked = false;
+            document.getElementById('filter-standard').checked = false;
+            document.getElementById('filter-allowlist').checked = false;
+            document.getElementById('filter-denylist').checked = false;
+            renderLogs([
+                { name: 'blocked.com', status: 'blocked' },
+                { name: 'allowed.com', status: 'allowed' }
+            ]);
+            expect(newLogsContainer.textContent).toContain('blocked.com');
+            expect(newLogsContainer.textContent).not.toContain('allowed.com');
+            document.getElementById('filter-all').checked = true;
+
+            // 5. updateDeviceFilterOptions branches (lines 217, 220, 222, 228-229)
+            // dropdown missing in DOM (line 217)
+            const devDropdown = document.getElementById('log-device-filter');
+            devDropdown.remove();
+            renderLogs([]);
+            document.body.appendChild(devDropdown);
+
+            // state.cachedLogs is not an array reaching updateDeviceFilterOptions (line 220 false branch)
+            state.cachedLogs = null;
+            devDropdown.innerHTML = '<option value="">All</option>';
+            renderLogs([{ name: 'dummy.com', status: 'default' }]);
+
+            // state.cachedLogs items have neither device.id nor clientIp (line 222 false branch)
+            state.cachedLogs = [{}, { device: {} }];
+            devDropdown.innerHTML = '<option value="">All</option>';
+            renderLogs(state.cachedLogs);
+
+            // device resolution in dropdown by clientIp and device.id (lines 228-229)
+            state.hostnameAliases = {};
+            state.cachedLogs = [
+                { clientIp: '1.2.3.4', name: 'dev1.com' },
+                { device: { id: 'dev-2', name: 'MyDevice' }, name: 'dev2.com' }
+            ];
+            devDropdown.innerHTML = '<option value="">All</option>';
+            renderLogs(state.cachedLogs);
+            expect(devDropdown.innerHTML).toContain('1.2.3.4');
+            expect(devDropdown.innerHTML).toContain('MyDevice');
+
+            // 6. loadAnalytics branches (lines 249, 260, 264, 269, 271-280, 305)
+            state.activeProfile = 'p-analytics';
+            // container missing during fetch (line 249)
+            const analyticsContainer = document.getElementById('analytics-overview');
+            analyticsContainer.remove();
+            global.browser.runtime.sendMessage = jest.fn()
+                .mockResolvedValueOnce({ data: { queries: 10, blockedQueries: 2, blockedPercent: 20 } })
+                .mockResolvedValueOnce({ data: [] });
+            await loadAnalytics();
+            document.body.appendChild(analyticsContainer);
+
+            // series with null/empty data (line 269: series?.data || [])
+            global.browser.runtime.sendMessage = jest.fn()
+                .mockResolvedValueOnce({ data: { queries: 10, blockedQueries: 1, blockedPercent: 10 } })
+                .mockResolvedValueOnce({});
+            await loadAnalytics();
+            expect(analyticsContainer.textContent).toContain('Block Rate: 10%');
+
+            // rawBlockedPercent is NaN and queries === 0 (line 265: falls back to 0)
+            global.browser.runtime.sendMessage = jest.fn()
+                .mockResolvedValueOnce({ data: { queries: 0, blockedQueries: 0, blockedPercent: NaN } })
+                .mockResolvedValueOnce({ data: [] });
+            await loadAnalytics();
+            expect(analyticsContainer.textContent).toContain('Block Rate: 0%');
+
+            // sData.length > 5 with diff <= 0 (decrease) (lines 271-280)
+            const seriesDecrease = [
+                { queries: 10 }, { queries: 10 }, { queries: 10 }, { queries: 10 }, { queries: 10 },
+                { queries: 0 }, { queries: 0 }, { queries: 0 }, { queries: 0 }, { queries: 0 }
+            ];
+            global.browser.runtime.sendMessage = jest.fn()
+                .mockResolvedValueOnce({ data: { queries: 50, blockedQueries: 5, blockedPercent: 10 } })
+                .mockResolvedValueOnce({ data: seriesDecrease });
+            await loadAnalytics();
+            expect(analyticsContainer.textContent).toContain('decrease in traffic');
+
+            // sData.length > 5 with previous === 0 (line 275: previous > 0 is false)
+            const seriesZeroPrev = [
+                { queries: 0 }, { queries: 0 }, { queries: 0 }, { queries: 0 }, { queries: 0 },
+                { queries: 10 }, { queries: 10 }, { queries: 10 }, { queries: 10 }, { queries: 10 }
+            ];
+            global.browser.runtime.sendMessage = jest.fn()
+                .mockResolvedValueOnce({ data: { queries: 50, blockedQueries: 5, blockedPercent: 10 } })
+                .mockResolvedValueOnce({ data: seriesZeroPrev });
+            await loadAnalytics();
+            expect(analyticsContainer.textContent).toContain('0% increase in traffic');
+
+            // summary.data is null and container exists (line 300)
+            global.browser.runtime.sendMessage = jest.fn()
+                .mockResolvedValueOnce({ data: null })
+                .mockResolvedValueOnce({ data: null });
+            await loadAnalytics();
+            expect(analyticsContainer.textContent).toContain('No analytics data available');
+
+            // loadAnalytics throws when container is missing in catch (line 306)
+            analyticsContainer.remove();
+            global.browser.runtime.sendMessage = jest.fn().mockRejectedValue(new Error('Fetch failed'));
+            await loadAnalytics();
+            document.body.appendChild(analyticsContainer);
+
+            // 7. loadNativeLogs branches (lines 324, 332, 336-339)
+            state.activeProfile = 'p-logs';
+            // container exists and cachedLogs has items (line 324 false branch)
+            state.cachedLogs = [{ name: 'existing.com' }];
+            global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: true, data: [{ name: 'new.com' }] });
+            await loadNativeLogs();
+
+            // res.data is not an array (line 332 falls back to [])
+            global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: true, data: "not-an-array" });
+            await loadNativeLogs();
+            expect(state.cachedLogs).toEqual([]);
+
+            // res.success is false with cachedLogs.length > 0 (line 337 false branch)
+            state.cachedLogs = [{ name: 'still-here.com' }];
+            global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false, error: 'Rate limited' });
+            await loadNativeLogs();
+
+            // res.success is false without error string (line 336/338 fallback to "Unknown error" / "Check API Key")
+            state.cachedLogs = [];
+            global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false, error: null });
+            await loadNativeLogs();
+            expect(newLogsContainer.textContent).toContain('Check API Key');
+
+            // 8. updateDashboardTabInfo branches (lines 434, 439, 443, 452, 454, 457, 461, 464, 470-495)
+            // tab has no url (line 435)
+            global.browser.tabs.query = jest.fn().mockResolvedValue([{}]);
+            await updateDashboardTabInfo();
+
+            // tab url does not start with http (line 439)
+            global.browser.tabs.query = jest.fn().mockResolvedValue([{ id: 1, url: 'about:blank' }]);
+            global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ requests: {} });
+            await updateDashboardTabInfo();
+
+            // domainInput already matches currentDomain (line 443 false branch)
+            const domainInput = document.getElementById('domain-input');
+            domainInput.value = 'example.com';
+            global.browser.tabs.query = jest.fn().mockResolvedValue([{ id: 1, url: 'https://example.com/page' }]);
+            await updateDashboardTabInfo();
+
+            // domainInput has focus (line 443 false branch)
+            domainInput.value = 'other.com';
+            domainInput.matches = jest.fn((sel) => sel === ':focus');
+            await updateDashboardTabInfo();
+            domainInput.matches = () => false;
+
+            // stats is null (line 452)
+            global.browser.runtime.sendMessage = jest.fn().mockResolvedValue(null);
+            await updateDashboardTabInfo();
+
+            // stats.requests is null (line 454 falls back to {})
+            global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ requests: null });
+            await updateDashboardTabInfo();
+
+            // tab requests container contains 'capturing' text (line 464 false branch)
+            const tabLog = document.getElementById('tab-log');
+            tabLog.textContent = 'currently capturing packets...';
+            await updateDashboardTabInfo();
+
+            // tab requests with isAllowed, isDenied, blocked with custom reason, blocked with default reason, unblocked with custom reason (lines 470-495)
+            state.currentAllowlist = new Set(['allowed.com']);
+            state.currentDenylist = new Set(['denied.com']);
+            global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({
+                requests: {
+                    'allowed.com': { status: 'default' },
+                    'denied.com': { status: 'default' },
+                    'blocked-sec.com': { status: 'blocked', reason: 'Security' },
+                    'blocked-def.com': { status: 'blocked', reason: 'Default' },
+                    'allowed-custom.com': { status: 'default', reason: 'CustomRule' },
+                    'plain.com': { status: 'default', reason: 'Default' },
+                    'null-request.com': null
+                }
+            });
+            tabLog.textContent = '';
+            await updateDashboardTabInfo();
+            expect(tabLog.innerHTML).toContain('[Allowed]');
+            expect(tabLog.innerHTML).toContain('[Denied]');
+            expect(tabLog.innerHTML).toContain('[Security]');
+            expect(tabLog.innerHTML).toContain('[Blocked]');
+            expect(tabLog.innerHTML).toContain('[CustomRule]');
+
+            // header and container missing (lines 457, 461 false branches)
+            document.getElementById('tab-log-header').remove();
+            tabLog.remove();
+            await updateDashboardTabInfo();
+
+            // Total blocked items count resolution (lines 513-516)
+            // privacy-score fallback when tab-blocked-count is removed
+            const tabBlockedCountEl = document.getElementById('tab-blocked-count');
+            if (tabBlockedCountEl) tabBlockedCountEl.remove();
+            const privacyScoreEl = document.createElement('span');
+            privacyScoreEl.id = 'privacy-score';
+            document.body.appendChild(privacyScoreEl);
+            global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ requests: {}, blockedCount: 42 });
+            await updateDashboardTabInfo();
+            expect(privacyScoreEl.textContent).toBe('42');
+
+            // neither element exists, and blockedCount is falsy (0)
+            privacyScoreEl.remove();
+            global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ requests: {}, blockedCount: 0 });
+            await updateDashboardTabInfo();
+
+            // Tab action: delete from allowlist (lines 390-394)
+            const tabLogContainer = document.createElement('div');
+            tabLogContainer.id = 'tab-log';
+            document.body.appendChild(tabLogContainer);
+            initTabLogEvents();
+            // Call again when _hasTabLogListeners is already true (line 354)
+            initTabLogEvents();
+
+            // Click empty element (neither button nor domain name, line 415 false branch)
+            const emptyEl = document.createElement('div');
+            tabLogContainer.appendChild(emptyEl);
+            emptyEl.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            // Click domain name without domainInput or without data-domain (line 418)
+            const domainSpanNoInput = document.createElement('span');
+            domainSpanNoInput.className = 'tab-domain-name';
+            domainSpanNoInput.setAttribute('data-domain', 'no-input.com');
+            tabLogContainer.appendChild(domainSpanNoInput);
+            const origDomainInput = document.getElementById('domain-input');
+            if (origDomainInput) origDomainInput.remove();
+            domainSpanNoInput.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            if (origDomainInput) document.body.appendChild(origDomainInput);
+
+            const domainSpanNoAttr = document.createElement('span');
+            domainSpanNoAttr.className = 'tab-domain-name';
+            tabLogContainer.appendChild(domainSpanNoAttr);
+            domainSpanNoAttr.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            // Exhaustive Tab Action Matrix covering lines 381-395
+            const testTabAction = async (action, listType, withSets) => {
+                const btn = document.createElement('button');
+                btn.className = 'tab-action-btn';
+                btn.setAttribute('data-domain', `matrix-${action}-${listType}-${withSets}.com`);
+                btn.setAttribute('data-list', listType);
+                btn.setAttribute('data-action', action);
+                tabLogContainer.appendChild(btn);
+
+                if (withSets) {
+                    state.currentAllowlist = new Set();
+                    state.currentDenylist = new Set();
+                } else {
+                    state.currentAllowlist = null;
+                    state.currentDenylist = null;
+                }
+
+                global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: true });
+                btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                await new Promise(r => setTimeout(r, 10));
+                btn.remove();
+            };
+
+            await testTabAction('add', 'allowlist', true);
+            await testTabAction('add', 'allowlist', false);
+            await testTabAction('add', 'denylist', true);
+            await testTabAction('add', 'denylist', false);
+            await testTabAction('delete', 'allowlist', true);
+            await testTabAction('delete', 'allowlist', false);
+            await testTabAction('delete', 'denylist', true);
+            await testTabAction('delete', 'denylist', false);
+            await testTabAction('unknown', 'allowlist', true);
+
+            tabLogContainer.remove();
+            // Call initTabLogEvents when container is missing in DOM (line 354)
+            initTabLogEvents();
+
+            // 9. updateDynamicLinks branches (lines 532-537)
+            // state.activeProfile is null
+            state.activeProfile = null;
+            const profLink = document.getElementById('web-gui-profile-link');
+            updateDynamicLinks();
+            expect(profLink.href).toBe('https://my.nextdns.io/');
+
+            // links missing in DOM
+            profLink.remove();
+            document.getElementById('web-gui-logs-link').remove();
+            document.getElementById('web-gui-security-link').remove();
+            document.getElementById('web-gui-privacy-link').remove();
+            updateDynamicLinks();
+
+            // 10. downloadLogsCSV branches (lines 548-555)
+            state.hostnameAliases = { 'client-ip-only': 'ClientAlias' };
+            state.cachedLogs = [
+                // invalid timestamp (line 548)
+                { timestamp: 'invalid-date-string', name: 'inv.com', status: 'blocked' },
+                // alias via clientIp (line 549)
+                { timestamp: 1000, clientIp: 'client-ip-only', domain: 'alias.com' },
+                // reasons is array with name, id, and string (line 552)
+                { timestamp: 2000, clientIp: '1.1.1.1', name: 'reason-arr.com', reasons: [{ name: 'Name1' }, { id: 'Id2' }, 'Str3'] },
+                // reasons is null, reason string present (line 552)
+                { timestamp: 3000, clientIp: '1.1.1.1', name: 'reason-str.com', reason: 'Blocked' },
+                // reasons is null, reason is empty (line 552)
+                { timestamp: 4000, clientIp: '1.1.1.1', name: 'reason-empty.com', reason: '' },
+                // all empty/null fields
+                {}
+            ];
+            downloadLogsCSV();
+
+            // 11. wipeLogs branches (lines 564, 565, 567, 577, 580, 582)
+            // state.activeProfile is null (line 564)
+            state.activeProfile = null;
+            await wipeLogs();
+
+            // confirm is false (line 565)
+            state.activeProfile = 'p-wipe';
+            const origConfirm = global.confirm;
+            global.confirm = jest.fn(() => false);
+            await wipeLogs();
+
+            // confirm is true, btn is missing in DOM (line 567 false branch)
+            global.confirm = jest.fn(() => true);
+            const wipeBtn = document.getElementById('wipe-logs-btn');
+            wipeBtn.remove();
+            global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: true });
+            await wipeLogs();
+
+            // res.success is false with no error property (line 577 fallback to "Unknown error")
+            global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false, error: null });
+            await wipeLogs();
+
+            // runtime.sendMessage throws error without message (line 580 fallback to "Unknown error")
+            global.browser.runtime.sendMessage = jest.fn().mockRejectedValue({});
+            await wipeLogs();
+
+            global.confirm = origConfirm;
+            downloadSpy.mockRestore();
+        });
     });
 });
 

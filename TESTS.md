@@ -281,7 +281,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/ui/dashboard.js`
 - **Category**: **UI & Components**
-- **Total Tests**: **31 tests**
+- **Total Tests**: **32 tests**
 - **Overview**: Detailed testing of log formatting, live log stream updates, multi-criteria log filtering, analytics summary calculations, traffic trend indicators, and CSV export/wipe.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -317,6 +317,7 @@ npm run test:watch
 | 29 | loadAnalytics calculates rawBlockedPercent when summary data blockedPercent is NaN | *Dynamic Links, CSV Export, and Wipe Logs* | [L528](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L528) |
 | 30 | loadNativeLogs catches exception when sendMessage rejects | *Dynamic Links, CSV Export, and Wipe Logs* | [L548](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L548) |
 | 31 | dashboard.js - Exhaustive Statement & Branch Coverage Deep Dive | *Dynamic Links, CSV Export, and Wipe Logs* | [L559](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L559) |
+| 32 | dashboard.js - 100% Branch Coverage Final Push | *Dynamic Links, CSV Export, and Wipe Logs* | [L678](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/dashboard.test.js#L678) |
 
 ---
 
