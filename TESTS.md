@@ -562,22 +562,26 @@ npm run test:watch
 
 - **Target File(s)**: `src/ui/tools.js`
 - **Category**: **Diagnostics & Tools**
-- **Total Tests**: **11 tests**
+- **Total Tests**: **15 tests**
 - **Overview**: Tests PoP latency RTT probing, network diagnostics UI rendering, DNS leak detection indicators, and JSON diagnostics report exporting.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
 | :--- | :--- | :--- | :---: |
-| 1 | Handles no active tabs found | *runIntelligentDebugger* | [L23](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L23) |
-| 2 | Handles no active profile in state | *runIntelligentDebugger* | [L31](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L31) |
-| 3 | Handles error response from background script | *runIntelligentDebugger* | [L41](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L41) |
-| 4 | Handles empty correlation list | *runIntelligentDebugger* | [L54](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L54) |
-| 5 | Renders correlations with allow and snooze actions | *runIntelligentDebugger* | [L67](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L67) |
-| 6 | Exports snapshot data when correlations exist | *exportDebuggerSnapshot* | [L135](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L135) |
-| 7 | Handles diagnostic error response | *runNetworkDiagnosticsUI* | [L163](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L163) |
-| 8 | Handles diagnostic exception thrown | *runNetworkDiagnosticsUI* | [L177](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L177) |
-| 9 | Renders full diagnostics report with connected status and low latency | *runNetworkDiagnosticsUI* | [L188](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L188) |
-| 10 | Renders unconfigured diagnostics report with high and null latency | *runNetworkDiagnosticsUI* | [L217](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L217) |
-| 11 | Exports diagnostic JSON when diagnostics exist | *exportDiagnosticReport* | [L247](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L247) |
+| 1 | Early export functions return early when state is null before any run | *runIntelligentDebugger* | [L23](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L23) |
+| 2 | Handles no active tabs found | *runIntelligentDebugger* | [L31](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L31) |
+| 3 | Handles no active profile in state | *runIntelligentDebugger* | [L39](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L39) |
+| 4 | Handles error response from background script | *runIntelligentDebugger* | [L49](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L49) |
+| 5 | Handles empty correlation list | *runIntelligentDebugger* | [L62](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L62) |
+| 6 | Renders correlations with allow and snooze actions | *runIntelligentDebugger* | [L75](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L75) |
+| 7 | Returns early when lastDebuggerResult is null | *exportDebuggerSnapshot* | [L192](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L192) |
+| 8 | Exports snapshot data when correlations exist | *exportDebuggerSnapshot* | [L199](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L199) |
+| 9 | Handles diagnostic error response | *runNetworkDiagnosticsUI* | [L226](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L226) |
+| 10 | Handles diagnostic exception thrown | *runNetworkDiagnosticsUI* | [L245](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L245) |
+| 11 | Renders full diagnostics report with connected status and low latency | *runNetworkDiagnosticsUI* | [L261](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L261) |
+| 12 | Renders unconfigured diagnostics report with high and null latency | *runNetworkDiagnosticsUI* | [L295](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L295) |
+| 13 | Handles missing run-diagnostics-btn or export-diagnostics-btn gracefully | *runNetworkDiagnosticsUI* | [L325](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L325) |
+| 14 | Returns early when lastDiagnosticResult is null | *exportDiagnosticReport* | [L345](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L345) |
+| 15 | Exports diagnostic JSON when diagnostics exist | *exportDiagnosticReport* | [L352](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/tools.test.js#L352) |
 
 ---
 
@@ -660,10 +664,10 @@ npm run test:watch
 | 1 | loadRules: Renders empty state when no rules exist | *UI Scheduler Module (ui/scheduler.js)* | [L28](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiScheduler.test.js#L28) |
 | 2 | loadRules: Renders rules list and handles rule deletion | *UI Scheduler Module (ui/scheduler.js)* | [L37](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiScheduler.test.js#L37) |
 | 3 | loadRules: Handles delete errors gracefully | *UI Scheduler Module (ui/scheduler.js)* | [L65](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiScheduler.test.js#L65) |
-| 4 | saveAutomationRule: Validates required inputs | *UI Scheduler Module (ui/scheduler.js)* | [L83](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiScheduler.test.js#L83) |
-| 5 | saveAutomationRule: Saves rule successfully for standard boolean setting | *UI Scheduler Module (ui/scheduler.js)* | [L97](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiScheduler.test.js#L97) |
-| 6 | saveAutomationRule: Sets settingType to list for parental services | *UI Scheduler Module (ui/scheduler.js)* | [L125](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiScheduler.test.js#L125) |
-| 7 | saveAutomationRule: Handles save errors and exceptions | *UI Scheduler Module (ui/scheduler.js)* | [L142](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiScheduler.test.js#L142) |
+| 4 | saveAutomationRule: Validates required inputs | *UI Scheduler Module (ui/scheduler.js)* | [L93](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiScheduler.test.js#L93) |
+| 5 | saveAutomationRule: Saves rule successfully for standard boolean setting | *UI Scheduler Module (ui/scheduler.js)* | [L107](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiScheduler.test.js#L107) |
+| 6 | saveAutomationRule: Sets settingType to list for parental services | *UI Scheduler Module (ui/scheduler.js)* | [L135](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiScheduler.test.js#L135) |
+| 7 | saveAutomationRule: Handles save errors and exceptions | *UI Scheduler Module (ui/scheduler.js)* | [L152](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiScheduler.test.js#L152) |
 
 ---
 

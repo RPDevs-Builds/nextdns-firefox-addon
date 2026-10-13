@@ -78,6 +78,16 @@ describe('UI Scheduler Module (ui/scheduler.js)', () => {
         global.browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Network dead'));
         await delBtn.onclick();
         expect(delBtn.disabled).toBe(false);
+
+        // Test delRes.error fallback (line 42)
+        global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: false });
+        await delBtn.onclick();
+        expect(delBtn.disabled).toBe(false);
+
+        // Test err.message fallback (line 45)
+        global.browser.runtime.sendMessage.mockRejectedValueOnce({});
+        await delBtn.onclick();
+        expect(delBtn.disabled).toBe(false);
     });
 
     test('saveAutomationRule: Validates required inputs', async () => {
@@ -156,5 +166,53 @@ describe('UI Scheduler Module (ui/scheduler.js)', () => {
         global.browser.runtime.sendMessage = jest.fn().mockRejectedValueOnce(new Error('Connection abort'));
         await saveAutomationRule();
         expect(document.getElementById('add-rule-btn').disabled).toBe(false);
+
+        // Fallback error without message / string
+        document.getElementById('rule-name').value = 'Err Rule 3';
+        document.getElementById('rule-trigger').value = '13:00';
+        document.getElementById('rule-target').value = 'security:block-dga';
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValueOnce({ success: false }); // hits || 'Unknown error'
+        await saveAutomationRule();
+
+        document.getElementById('rule-name').value = 'Err Rule 4';
+        document.getElementById('rule-trigger').value = '14:00';
+        document.getElementById('rule-target').value = 'security:block-dga';
+        global.browser.runtime.sendMessage = jest.fn().mockRejectedValueOnce({}); // err without message hits || 'Unknown error'
+        await saveAutomationRule();
+
+        // Branches where DOM inputs or add-rule-btn are missing
+        const btn = document.getElementById('add-rule-btn');
+        btn.remove();
+        document.getElementById('rule-name').value = 'No Btn';
+        document.getElementById('rule-trigger').value = '15:00';
+        document.getElementById('rule-target').value = 'security:block-dga';
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValueOnce({ success: true, rules: [] });
+        await saveAutomationRule();
+
+        // Branches where rule-name and rule-trigger are removed after success
+        document.body.innerHTML = `
+            <select id="rule-action"><option value="enable">Enable</option></select>
+            <select id="rule-target"><option value="security:block-dga">Block DGA</option></select>
+            <button id="add-rule-btn">Add</button>
+        `;
+        // Pass validation by mocking getElementById temporarily
+        const origGetEl = document.getElementById.bind(document);
+        document.getElementById = (id) => {
+            if (id === 'rule-name' || id === 'rule-trigger') {
+                return { value: 'Valid' };
+            }
+            return origGetEl(id);
+        };
+        global.browser.runtime.sendMessage = jest.fn()
+            .mockResolvedValueOnce({ success: true })
+            .mockResolvedValueOnce({ success: true, rules: [] });
+        // Restore getElementById before save completes so nameInput and triggerEl are null at lines 80 & 82
+        const savePromise = saveAutomationRule();
+        document.getElementById = origGetEl;
+        await savePromise;
+
+        // Test loadRules when list element is missing (line 16)
+        document.body.innerHTML = '';
+        await loadRules();
     });
 });

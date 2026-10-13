@@ -318,5 +318,67 @@ describe('Theme Engine & Custom Palette (Phase 8.1)', () => {
         expect(themeModule.getThemeDisplayName('')).toBe('Custom');
         expect(themeModule.getThemeDisplayName(null)).toBe('Custom');
         expect(themeModule.getThemeDisplayName('my-custom-theme')).toBe('my-custom-theme');
+
+        // 7. getThemeColors without customThemes parameter (line 60)
+        expect(themeModule.getThemeColors('nonexistent', null)).toBeDefined();
+
+        // 8. initThemeEngine with default-dark fallback when activeTheme is null (line 226-228)
+        const origGetStorage = storage.get;
+        storage.get = jest.fn().mockResolvedValue({ activeTheme: null, customThemes: {} });
+        await themeModule.initThemeEngine();
+        expect(document.body.style.getPropertyValue('--bg-main')).toBe('#0f172a');
+        storage.get = origGetStorage;
+
+        // 9. initViewerTheme default arguments (line 244) & storage change without properties (line 249)
+        let viewerListener;
+        global.browser.storage.onChanged.addListener = jest.fn((fn) => { viewerListener = fn; });
+        storage.get = jest.fn().mockResolvedValue({}); // activeTheme and customThemes undefined
+        await themeModule.initViewerTheme();
+
+        // Simulate storage event where neither activeTheme nor customThemes changed
+        if (viewerListener) {
+            await viewerListener({ otherKey: { newValue: 123 } });
+            // Simulate storage event where activeTheme has fallback
+            storage.get = jest.fn().mockResolvedValue({ activeTheme: null, customThemes: null });
+            await viewerListener({ activeTheme: { newValue: 'default-dark' } });
+        }
+        storage.get = origGetStorage;
+
+        // 10. saveCustomTheme with missing saveBtn (line 316) and color input missing (line 300)
+        document.body.innerHTML = `
+            <input id="theme-name-input" value="NoSaveBtnTheme" />
+        `;
+        await themeModule.saveCustomTheme();
+        expect(state.savedThemes['NoSaveBtnTheme']).toBeDefined();
+
+        // 11. Timers in saveCustomTheme when nameInput or saveBtn is removed during delay (lines 276, 289, 320)
+        jest.useFakeTimers();
+        document.body.innerHTML = `
+            <input id="theme-name-input" value="" />
+            <button id="save-theme-btn"></button>
+        `;
+        const savePromise1 = themeModule.saveCustomTheme();
+        document.getElementById('theme-name-input').remove();
+        jest.advanceTimersByTime(2100);
+        await savePromise1;
+
+        document.body.innerHTML = `
+            <input id="theme-name-input" value="default-dark" />
+            <button id="save-theme-btn"></button>
+        `;
+        const savePromise2 = themeModule.saveCustomTheme();
+        document.getElementById('theme-name-input').remove();
+        jest.advanceTimersByTime(2600);
+        await savePromise2;
+
+        document.body.innerHTML = `
+            <input id="theme-name-input" value="ValidThemeWithTimer" />
+            <button id="save-theme-btn"></button>
+        `;
+        const savePromise3 = themeModule.saveCustomTheme();
+        document.getElementById('save-theme-btn').remove();
+        jest.advanceTimersByTime(1600);
+        await savePromise3;
+        jest.useRealTimers();
     });
 });

@@ -43,7 +43,7 @@
     "maxWorkers": "50%",
     "coverageThreshold": {
       "global": {
-        "branches": 85,
+        "branches": 86,
         "functions": 100,
         "lines": 99,
         "statements": 98
