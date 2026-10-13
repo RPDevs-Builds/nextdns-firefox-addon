@@ -124,7 +124,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/background/main.js, src/background/api.js, src/background/handlers.js, src/background/requestListener.js`
 - **Category**: **Background Engine**
-- **Total Tests**: **39 tests**
+- **Total Tests**: **40 tests**
 - **Overview**: Core extension lifecycle testing covering profile detection, message handlers, context menu routing, alarm listeners, sender verification, DDNS synchronization, and mirror mode replication.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -168,6 +168,7 @@ npm run test:watch
 | 37 | Background API and Handlers comprehensive paths for 100% line coverage | *Background Script - Full Coverage Suite* | [L1324](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/background.test.js#L1324) |
 | 38 | handlers.js & api.js - Exhaustive Statement, Function & Branch Coverage Deep Dive | *Background Script - Full Coverage Suite* | [L1546](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/background.test.js#L1546) |
 | 39 | handlers.js - Targeted Branch Hardening for 90%+ Branch Coverage | *Background Script - Full Coverage Suite* | [L1885](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/background.test.js#L1885) |
+| 40 | requestListener - Exhaustive Branch Coverage to 100% | *Background Script - Full Coverage Suite* | [L2256](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/background.test.js#L2256) |
 
 ---
 
@@ -175,7 +176,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/ui/blocks.js`
 - **Category**: **UI & Components**
-- **Total Tests**: **29 tests**
+- **Total Tests**: **30 tests**
 - **Overview**: Tests toggle switches, category filtering, parent/sub-category navigation, domain allowlist/denylist management, bulk add queues, and search empty states.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -200,15 +201,16 @@ npm run test:watch
 | 18 | Blocks UI - renderLists branch hardening (missing container, allowlist delete, fallback error strings) | *Popup UI - Blocks Expansion Suite* | [L460](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L460) |
 | 19 | Blocks UI - renderBlocklistsGrid branch hardening (entries text variants, updated string, updated_ts branches) | *Popup UI - Blocks Expansion Suite* | [L510](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L510) |
 | 20 | Blocks UI - renderPrivacyToggles branch hardening (activeProfile null url) | *Popup UI - Blocks Expansion Suite* | [L565](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L565) |
-| 21 | Blocks UI - loadToggles branch hardening (loadMetadata fallback) | *Popup UI - Blocks Expansion Suite* | [L581](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L581) |
-| 22 | Blocks UI - loadToggles branch hardening (missing section cache initializes empty object) | *Popup UI - Blocks Expansion Suite* | [L603](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L603) |
-| 23 | Blocks UI - activeBlocksSort popularity and entries sorting | *Popup UI - Blocks Expansion Suite* | [L625](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L625) |
-| 24 | Blocks UI - parental controls with null/empty categories and parental services (lines 319, 326) | *Popup UI - Blocks Expansion Suite* | [L651](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L651) |
-| 25 | Blocks UI - renderToggleRow fallback when label and name are missing (line 405) | *Popup UI - Blocks Expansion Suite* | [L670](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L670) |
-| 26 | Blocks UI - syncLists branch hardening (activeTab toggles but subtab not lists) | *Popup UI - Blocks Expansion Suite* | [L685](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L685) |
-| 27 | Blocks UI - renderSecurityToggles full branch coverage | *Popup UI - Blocks Expansion Suite* | [L696](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L696) |
-| 28 | Blocks UI - performance toggles category resolution fallbacks (settings/performance vs settings) | *Popup UI - Blocks Expansion Suite* | [L736](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L736) |
-| 29 | Blocks UI - TLDs grid empty split parts and toggle row with name vs label fallback | *Popup UI - Blocks Expansion Suite* | [L767](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L767) |
+| 21 | Blocks UI - loadToggles branch hardening (loadMetadata fallback) | *Popup UI - Blocks Expansion Suite* | [L591](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L591) |
+| 22 | Blocks UI - loadToggles branch hardening (missing section cache initializes empty object) | *Popup UI - Blocks Expansion Suite* | [L613](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L613) |
+| 23 | Blocks UI - activeBlocksSort popularity and entries sorting | *Popup UI - Blocks Expansion Suite* | [L635](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L635) |
+| 24 | Blocks UI - parental controls with null/empty categories and parental services (lines 319, 326) | *Popup UI - Blocks Expansion Suite* | [L661](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L661) |
+| 25 | Blocks UI - renderToggleRow fallback when label and name are missing (line 405) | *Popup UI - Blocks Expansion Suite* | [L680](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L680) |
+| 26 | Blocks UI - syncLists branch hardening (activeTab toggles but subtab not lists) | *Popup UI - Blocks Expansion Suite* | [L695](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L695) |
+| 27 | Blocks UI - renderSecurityToggles full branch coverage | *Popup UI - Blocks Expansion Suite* | [L706](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L706) |
+| 28 | Blocks UI - performance toggles category resolution fallbacks (settings/performance vs settings) | *Popup UI - Blocks Expansion Suite* | [L746](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L746) |
+| 29 | Blocks UI - TLDs grid empty split parts and toggle row with name vs label fallback | *Popup UI - Blocks Expansion Suite* | [L777](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L777) |
+| 30 | Blocks UI - final branch hardening for 100% branch coverage in blocks.js | *Popup UI - Blocks Expansion Suite* | [L799](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/blocks.test.js#L799) |
 
 ---
 
@@ -423,7 +425,7 @@ npm run test:watch
 
 - **Target File(s)**: `src/ui/notifications.js`
 - **Category**: **UI & Components**
-- **Total Tests**: **10 tests**
+- **Total Tests**: **11 tests**
 - **Overview**: Tests notification center UI, desktop notification badge rendering, unread count tracking, auto-dismiss timers, and clearing alerts.
 
 | # | Test Case Description | Test Suite / Block | Source Line |
@@ -438,6 +440,7 @@ npm run test:watch
 | 8 | UI: renderNotifications updates badge and popover content | *Action Center (Phase 8.1)* | [L135](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/notifications.test.js#L135) |
 | 9 | UI: initNotifications handles toggle, outside clicks, escape key, and clear button | *Action Center (Phase 8.1)* | [L165](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/notifications.test.js#L165) |
 | 10 | UI: initNotifications handles GET_NOTIFICATIONS error gracefully | *Action Center (Phase 8.1)* | [L239](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/notifications.test.js#L239) |
+| 11 | UI: notifications branch hardening to 100% | *Action Center (Phase 8.1)* | [L252](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/notifications.test.js#L252) |
 
 ---
 
@@ -682,6 +685,20 @@ npm run test:watch
 | 5 | saveAutomationRule: Saves rule successfully for standard boolean setting | *UI Scheduler Module (ui/scheduler.js)* | [L107](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiScheduler.test.js#L107) |
 | 6 | saveAutomationRule: Sets settingType to list for parental services | *UI Scheduler Module (ui/scheduler.js)* | [L135](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiScheduler.test.js#L135) |
 | 7 | saveAutomationRule: Handles save errors and exceptions | *UI Scheduler Module (ui/scheduler.js)* | [L152](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/uiScheduler.test.js#L152) |
+
+---
+
+### 📁 [`tests/ui_utils_node.test.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/ui_utils_node.test.js)
+
+- **Target File(s)**: `N/A`
+- **Category**: **General**
+- **Total Tests**: **2 tests**
+- **Overview**: 
+
+| # | Test Case Description | Test Suite / Block | Source Line |
+| :--- | :--- | :--- | :---: |
+| 1 | showToast exits early when typeof document is undefined (line 148) | *UI utils - Headless / Node Environment Branch Coverage* | [L14](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/ui_utils_node.test.js#L14) |
+| 2 | setSafeHTML exits early when parser is undefined (line 76) | *UI utils - Headless / Node Environment Branch Coverage* | [L20](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/tests/ui_utils_node.test.js#L20) |
 
 ---
 

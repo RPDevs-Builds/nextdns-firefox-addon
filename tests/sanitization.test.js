@@ -167,18 +167,20 @@ describe('Sanitization & Safe HTML (AMO Compliance)', () => {
     test('showToast displays toasts with various severity icons and handles timeouts', () => {
         jest.useFakeTimers();
 
+        showToast('Default parameters toast');
         showToast('Info alert', 'info');
         showToast('Success alert', 'success');
         showToast('Warning alert', 'warning');
         showToast('Error alert', 'error');
 
         const toasts = document.querySelectorAll('.toast');
-        expect(toasts.length).toBe(4);
+        expect(toasts.length).toBe(5);
 
         expect(toasts[0].querySelector('.toast-icon').textContent).toBe('ℹ️');
-        expect(toasts[1].querySelector('.toast-icon').textContent).toBe('✅');
-        expect(toasts[2].querySelector('.toast-icon').textContent).toBe('⚡');
-        expect(toasts[3].querySelector('.toast-icon').textContent).toBe('⚠️');
+        expect(toasts[1].querySelector('.toast-icon').textContent).toBe('ℹ️');
+        expect(toasts[2].querySelector('.toast-icon').textContent).toBe('✅');
+        expect(toasts[3].querySelector('.toast-icon').textContent).toBe('⚡');
+        expect(toasts[4].querySelector('.toast-icon').textContent).toBe('⚠️');
 
         // Fast forward duration
         jest.advanceTimersByTime(3000);

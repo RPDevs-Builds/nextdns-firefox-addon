@@ -540,7 +540,7 @@ describe('Popup UI - Blocks Expansion Suite', () => {
                 id: 'b-invalid-ts',
                 name: 'Invalid Timestamp',
                 description: 'Tests NaN date',
-                updated_ts: NaN // line 285: isNaN(d.getTime()) ? '' : ...
+                updated_ts: 'not-a-timestamp' // line 282 truthy, line 285 isNaN true -> ''
             },
             {
                 id: 'b-null-entries',
@@ -564,18 +564,28 @@ describe('Popup UI - Blocks Expansion Suite', () => {
 
     test('Blocks UI - renderPrivacyToggles branch hardening (activeProfile null url)', async () => {
         state.activeBlocksSubTab = 'privacy';
-        state.activeProfile = null;
-        state.lastBlocksData = { privacy: { natives: [] } };
-
-        // Calling loadToggles directly returns when !state.activeProfile, so set state.activeProfile then clear
         state.activeProfile = 'temp';
+        state.lastBlocksData = { privacy: { natives: [] } };
         await blocks.loadToggles();
         expect(document.getElementById('toggles-container').innerHTML).toContain('https://my.nextdns.io/temp/privacy');
 
-        // Now test renderPrivacyToggles when activeProfile is falsy
-        state.activeProfile = null;
-        // directly invoke loadToggles won't work due to guard, but let's see how loadToggles behaves when activeProfile becomes null right before rendering:
-        // We can test by setting activeProfile to empty string or testing the fallback in renderPrivacyToggles
+        // Test line 247: activeProfile is null when renderPrivacyToggles runs
+        // We set activeBlocksSubTab = 'privacy', blocksMeta = null so loadMetadata is invoked,
+        // and we clear activeProfile during loadMetadata!
+        state.blocksMeta = null;
+        global.browser.storage.local.get.mockImplementationOnce(async () => {
+            state.activeProfile = null; // side-effect: activeProfile cleared before renderPrivacyToggles()
+            return {
+                scrapedMeta: {
+                    blocklists: [{ id: 'b1', name: 'Meta List', description: 'Desc' }],
+                    tlds: ['com']
+                }
+            };
+        });
+        state.activeProfile = 'temp_trigger';
+        await blocks.loadToggles();
+        expect(document.getElementById('toggles-container').innerHTML).toContain('href="#"');
+        state.activeProfile = 'temp';
     });
 
     test('Blocks UI - loadToggles branch hardening (loadMetadata fallback)', async () => {
@@ -784,6 +794,72 @@ describe('Popup UI - Blocks Expansion Suite', () => {
 
         await blocks.loadToggles();
         expect(container.textContent).toContain('Category Without Note');
+    });
+
+    test('Blocks UI - final branch hardening for 100% branch coverage in blocks.js', async () => {
+        // Line 119: searchContainer is null
+        const searchContainer = document.getElementById("blocks-search-container");
+        searchContainer.remove();
+        await blocks.loadToggles();
+
+        // Recreate search container for subsequent tests
+        const recreatedSearch = document.createElement("div");
+        recreatedSearch.id = "blocks-search-container";
+        document.body.appendChild(recreatedSearch);
+
+        // Line 127: listsContainer is null when activeBlocksSubTab === 'lists'
+        const listsCont = document.getElementById("toggles-lists-container");
+        if (listsCont) listsCont.remove();
+        state.activeBlocksSubTab = 'lists';
+        await blocks.loadToggles();
+
+        // Line 149: state.lastBlocksData is null when res.data is truthy
+        state.activeBlocksSubTab = 'security';
+        state.lastBlocksData = null;
+        browser.runtime.sendMessage.mockResolvedValueOnce({ success: true, data: { security: { test: true } } });
+        await blocks.loadToggles(null, true);
+        expect(state.lastBlocksData).toEqual({ security: { test: true } });
+
+        // Line 149: res.data is null/falsy when GET_ALL_SETTINGS succeeds, with state.lastBlocksData already an object
+        state.activeBlocksSubTab = 'security';
+        state.lastBlocksData = { privacy: { blocklists: [] } };
+        browser.runtime.sendMessage.mockResolvedValueOnce({ success: true, data: null });
+        await blocks.loadToggles(null, true);
+        expect(state.lastBlocksData).toEqual({ privacy: { blocklists: [] } });
+
+        // Line 109: state.activeProfile is falsy early return
+        const savedProfile = state.activeProfile;
+        state.activeProfile = null;
+        await blocks.loadToggles();
+        state.activeProfile = savedProfile;
+
+        // Line 112: toggles-container element is missing early return
+        const togglesContainer = document.getElementById("toggles-container");
+        togglesContainer.remove();
+        await blocks.loadToggles();
+        // Recreate container
+        const newTogglesContainer = document.createElement("div");
+        newTogglesContainer.id = "toggles-container";
+        document.body.appendChild(newTogglesContainer);
+
+        // Lines 245-247: state.lastBlocksData?.privacy is null/undefined during renderPrivacyToggles
+        state.activeBlocksSubTab = 'privacy';
+        state.lastBlocksData = {};
+        await blocks.loadToggles(null, false);
+        expect(newTogglesContainer.textContent).toContain('Native Tracking Protection');
+
+        // Line 285: updated_ts branch with updated_text and updated falsy, valid timestamp <= 1e11
+        state.activeBlocksSubTab = 'blocklists';
+        state.blocksMeta = {
+            blocklists: [
+                { id: 'b-sec-ts', name: 'Seconds Ts', description: 'Desc', updated_ts: 1600000000 },
+                { id: 'b-invalid-date', name: 'Bad Date', description: 'Desc', updated_ts: NaN }
+            ]
+        };
+        state.lastBlocksData = { privacy: { blocklists: [] } };
+        await blocks.loadToggles("", false);
+        expect(newTogglesContainer.textContent).toContain('Seconds Ts');
+        expect(newTogglesContainer.textContent).toContain('Bad Date');
     });
 });
 

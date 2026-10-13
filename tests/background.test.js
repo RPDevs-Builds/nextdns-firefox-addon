@@ -2252,6 +2252,88 @@ describe('Background Script - Full Coverage Suite', () => {
     // Restore fetch mock
     apiClient.fetchWithRetry = origFetch;
   });
+
+  test('requestListener - Exhaustive Branch Coverage to 100%', async () => {
+    const { requestListener } = await import('../src/background/requestListener.js');
+    const { state } = await import('../src/background/state.js');
+
+    // 1. Line 18: details.tabId < 0 (e.g. background request) -> returns { cancel: false }
+    const bgReq = requestListener({ tabId: -1, url: 'https://example.com' });
+    expect(bgReq).toEqual({ cancel: false });
+
+    // 2. Line 22: malformed URL / missing domain -> returns { cancel: false }
+    const badUrl = requestListener({ tabId: 1, url: 'javascript:void(0)' });
+    expect(badUrl).toEqual({ cancel: false });
+
+    // 3. Line 46: tabDomains keys >= 300 triggers LRU delete
+    state.tabRequests[2] = {};
+    for (let i = 0; i < 305; i++) {
+      state.tabRequests[2][`domain${i}.com`] = { status: 'default', reason: 'Default', timestamp: Date.now() };
+    }
+    const lruReq = requestListener({ tabId: 2, url: 'https://newdomain.com' });
+    expect(lruReq).toEqual({ cancel: false });
+    expect(Object.keys(state.tabRequests[2]).length).toBeLessThanOrEqual(305);
+
+    // 4. Line 58: state.localLogs is non-array / uninitialized
+    state.localLogs = null;
+    requestListener({ tabId: 2, url: 'https://init-logs.com' });
+    expect(Array.isArray(state.localLogs)).toBe(true);
+
+    // Pre-seed recentLogTimestamps with 305 entries where some are > 10000ms old (lines 64-67)
+    state.recentLogTimestamps = new Map();
+    const now = Date.now();
+    for (let i = 0; i < 305; i++) {
+      state.recentLogTimestamps.set(`old${i}.com`, now - 15000);
+    }
+    // Seed state.localLogs with exactly 200 items so unshift (201) + pop leaves 200 (line 80 pop())
+    state.localLogs = Array.from({ length: 200 }, (_, i) => ({ domain: `d${i}.com` }));
+
+    const pruneReq = requestListener({ tabId: 2, url: 'https://eviction-test.com' });
+    expect(pruneReq).toEqual({ cancel: false });
+    expect(state.localLogs.length).toBe(200);
+    expect(state.recentLogTimestamps.size).toBeLessThan(300);
+
+    // 5. Line 62: now - lastLogTime < 3000ms (debounce branch)
+    state.recentLogTimestamps.set('debounced.com', Date.now());
+    const debouncedReq = requestListener({ tabId: 2, url: 'https://debounced.com' });
+    expect(debouncedReq).toEqual({ cancel: false });
+
+    // 6. Line 44: tabDomains[domain] already exists (line 44 false branch)
+    state.recentLogTimestamps.delete('existing-domain.com');
+    requestListener({ tabId: 2, url: 'https://existing-domain.com' });
+    // Second request for same domain exercises line 44 false branch
+    state.recentLogTimestamps.delete('existing-domain.com');
+    const repeatReq = requestListener({ tabId: 2, url: 'https://existing-domain.com' });
+    expect(repeatReq).toEqual({ cancel: false });
+
+    // 7. Line 81: browser.runtime.sendMessage is a function
+    global.browser.runtime.sendMessage = jest.fn().mockRejectedValue(new Error('Send error'));
+    state.recentLogTimestamps.delete('broadcast.com');
+    const broadcastReq = requestListener({ tabId: 2, url: 'https://broadcast.com' });
+    expect(broadcastReq).toEqual({ cancel: false });
+    expect(global.browser.runtime.sendMessage).toHaveBeenCalled();
+
+    // 7b. Line 76: url.protocol fallback ('HTTP' when falsy)
+    const origURL = global.URL;
+    class MockProtoURL extends origURL {
+      constructor(u) {
+        super(u);
+        if (typeof u === 'string' && u.includes('no-proto.com')) {
+          Object.defineProperty(this, 'protocol', { value: '' });
+        }
+      }
+    }
+    global.URL = MockProtoURL;
+    state.recentLogTimestamps.delete('no-proto.com');
+    const noProtoReq = requestListener({ tabId: 2, url: 'https://no-proto.com' });
+    expect(noProtoReq).toEqual({ cancel: false });
+    expect(state.localLogs[0].protocol).toBe('HTTP');
+    global.URL = origURL;
+
+    // 8. Line 91: exception handling in URL parsing / processing
+    const errReq = requestListener({ tabId: 2, url: null });
+    expect(errReq).toEqual({ cancel: false });
+  });
 });
 
 

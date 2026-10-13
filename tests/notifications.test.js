@@ -248,4 +248,117 @@ describe('Action Center (Phase 8.1)', () => {
         uiNotifications.updateAlertsBadge();
         uiNotifications.renderNotifications();
     });
+
+    test('UI: notifications branch hardening to 100%', async () => {
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: true, notifications: [] });
+        const uiNotifications = await import('../src/ui/notifications.js');
+        const uiState = (await import('../src/ui/state.js')).state;
+
+        // 1. updateAlertsBadge: badge present, state.notifications = null or empty
+        document.body.innerHTML = '<span id="alerts-badge"></span><div id="notifications-container"></div>';
+        const badge = document.getElementById('alerts-badge');
+        uiState.notifications = null;
+        uiNotifications.updateAlertsBadge();
+        expect(badge.classList.contains('hidden')).toBe(true);
+
+        uiState.notifications = [];
+        uiNotifications.updateAlertsBadge();
+        expect(badge.classList.contains('hidden')).toBe(true);
+
+        // 2. renderNotifications: container present with null state.notifications
+        const container = document.getElementById('notifications-container');
+        uiState.notifications = null;
+        uiNotifications.renderNotifications();
+        expect(container.innerHTML).toContain('No new alerts.');
+
+        // renderNotifications: notification with severity 'high', missing type, invalid timestamp, missing message
+        uiState.notifications = [
+            { severity: 'high', type: '', timestamp: 'not-a-date', message: '' },
+            { severity: 'info', type: 'system', timestamp: Date.now(), message: 'System alert' }
+        ];
+        uiNotifications.renderNotifications();
+        expect(container.innerHTML).toContain('var(--danger)');
+        expect(container.innerHTML).toContain('Recent');
+        expect(container.innerHTML).toContain('alert');
+
+        // 3. initNotifications: elements missing (toggleBtn or popover or clearBtn missing)
+        document.body.innerHTML = '';
+        uiNotifications.initNotifications();
+
+        document.body.innerHTML = '<button id="alerts-toggle-btn"></button>';
+        uiNotifications.initNotifications();
+
+        document.body.innerHTML = '<div id="alerts-popover"></div>';
+        uiNotifications.initNotifications();
+
+        // 4. initNotifications: event listeners already added (__alertsClickListenerAdded is true)
+        document.body.innerHTML = `
+            <button id="alerts-toggle-btn"></button>
+            <div id="alerts-popover" class="hidden">Popover Content</div>
+            <button id="notifications-clear-btn"></button>
+        `;
+        document.__alertsClickListenerAdded = true;
+        uiNotifications.initNotifications();
+
+        // 5. Outside click and keydown edge branches
+        delete document.__alertsClickListenerAdded;
+        uiNotifications.initNotifications();
+
+        const popover = document.getElementById('alerts-popover');
+        const toggleBtn = document.getElementById('alerts-toggle-btn');
+
+        // Click when popover is hidden -> does nothing
+        document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        // Open popover
+        popover.classList.remove('hidden');
+
+        // Click inside popover -> does not close
+        popover.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        expect(popover.classList.contains('hidden')).toBe(false);
+
+        // Click inside toggleBtn -> does not close via outside handler
+        toggleBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        // Keydown with non-Escape key -> does nothing
+        popover.classList.remove('hidden');
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+        expect(popover.classList.contains('hidden')).toBe(false);
+
+        // Keydown with Escape when popover already hidden
+        popover.classList.add('hidden');
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        expect(popover.classList.contains('hidden')).toBe(true);
+
+        // Click and keydown when popover or button elements are removed from DOM
+        document.body.innerHTML = '';
+        document.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+        // 6. GET_NOTIFICATIONS response variants (lines 99-103)
+        // Variant a: res is null / undefined
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValue(null);
+        uiNotifications.initNotifications();
+        await new Promise(r => setTimeout(r, 10));
+
+        // Variant b: res.success is false
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
+        uiNotifications.initNotifications();
+        await new Promise(r => setTimeout(r, 10));
+
+        // Variant c: res.notifications is not an array
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: true, notifications: 'invalid' });
+        uiNotifications.initNotifications();
+        await new Promise(r => setTimeout(r, 10));
+
+        // Variant d: res.notifications is a valid array
+        document.body.innerHTML = '<span id="alerts-badge"></span>';
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({
+            success: true,
+            notifications: [{ id: 'n1', severity: 'high', message: 'Test alert' }]
+        });
+        uiNotifications.initNotifications();
+        await new Promise(r => setTimeout(r, 10));
+        expect(uiState.notifications.length).toBe(1);
+    });
 });
