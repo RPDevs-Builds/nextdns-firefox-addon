@@ -4,10 +4,10 @@
 
 - **Test Framework**: Jest v30.5.2 with `jest-environment-jsdom`, `jest-webextension-mock`, and `jest-fetch-mock`.
 - **Total Test Suites**: **24 passed, 24 total** (100% Suite Pass Rate).
-- **Total Unit Tests**: **353 passed, 353 total** (100% Test Pass Rate, 0 failures).
-- **Global Coverage**: **100.0% Lines** | **98.53% Statements** | **98.47% Functions** | **84.73% Branches**.
+- **Total Unit Tests**: **374 passed, 374 total** (100% Test Pass Rate, 0 failures).
+- **Global Coverage**: **100.0% Lines** | **98.91% Statements** | **100.0% Functions** | **88.21% Branches**.
 - **100% Line Coverage Modules**: **All 20 Source Modules** at **100.0% line coverage** (100% across `src/`, `src/background/`, and `src/ui/`).
-- **100% Function Coverage Modules**: **18 of 20 Source Modules** at **100.0% function coverage**.
+- **100% Function Coverage Modules**: **All 20 Source Modules** at **100.0% function coverage** (523 / 523 functions).
 - **Mozilla AMO Compliance**: 0 errors, 0 warnings, 0 notices via `addons-linter`.
 
 ### Enforced Coverage Thresholds (`package.json`)
@@ -15,9 +15,9 @@
 | Metric | Enforced Threshold | Achieved Level | Margin |
 | :--- | :---: | :---: | :---: |
 | **Lines** | `99%` | **100.0%** | +1.00% |
-| **Statements** | `98%` | **98.53%** | +0.53% |
-| **Functions** | `98%` | **98.47%** | +0.47% |
-| **Branches** | `84%` | **84.73%** | +0.73% |
+| **Functions** | `100%` | **100.0%** | 0.00% |
+| **Statements** | `98%` | **98.91%** | +0.91% |
+| **Branches** | `88%` | **88.21%** | +0.21% |
 
 ### Test Execution Commands
 
@@ -41,29 +41,29 @@ npm run test:watch
 
 | File / Subdirectory | % Lines | % Statements | % Functions | % Branches | Status |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **All Files Combined** | **100.0%** | **98.53%** | **98.47%** | **84.73%** | 🏆 **High-Water Benchmark** |
+| **All Files Combined** | **100.0%** | **98.91%** | **100.0%** | **88.21%** | 🏆 **High-Water Benchmark** |
 | [`src/apiClient.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/apiClient.js) | **100.0%** | **100.0%** | **100.0%** | 87.77% | 🎯 100% Lines, Stmts & Funcs |
-| [`src/content.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/content.js) | **100.0%** | 96.90% | 96.75% | 81.28% | 🎯 100% Lines |
+| [`src/content.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/content.js) | **100.0%** | 97.43% | **100.0%** | 81.78% | 🎯 100% Lines & Funcs |
 | [`src/metadataManager.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/metadataManager.js) | **100.0%** | **100.0%** | **100.0%** | **100.0%** | 🎯 100% Everywhere |
 | [`src/storage.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/storage.js) | **100.0%** | **100.0%** | **100.0%** | 92.20% | 🎯 100% Lines, Stmts & Funcs |
-| **`src/background/` (All 8 Modules)** | **100.0%** | **98.58%** | **100.0%** | **84.86%** | 🏆 **100% Lines & Functions** |
-| [`src/background/api.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/api.js) | **100.0%** | 99.01% | **100.0%** | 88.17% | 🎯 100% Lines & Funcs |
-| [`src/background/handlers.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/handlers.js) | **100.0%** | 97.61% | **100.0%** | 78.68% | 🎯 100% Lines & Funcs |
+| **`src/background/` (All 8 Modules)** | **100.0%** | **99.23%** | **100.0%** | **90.48%** | 🏆 **100% Lines & Functions** |
+| [`src/background/api.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/api.js) | **100.0%** | 99.01% | **100.0%** | 89.16% | 🎯 100% Lines & Funcs |
+| [`src/background/handlers.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/handlers.js) | **100.0%** | 99.40% | **100.0%** | 90.00% | 🎯 100% Lines & Funcs |
 | [`src/background/logStream.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/logStream.js) | **100.0%** | **100.0%** | **100.0%** | 92.10% | 🎯 100% Lines, Stmts & Funcs |
 | [`src/background/main.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/main.js) | **100.0%** | 98.19% | **100.0%** | 85.00% | 🎯 100% Lines & Funcs |
 | [`src/background/requestListener.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/requestListener.js) | **100.0%** | 98.00% | **100.0%** | 88.63% | 🎯 100% Lines & Funcs |
-| [`src/background/scheduler.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/scheduler.js) | **100.0%** | **100.0%** | **100.0%** | 95.91% | 🎯 100% Lines, Stmts & Funcs |
+| [`src/background/scheduler.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/scheduler.js) | **100.0%** | **100.0%** | **100.0%** | **100.0%** | 🎯 100% Everywhere |
 | [`src/background/state.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/state.js) | **100.0%** | **100.0%** | **100.0%** | **100.0%** | 🎯 100% Everywhere |
-| [`src/background/utils.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/utils.js) | **100.0%** | **100.0%** | **100.0%** | 95.00% | 🎯 100% Lines, Stmts & Funcs |
-| **`src/ui/` (All 8 Modules)** | **100.0%** | **99.55%** | **98.70%** | **85.37%** | 🏆 **100% Lines Across Directory** |
-| [`src/ui/blocks.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/blocks.js) | **100.0%** | 98.42% | 97.72% | 83.62% | 🎯 100% Lines |
-| [`src/ui/dashboard.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/dashboard.js) | **100.0%** | **100.0%** | 96.87% | 87.21% | 🎯 100% Lines & Stmts |
-| [`src/ui/main.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/main.js) | **100.0%** | 99.86% | 98.91% | 84.58% | 🎯 100% Lines |
+| [`src/background/utils.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/background/utils.js) | **100.0%** | **100.0%** | **100.0%** | **100.0%** | 🎯 100% Everywhere |
+| **`src/ui/` (All 8 Modules)** | **100.0%** | **99.72%** | **100.0%** | **89.22%** | 🏆 **100% Lines & Functions** |
+| [`src/ui/blocks.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/blocks.js) | **100.0%** | **100.0%** | **100.0%** | 97.07% | 🎯 100% Lines, Stmts & Funcs |
+| [`src/ui/dashboard.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/dashboard.js) | **100.0%** | **100.0%** | **100.0%** | 87.46% | 🎯 100% Lines, Stmts & Funcs |
+| [`src/ui/main.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/main.js) | **100.0%** | 99.86% | **100.0%** | 84.78% | 🎯 100% Lines & Funcs |
 | [`src/ui/notifications.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/notifications.js) | **100.0%** | **100.0%** | **100.0%** | 93.47% | 🎯 100% Lines, Stmts & Funcs |
-| [`src/ui/scheduler.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/scheduler.js) | **100.0%** | **100.0%** | **100.0%** | 78.94% | 🎯 100% Lines, Stmts & Funcs |
+| [`src/ui/scheduler.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/scheduler.js) | **100.0%** | **100.0%** | **100.0%** | **100.0%** | 🎯 100% Everywhere |
 | [`src/ui/state.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/state.js) | **100.0%** | **100.0%** | **100.0%** | **100.0%** | 🎯 100% Everywhere |
-| [`src/ui/theme.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/theme.js) | **100.0%** | 98.94% | **100.0%** | 82.53% | 🎯 100% Lines & Funcs |
-| [`src/ui/tools.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/tools.js) | **100.0%** | **100.0%** | **100.0%** | 81.15% | 🎯 100% Lines, Stmts & Funcs |
+| [`src/ui/theme.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/theme.js) | **100.0%** | 98.94% | **100.0%** | 88.88% | 🎯 100% Lines & Funcs |
+| [`src/ui/tools.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/tools.js) | **100.0%** | **100.0%** | **100.0%** | **100.0%** | 🎯 100% Everywhere |
 | [`src/ui/utils.js`](file:///mnt/sharedroot/projects/RPDevs-Builds/nextdns-firefox-addon/src/ui/utils.js) | **100.0%** | 98.18% | **100.0%** | 94.54% | 🎯 100% Lines & Funcs |
 
 ---
