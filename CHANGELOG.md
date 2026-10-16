@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.2.5] - 2026-10-16
+
+### Added
+- **Persistent Log Indicators (`src/content.css`, `src/content.js`):** Allowed by allowlist (`✅`) and Blocked by denylist (`🚫`) icons now render permanently on NextDNS query log rows (`my.nextdns.io/<profileId>/logs`) rather than only displaying when highlighting or hovering over a row. Added forced visibility styles (`opacity: 1 !important; visibility: visible !important; display: inline-flex !important;`) to `.list-group-item svg`, `.badge`, `.nxm-log-actions`, `.nxm-allowlist-indicator`, and `.nxm-denylist-indicator`.
+- **Interactive 3-Button Whitelist Modal (`src/content.js`):** Clicking `✅` on any log item now opens an interactive modal overlay prefilled with the target domain. Features 3 distinct action buttons:
+  - **`Add`**: Whitelists the exact specified domain.
+  - **`Add Root Domain to whitelist`**: Strips subdomains down to the effective registrar root domain for standard gTLDs and two-part ccTLDs (e.g., `.co.uk`, `.com.au`, `.gov.uk`, etc.) using `extractRootDomain()` so all subdomains are allowed.
+  - **`Cancel`**: Closes the dialog without making changes.
+  - Supports keyboard accessibility (`Escape` to close, `Enter` to submit when input is focused) and dynamic root domain calculation hints.
+
+### Fixed
+- **Diagnostics Sub-Tab Visibility (`src/popup.js`):** Fixed an issue where the Diagnostics sub-tab remained blank by unhiding the container and properly activating the sub-tab view.
+
+### Tests & Quality
+- **Maintained 100.0% Hall of Fame Coverage (All 21 Modules):** Achieved **100.0% Branches**, **100.0% Functions**, **100.0% Lines**, and **100.0% Statements** repository-wide across all 21 source modules.
+- **Full Test Suite Validation:** All 395 unit tests across 25 test suites passing cleanly.
+- **Mozilla AMO Compliance:** Zero errors, zero notices, and zero warnings on Mozilla `addons-linter`.
+
 ## [1.2.4] - 2026-10-13
 
 ### Fixed
