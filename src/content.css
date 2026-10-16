@@ -421,3 +421,60 @@ html.nxm-forced-light {
     --bs-list-group-color: #212529 !important;
 }
 
+/* Ensure Allowlist checkmark, Denylist icons, and log row actions are visible all the time, not just when hovering/highlighting */
+.Logs .list-group-item svg,
+.Logs .list-group-item .svg-inline--fa,
+.Logs .list-group-item [data-icon],
+.Logs .list-group-item [class*="status"],
+.Logs .list-group-item [class*="indicator"],
+.Logs .list-group-item [class*="icon"],
+.Logs .list-group-item .opacity-0,
+.Logs .list-group-item [style*="opacity: 0"],
+.Logs .list-group-item .nxm-log-actions,
+.Logs .list-group-item .nxm-allowlist-indicator,
+.Logs .list-group-item .nxm-denylist-indicator {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.nxm-log-actions button {
+    transition: transform 0.1s ease;
+}
+
+.nxm-log-actions button:hover {
+    transform: scale(1.15);
+}
+
+.nxm-allowlist-indicator,
+.nxm-denylist-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9em;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+/* Add to Whitelist Modal */
+#nxm-allow-modal-dialog {
+    max-width: 500px;
+}
+
+.nxm-allow-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.nxm-allow-actions .btn {
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+

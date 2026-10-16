@@ -102,7 +102,7 @@ function cleanupUI() {
     const idsToRemove = [
         'nxm-tld-controls', 'nxm-modal-enable-all', 'nxm-modal-disable-all', 
         'nxm-privacy-controls', 'nxm-logs-filter-group', 'nxm-profile-note',
-        'nxm-progress-ui', 'nxm-filter-modal-backdrop',
+        'nxm-progress-ui', 'nxm-filter-modal-backdrop', 'nxm-allow-modal-backdrop',
         'nxm-header-filtered-logs-btn', 'nxm-dropdown-filtered-logs-item'
     ];
     idsToRemove.forEach(id => {
@@ -113,7 +113,7 @@ function cleanupUI() {
         }
     });
 
-    document.querySelectorAll('.nxm-log-actions, .nxm-domain-desc').forEach(el => el.remove());
+    document.querySelectorAll('.nxm-log-actions, .nxm-domain-desc, .nxm-allowlist-indicator, .nxm-denylist-indicator').forEach(el => el.remove());
     
     // Remove forced theme classes
     document.documentElement.classList.remove('nxm-forced-dark', 'nxm-forced-light');
@@ -732,6 +732,22 @@ async function injectLogsSettingsControls() {
             background-color: rgba(174, 0, 255, 0.10) !important;
         }
       `;
+      css += `
+        .Logs .list-group-item svg,
+        .Logs .list-group-item .svg-inline--fa,
+        .Logs .list-group-item [data-icon],
+        .Logs .list-group-item [class*="status"],
+        .Logs .list-group-item [class*="indicator"],
+        .Logs .list-group-item [class*="icon"],
+        .Logs .list-group-item .opacity-0,
+        .Logs .list-group-item [style*="opacity: 0"],
+        .Logs .list-group-item .nxm-log-actions,
+        .Logs .list-group-item .nxm-allowlist-indicator,
+        .Logs .list-group-item .nxm-denylist-indicator {
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+      `;
       styleEl.textContent = css;
   };
 
@@ -943,11 +959,38 @@ async function handleSaveNote(domain, note) {
 function injectLogActions() {
   const rows = Array.from(document.querySelectorAll('.list-group-item'));
   rows.forEach(row => {
-    if (row.querySelector('.nxm-log-actions')) return;
     const domainEl = row.querySelector('.notranslate');
     if (!domainEl) return;
     const domain = domainEl.textContent.trim();
     if (!domain || domain.includes(' ')) return;
+
+    // Check if row represents an allowlisted query (green border / text-success / text mentions allowlist)
+    const isAllow = (row.style && (row.style.borderLeftColor?.includes('46, 204, 64') || row.style.borderLeft?.includes('46, 204, 64') || row.style.cssText?.includes('46, 204, 64') || row.style.cssText?.includes('#2ecc40'))) ||
+                    !!row.querySelector('[style*="46, 204, 64"], [style*="#2ecc40"], .text-success') ||
+                    row.textContent.toLowerCase().includes('allowlist');
+
+    // Check if row represents a denylisted query (red border / text-danger with denylist mention)
+    const isDeny = ((row.style && (row.style.borderLeftColor?.includes('255, 65, 54') || row.style.borderLeft?.includes('255, 65, 54') || row.style.cssText?.includes('255, 65, 54') || row.style.cssText?.includes('#ff4136'))) ||
+                    !!row.querySelector('[style*="255, 65, 54"], [style*="#ff4136"], .text-danger')) &&
+                    row.textContent.toLowerCase().includes('denylist');
+
+    if (isAllow && !row.querySelector('.nxm-allowlist-indicator')) {
+      const allowIndicator = document.createElement('span');
+      allowIndicator.className = 'nxm-allowlist-indicator';
+      allowIndicator.title = 'Allowed by Allowlist';
+      allowIndicator.textContent = '✅';
+      allowIndicator.style.cssText = 'font-size: 0.9em; margin-right: 6px; display: inline-flex; align-items: center; opacity: 1 !important; visibility: visible !important;';
+      domainEl.parentElement.insertBefore(allowIndicator, domainEl);
+    } else if (isDeny && !row.querySelector('.nxm-denylist-indicator')) {
+      const denyIndicator = document.createElement('span');
+      denyIndicator.className = 'nxm-denylist-indicator';
+      denyIndicator.title = 'Blocked by Denylist';
+      denyIndicator.textContent = '🚫';
+      denyIndicator.style.cssText = 'font-size: 0.9em; margin-right: 6px; display: inline-flex; align-items: center; opacity: 1 !important; visibility: visible !important;';
+      domainEl.parentElement.insertBefore(denyIndicator, domainEl);
+    }
+
+    if (row.querySelector('.nxm-log-actions')) return;
 
     const timeEl = row.querySelector('time');
     if (timeEl && timeEl.dateTime && !row.dataset.nxmTimeFixed) {
@@ -962,7 +1005,7 @@ function injectLogActions() {
 
     const actionContainer = document.createElement('div');
     actionContainer.className = 'nxm-log-actions';
-    actionContainer.style.cssText = 'display: inline-flex; gap: 5px; margin-left: 10px; vertical-align: middle;';
+    actionContainer.style.cssText = 'display: inline-flex; gap: 5px; margin-left: 10px; vertical-align: middle; opacity: 1 !important; visibility: visible !important;';
 
     const btn = (txt, title, fn) => {
         const b = document.createElement('button');
@@ -972,12 +1015,210 @@ function injectLogActions() {
         return b;
     };
 
-    actionContainer.appendChild(btn('✅', `Allow ${domain}`, () => handleLogAction(domain, 'allowlist')));
+    actionContainer.appendChild(btn('✅', `Allow ${domain}`, () => openAllowlistModal(domain)));
     actionContainer.appendChild(btn('🚫', `Deny ${domain}`, () => handleLogAction(domain, 'denylist')));
     actionContainer.appendChild(btn('👁️‍🗨️', `Hide ${domain}`, () => handleHideAction(domain)));
     
     domainEl.parentElement.appendChild(actionContainer);
   });
+}
+
+function extractRootDomain(domain) {
+  const clean = domain.trim().toLowerCase().replace(/^\*+\./, '').replace(/^\.+|\.+$/g, '');
+  if (!clean) return '';
+  const parts = clean.split('.').filter(Boolean);
+  if (parts.length <= 2) return clean;
+
+  const secondLevelTlds = new Set(['co', 'com', 'org', 'net', 'edu', 'gov', 'ac', 'mil', 'nom', 'sch']);
+  const secondToLast = parts[parts.length - 2];
+  const last = parts[parts.length - 1];
+
+  if (parts.length >= 3 && secondLevelTlds.has(secondToLast) && last.length === 2) {
+    return parts.slice(-3).join('.');
+  }
+  return parts.slice(-2).join('.');
+}
+
+let allowModalKeyHandler = null;
+
+function closeAllowlistModal() {
+  if (allowModalKeyHandler) {
+    document.removeEventListener('keydown', allowModalKeyHandler);
+    allowModalKeyHandler = null;
+  }
+  const existing = document.getElementById('nxm-allow-modal-backdrop');
+  if (existing) existing.remove();
+}
+
+function openAllowlistModal(initialDomain) {
+  closeAllowlistModal();
+
+  const profileId = getProfileId();
+  if (!profileId) {
+    showToast("Profile ID not detected in URL.", "warning");
+    return;
+  }
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'nxm-allow-modal-backdrop';
+  backdrop.className = 'nxm-modal-backdrop';
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) closeAllowlistModal();
+  };
+
+  const dialog = document.createElement('div');
+  dialog.id = 'nxm-allow-modal-dialog';
+  dialog.className = 'nxm-modal-dialog';
+  dialog.onclick = (e) => e.stopPropagation();
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'nxm-modal-header';
+
+  const title = document.createElement('h5');
+  title.className = 'nxm-modal-title';
+  title.textContent = '✅ Add to Whitelist';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.id = 'nxm-allow-modal-close';
+  closeBtn.className = 'nxm-modal-close';
+  closeBtn.textContent = '×';
+  closeBtn.title = 'Close (Esc)';
+  closeBtn.onclick = () => closeAllowlistModal();
+
+  header.append(title, closeBtn);
+
+  // Body
+  const body = document.createElement('div');
+  body.className = 'nxm-modal-body';
+
+  const label = document.createElement('label');
+  label.htmlFor = 'nxm-allow-domain-input';
+  label.style.cssText = 'display: block; font-weight: 600; font-size: 0.85em; color: var(--nxm-accent, #4facf7); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;';
+  label.textContent = 'Domain to Whitelist:';
+
+  const domainInput = document.createElement('input');
+  domainInput.type = 'text';
+  domainInput.id = 'nxm-allow-domain-input';
+  domainInput.className = 'form-control form-control-sm';
+  domainInput.value = initialDomain;
+  domainInput.placeholder = 'e.g. example.com';
+  domainInput.style.cssText = 'width: 100%; background: #0f172a; color: #fff; border: 1px solid #475569; padding: 8px 10px; font-size: 0.95rem; border-radius: 6px; margin-bottom: 8px;';
+
+  const hint = document.createElement('small');
+  hint.id = 'nxm-allow-modal-hint';
+  hint.style.cssText = 'display: block; color: var(--nxm-text-muted, #94a3b8); font-size: 0.78em; line-height: 1.4; margin-bottom: 12px;';
+  const initialRoot = extractRootDomain(initialDomain);
+  hint.textContent = initialRoot && initialRoot !== initialDomain
+    ? `Root domain: ${initialRoot} (whitelisting root allows all subdomains).`
+    : `Whitelisting a domain also automatically allows all of its subdomains.`;
+
+  domainInput.oninput = () => {
+    const currentVal = domainInput.value.trim();
+    const currentRoot = extractRootDomain(currentVal);
+    if (currentRoot && currentRoot !== currentVal) {
+      hint.textContent = `Root domain: ${currentRoot} (whitelisting root allows all subdomains).`;
+    } else {
+      hint.textContent = `Whitelisting a domain also automatically allows all of its subdomains.`;
+    }
+  };
+
+  // Actions Container
+  const actions = document.createElement('div');
+  actions.className = 'nxm-allow-actions';
+
+  // 1. Cancel button
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.id = 'nxm-allow-cancel-btn';
+  cancelBtn.className = 'btn btn-secondary btn-sm';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.onclick = () => closeAllowlistModal();
+
+  // 2. Add Root Domain button
+  const addRootBtn = document.createElement('button');
+  addRootBtn.type = 'button';
+  addRootBtn.id = 'nxm-allow-add-root-btn';
+  addRootBtn.className = 'btn btn-success btn-sm';
+  addRootBtn.textContent = 'Add Root Domain to whitelist';
+  addRootBtn.title = 'Whitelist root domain so all subdomains for that domain are whitelisted';
+
+  // 3. Add button
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.id = 'nxm-allow-add-btn';
+  addBtn.className = 'btn btn-primary btn-sm';
+  addBtn.textContent = 'Add';
+
+  const submitDomain = async (targetDomain, isRoot) => {
+    if (!targetDomain) {
+      showToast("Please enter a valid domain.", "warning");
+      return;
+    }
+    const cleanDomain = targetDomain.trim().toLowerCase().replace(/^\*+\./, '').replace(/^\.+|\.+$/g, '');
+    if (!cleanDomain) {
+      showToast("Invalid domain format.", "warning");
+      return;
+    }
+
+    addBtn.disabled = true;
+    addRootBtn.disabled = true;
+    cancelBtn.disabled = true;
+
+    try {
+      const res = await browser.runtime.sendMessage({
+        type: "MANAGE_DOMAIN",
+        profileId,
+        listType: "allowlist",
+        action: "add",
+        domain: cleanDomain
+      });
+
+      if (res && res.success) {
+        showToast(isRoot ? `Added root domain ${cleanDomain} to allowlist` : `Added ${cleanDomain} to allowlist`, 'success');
+        closeAllowlistModal();
+      } else {
+        showToast(`Error: ${res?.error || 'Failed to add domain'}`, 'error');
+        addBtn.disabled = false;
+        addRootBtn.disabled = false;
+        cancelBtn.disabled = false;
+      }
+    } catch (err) {
+      showToast(`Error: ${err.message || 'Failed to add domain'}`, 'error');
+      addBtn.disabled = false;
+      addRootBtn.disabled = false;
+      cancelBtn.disabled = false;
+    }
+  };
+
+  addBtn.onclick = () => {
+    submitDomain(domainInput.value.trim(), false);
+  };
+
+  addRootBtn.onclick = () => {
+    const rawVal = domainInput.value.trim();
+    const rootDom = extractRootDomain(rawVal);
+    submitDomain(rootDom, true);
+  };
+
+  actions.append(cancelBtn, addRootBtn, addBtn);
+  body.append(label, domainInput, hint, actions);
+  dialog.append(header, body);
+  backdrop.append(dialog);
+  document.body.appendChild(backdrop);
+
+  allowModalKeyHandler = (e) => {
+    if (e.key === 'Escape') {
+      closeAllowlistModal();
+    } else if (e.key === 'Enter' && document.activeElement === domainInput) {
+      e.preventDefault();
+      addBtn.click();
+    }
+  };
+  document.addEventListener('keydown', allowModalKeyHandler);
+
+  domainInput.focus();
+  domainInput.select();
 }
 
 async function handleHideAction(domain) {

@@ -665,9 +665,31 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
         const buttons = actionsContainer.querySelectorAll('button');
         expect(buttons.length).toBe(3); // Allow, Deny, Hide
 
-        // Test Allow action
+        // Test Allow action (opens Whitelist Modal with prefilled domain)
         buttons[0].click();
-        expect(global.confirm).toHaveBeenCalledWith(expect.stringContaining('telemetry.service.io to allowlist'));
+        const allowModal = document.getElementById('nxm-allow-modal-backdrop');
+        expect(allowModal).not.toBeNull();
+        const domainInput = document.getElementById('nxm-allow-domain-input');
+        expect(domainInput.value).toBe('telemetry.service.io');
+
+        // Test Add Root Domain button (extracts root domain 'service.io' and sends message)
+        const addRootBtn = document.getElementById('nxm-allow-add-root-btn');
+        addRootBtn.click();
+        await new Promise(r => setTimeout(r, 60));
+        expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'MANAGE_DOMAIN',
+            profileId: 'abc123',
+            listType: 'allowlist',
+            action: 'add',
+            domain: 'service.io'
+        });
+        expect(document.getElementById('nxm-allow-modal-backdrop')).toBeNull();
+
+        // Re-open Allow modal and test exact domain Add button
+        buttons[0].click();
+        const addBtn = document.getElementById('nxm-allow-add-btn');
+        addBtn.click();
+        await new Promise(r => setTimeout(r, 60));
         expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith({
             type: 'MANAGE_DOMAIN',
             profileId: 'abc123',
@@ -675,6 +697,13 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
             action: 'add',
             domain: 'telemetry.service.io'
         });
+        expect(document.getElementById('nxm-allow-modal-backdrop')).toBeNull();
+
+        // Re-open Allow modal and test Cancel button
+        buttons[0].click();
+        expect(document.getElementById('nxm-allow-modal-backdrop')).not.toBeNull();
+        document.getElementById('nxm-allow-cancel-btn').click();
+        expect(document.getElementById('nxm-allow-modal-backdrop')).toBeNull();
 
         // Test Deny action
         buttons[1].click();
@@ -1329,6 +1358,11 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
         if (actionBtn) {
             actionBtn.click();
             await new Promise(r => setTimeout(r, 60));
+            const modalAdd = document.getElementById('nxm-allow-add-btn');
+            if (modalAdd) {
+                modalAdd.click();
+                await new Promise(r => setTimeout(r, 60));
+            }
             expect(document.getElementById('nxm-toast')?.textContent).toContain('Error: API Error');
         }
 
@@ -1955,8 +1989,8 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
         // 3. Log Action buttons (Allow, Deny) with confirm returning false (L1270, L1271)
         const logActionBtns = document.querySelectorAll('.nxm-log-actions button');
         global.confirm.mockReturnValueOnce(false);
-        if (logActionBtns.length > 0) {
-            logActionBtns[0].click();
+        if (logActionBtns.length > 1) {
+            logActionBtns[1].click();
         }
 
         // 4. TLD Enable All / Disable All / Restore prompts canceled or empty (L1365-L1386)
@@ -2607,6 +2641,210 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
         await new Promise(r => setTimeout(r, 60));
 
         document.getElementById('nxm-sort-domains')?.click();
+    });
+
+    test('Logs Web Console: Whitelist modal edge cases, root domain extraction, and persistent indicators', async () => {
+        global.confirm = jest.fn(() => true);
+        global.browser.storage.sync.get.mockResolvedValue({
+            webGuiMaster: true,
+            webGuiLogs: true,
+            webGuiLogActions: true,
+            logFilters: {}
+        });
+
+        // 1. Test Persistent Allowlist & Denylist Indicators on Log Rows
+        window.history.pushState({}, '', '/abc123/logs');
+        document.body.innerHTML = `
+            <div class="Logs">
+                <div class="list-group">
+                    <div class="list-group-item bg-2">Logs Header</div>
+                    <div class="list-group-item" style="border-left: 4px solid rgb(46, 204, 64);">
+                        <span class="notranslate">allowed-service.com</span>
+                        Allowed by Allowlist
+                    </div>
+                    <div class="list-group-item" style="border-left: 4px solid rgb(255, 65, 54);">
+                        <span class="notranslate">denied-tracker.net</span>
+                        Blocked by Denylist
+                    </div>
+                    <div class="list-group-item">
+                        <span class="notranslate">normal-query.org</span>
+                    </div>
+                    <div class="list-group-item">
+                        <span class="notranslate">sub.analytics.provider.co.uk</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+
+        expect(document.querySelector('.nxm-allowlist-indicator')).not.toBeNull();
+        expect(document.querySelector('.nxm-denylist-indicator')).not.toBeNull();
+        expect(document.querySelectorAll('.nxm-log-actions').length).toBe(4);
+
+        // Re-run injectLogActions to verify existing indicators and action containers are not duplicated
+        window.dispatchEvent(new Event('popstate'));
+        await new Promise(r => setTimeout(r, 60));
+        expect(document.querySelectorAll('.nxm-allowlist-indicator').length).toBe(1);
+        expect(document.querySelectorAll('.nxm-denylist-indicator').length).toBe(1);
+
+        // 2. Deny action error branch (handleLogAction error toast, L1518)
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false, error: 'Deny Rejection' });
+        const denyBtn = document.querySelectorAll('.nxm-log-actions button')[1];
+        denyBtn.click();
+        await new Promise(r => setTimeout(r, 60));
+        expect(document.getElementById('nxm-toast')?.textContent).toContain('Error: Deny Rejection');
+
+        // Test handleLogAction when profile ID is absent in URL (!profileId branch)
+        window.history.replaceState({}, '', 'https://my.nextdns.io/account');
+        denyBtn.click();
+        window.history.replaceState({}, '', 'https://my.nextdns.io/abc123/logs');
+
+        // 3. Whitelist Modal Dialog and root domain calculation
+        // Test modal opened with subdomain pre-fills root domain hint at initialization
+        const subAllowBtn = document.querySelectorAll('.nxm-log-actions button')[9];
+        subAllowBtn.click();
+        expect(document.getElementById('nxm-allow-modal-hint')?.textContent).toContain('Root domain: provider.co.uk');
+        document.getElementById('nxm-allow-modal-close')?.click();
+
+        const allowBtn = document.querySelectorAll('.nxm-log-actions button')[0];
+        allowBtn.click();
+        const backdrop = document.getElementById('nxm-allow-modal-backdrop');
+        expect(backdrop).not.toBeNull();
+        const dialog = document.getElementById('nxm-allow-modal-dialog');
+        expect(dialog).not.toBeNull();
+
+        // Dialog click stopPropagation branch
+        dialog.click();
+        expect(document.getElementById('nxm-allow-modal-backdrop')).not.toBeNull();
+
+        // Close button branch
+        document.getElementById('nxm-allow-modal-close')?.click();
+        expect(document.getElementById('nxm-allow-modal-backdrop')).toBeNull();
+
+        // Re-open and test Backdrop click branch (including target !== backdrop branch)
+        allowBtn.click();
+        const openBackdrop = document.getElementById('nxm-allow-modal-backdrop');
+        openBackdrop.onclick({ target: document.body });
+        expect(document.getElementById('nxm-allow-modal-backdrop')).not.toBeNull();
+        openBackdrop?.click();
+        expect(document.getElementById('nxm-allow-modal-backdrop')).toBeNull();
+
+        // Re-open and test Keyboard Escape branch
+        allowBtn.click();
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        expect(document.getElementById('nxm-allow-modal-backdrop')).toBeNull();
+
+        // Re-open and test domain input oninput hint branches
+        allowBtn.click();
+        const domainInput = document.getElementById('nxm-allow-domain-input');
+        const hint = document.getElementById('nxm-allow-modal-hint');
+
+        // Multi-level ccTLD input (shows root domain in hint)
+        domainInput.value = 'sub.corp.example.co.uk';
+        domainInput.dispatchEvent(new Event('input'));
+        expect(hint.textContent).toContain('Root domain: example.co.uk');
+
+        // Empty/whitespace input in extractRootDomain (!clean branch)
+        domainInput.value = '   ';
+        domainInput.dispatchEvent(new Event('input'));
+        expect(hint.textContent).toContain('Whitelisting a domain also automatically allows all of its subdomains.');
+
+        // Standard 2-part input (root equals input)
+        domainInput.value = 'example.org';
+        domainInput.dispatchEvent(new Event('input'));
+        expect(hint.textContent).toContain('Whitelisting a domain also automatically allows all of its subdomains.');
+
+        // Test Keyboard Enter keydown when domainInput is active
+        domainInput.focus();
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: true });
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+        await new Promise(r => setTimeout(r, 60));
+        expect(document.getElementById('nxm-toast')?.textContent).toContain('Added example.org to allowlist');
+        expect(document.getElementById('nxm-allow-modal-backdrop')).toBeNull();
+
+        // Re-open and test Keyboard non-Enter key and keydown when activeElement is not domainInput
+        allowBtn.click();
+        const modalInput = document.getElementById('nxm-allow-domain-input');
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+        modalInput.blur();
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+        expect(document.getElementById('nxm-allow-modal-backdrop')).not.toBeNull();
+
+        // Test empty domain submission warning
+        modalInput.value = '   ';
+        document.getElementById('nxm-allow-add-btn')?.click();
+        expect(document.getElementById('nxm-toast')?.textContent).toContain('Please enter a valid domain.');
+
+        // Test invalid domain submission warning (strips to empty string)
+        modalInput.value = '...';
+        document.getElementById('nxm-allow-add-btn')?.click();
+        expect(document.getElementById('nxm-toast')?.textContent).toContain('Invalid domain format.');
+
+        // Test fallback root domain extraction branches (e.g. non-2-letter TLD after 2nd level)
+        modalInput.value = 'sub.corp.example.co.internal';
+        modalInput.dispatchEvent(new Event('input'));
+        const liveHint = document.getElementById('nxm-allow-modal-hint');
+        expect(liveHint?.textContent).toContain('Root domain: co.internal');
+
+        // Test API error response re-enabling buttons (with fallback message)
+        modalInput.value = 'failing-domain.com';
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
+        document.getElementById('nxm-allow-add-btn')?.click();
+        await new Promise(r => setTimeout(r, 60));
+        expect(document.getElementById('nxm-toast')?.textContent).toContain('Error: Failed to add domain');
+        expect(document.getElementById('nxm-allow-add-btn').disabled).toBe(false);
+
+        // Test API error response with custom error message
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false, error: 'Custom API Failure' });
+        document.getElementById('nxm-allow-add-btn')?.click();
+        await new Promise(r => setTimeout(r, 60));
+        expect(document.getElementById('nxm-toast')?.textContent).toContain('Error: Custom API Failure');
+
+        // Test API rejection / exception branch in submitDomain (with message)
+        global.browser.runtime.sendMessage = jest.fn().mockRejectedValue(new Error('Network Crash'));
+        document.getElementById('nxm-allow-add-btn')?.click();
+        await new Promise(r => setTimeout(r, 60));
+        expect(document.getElementById('nxm-toast')?.textContent).toContain('Error: Network Crash');
+        expect(document.getElementById('nxm-allow-add-btn').disabled).toBe(false);
+
+        // Test API rejection / exception branch in submitDomain (with fallback message)
+        global.browser.runtime.sendMessage = jest.fn().mockRejectedValue({});
+        document.getElementById('nxm-allow-add-btn')?.click();
+        await new Promise(r => setTimeout(r, 60));
+        expect(document.getElementById('nxm-toast')?.textContent).toContain('Error: Failed to add domain');
+        expect(document.getElementById('nxm-allow-add-btn').disabled).toBe(false);
+
+        // Test Add Root Domain button with successful submission
+        global.browser.runtime.sendMessage = jest.fn().mockResolvedValue({ success: true });
+        modalInput.value = 'deep.sub.mycompany.com.au';
+        document.getElementById('nxm-allow-add-root-btn')?.click();
+        await new Promise(r => setTimeout(r, 60));
+        expect(global.browser.runtime.sendMessage).toHaveBeenCalledWith({
+            type: 'MANAGE_DOMAIN',
+            profileId: 'abc123',
+            listType: 'allowlist',
+            action: 'add',
+            domain: 'mycompany.com.au'
+        });
+        expect(document.getElementById('nxm-allow-modal-backdrop')).toBeNull();
+
+        // Test openAllowlistModal when profile ID is absent in URL
+        window.history.replaceState({}, '', 'https://my.nextdns.io/account');
+        allowBtn.click();
+        expect(document.getElementById('nxm-toast')?.textContent).toContain('Profile ID not detected in URL.');
+        window.history.replaceState({}, '', 'https://my.nextdns.io/abc123/logs');
+
+        // 4. Test cleanupUI removes allowlist/denylist indicators and modal backdrop
+        allowBtn.click();
+        expect(document.getElementById('nxm-allow-modal-backdrop')).not.toBeNull();
+        if (storageChangedListener) {
+            storageChangedListener({ webGuiMaster: { newValue: false } }, 'sync');
+        }
+        await new Promise(r => setTimeout(r, 60));
+        expect(document.getElementById('nxm-allow-modal-backdrop')).toBeNull();
+        expect(document.querySelector('.nxm-allowlist-indicator')).toBeNull();
+        expect(document.querySelector('.nxm-denylist-indicator')).toBeNull();
     });
 });
 
