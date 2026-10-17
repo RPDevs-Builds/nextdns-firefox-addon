@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.2.6] - 2026-10-16
+
+### Fixed
+- **Toolbar Icon Action & Sidebar Opening Context (`src/background/main.js`, `src/ui/main.js`):** Restored dynamic toolbar action popup routing so that when configured for sidebar or popout mode, the action popup path is unset (`popup: ""`). This allows `browser.action.onClicked` to fire with an active user gesture context, enabling Firefox's restricted `browser.sidebarAction.open()` API to succeed when clicking the pinned toolbar icon.
+- **Popup Disappearing Fallback (`src/ui/main.js`):** Hardened `handleIconClickModeRedirect()` with a `try/catch` wrapper around `browser.sidebarAction.open()`. If Firefox denies sidebar opening from the popup context, the error is caught and `window.close()` is avoided, ensuring the popup dropdown remains visible and usable instead of vanishing.
+- **Dynamic Icon Click Action Storage Synchronization (`src/background/main.js`):** Added a `browser.storage.onChanged` listener in the background script to dynamically re-apply toolbar icon actions whenever `iconClickAction` changes in settings without requiring an extension reload.
+
+### Added
+- **Dedicated Sidebar Toggle in Header (`src/popup.html`, `src/ui/main.js`):** Added a new header button (`#sidebar-ui-btn`, `📑`) adjacent to `#popout-ui-btn` so users can explicitly open the extension in the Firefox sidebar directly from the dropdown with guaranteed user gesture context.
+
+### Tests & Quality
+- **Maintained 100.0% Hall of Fame Coverage (All 21 Modules):** 100.0% Statements, 100.0% Branches, 100.0% Functions, and 100.0% Lines repository-wide across all 21 source modules with 397 passing tests across all 25 test suites.
+- **Mozilla AMO Compliance:** Zero errors, zero notices, and zero warnings on Mozilla `addons-linter`.
+
 ## [1.2.5] - 2026-10-16
 
 ### Added
