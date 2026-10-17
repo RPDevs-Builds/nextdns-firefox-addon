@@ -6,8 +6,18 @@
  */
 
 import { state } from './state.js';
-import { escapeHTML, setSafeHTML, downloadAsFile, showToast, renderEmptyStateHTML } from './utils.js';
+import { escapeHTML, setSafeHTML, downloadAsFile, showToast, renderEmptyStateHTML, extractRootDomain } from './utils.js';
 import { syncLists } from './blocks.js';
+
+/**
+ * Returns a standardized device identifier string for a log entry.
+ * @param {Object} log - DNS log entry.
+ * @returns {string} Device ID, IP, or name.
+ */
+export function getLogDeviceIdentifier(log) {
+    if (!log) return '';
+    return log.device?.id || log.clientIp || log.device?.name || '';
+}
 
 /**
  * Formats a single log entry into a styled DOM row element.
@@ -55,13 +65,21 @@ export function formatLogRow(log) {
         ? log.reasons.map(r => r.name || r.id || r).filter(Boolean).join(', ') 
         : (typeof log.reason === 'string' && log.reason !== 'Default' ? log.reason : '');
     const badge = reasonText && !isAllowlist ? ` (${escapeHTML(reasonText)})` : '';
+    const domainName = log.name || log.domain || '';
 
     const html = `
         <div class="flex-between" style="font-size:0.75em; color:var(--text-muted);">
             <span>🕒 ${timeStr} | 📱 ${escapeHTML(name)}</span>
             <div>${statusBadge}${badge}</div>
         </div>
-        <div style="font-weight:700; margin-top:2px; word-break:break-all;">${escapeHTML(log.name || log.domain)}</div>
+        <div class="flex-between" style="margin-top:2px;">
+            <div style="font-weight:700; word-break:break-all;">${escapeHTML(domainName)}</div>
+            <div class="builtin-log-actions" style="display:inline-flex; gap:6px; margin-left:8px; flex-shrink:0;">
+                <button type="button" class="btn-icon builtin-allow-btn" data-domain="${escapeHTML(domainName)}" title="Add ${escapeHTML(domainName)} to allowlist" style="border:none; background:transparent; cursor:pointer; font-size:0.9em;">✅</button>
+                <button type="button" class="btn-icon builtin-deny-btn" data-domain="${escapeHTML(domainName)}" title="Deny ${escapeHTML(domainName)}" style="border:none; background:transparent; cursor:pointer; font-size:0.9em;">🚫</button>
+                <button type="button" class="btn-icon builtin-hide-btn" data-domain="${escapeHTML(domainName)}" title="Hide ${escapeHTML(domainName)} from view" style="border:none; background:transparent; cursor:pointer; font-size:0.9em;">👁️‍🗨️</button>
+            </div>
+        </div>
     `;
     setSafeHTML(row, html);
     return row;
@@ -91,12 +109,12 @@ export function handleLiveLog(log) {
             const query = (document.getElementById("log-search")?.value || "").toLowerCase();
             const deviceFilter = document.getElementById("log-device-filter")?.value;
             const protocolFilter = document.getElementById("log-type-filter")?.value;
-            const deviceId = log.device?.id || log.clientIp;
+            const deviceId = getLogDeviceIdentifier(log);
             const protocol = (log.protocol || '').toLowerCase();
             const activeFilters = Array.from(document.querySelectorAll('#status-filter-content input:checked')).map(cb => cb.value);
 
             if ((!query || (log.name || log.domain || '').toLowerCase().includes(query)) && 
-                (!deviceFilter || deviceId === deviceFilter) && 
+                (!deviceFilter || deviceId === deviceFilter || log.device?.name === deviceFilter) && 
                 (!protocolFilter || protocol === protocolFilter) &&
                 matchesLogFilters(log, activeFilters)) {
                 const row = formatLogRow(log);
@@ -164,6 +182,7 @@ export function matchesLogFilters(log, activeFilters = []) {
 export function renderLogs(logsOverride = null) {
     const container = document.getElementById("logs-container");
     if (!container) return;
+    initBuiltinLogsEvents();
     
     let logs = logsOverride !== null ? logsOverride : state.cachedLogs;
     if (!Array.isArray(logs)) logs = [];
@@ -181,11 +200,11 @@ export function renderLogs(logsOverride = null) {
     const filtered = logs.filter(log => {
         if (!log) return false;
         const domain = (log.name || log.domain || '').toLowerCase();
-        const id = log.device?.id || log.clientIp;
+        const id = getLogDeviceIdentifier(log);
         const protocol = (log.protocol || '').toLowerCase();
         
         if (query && !domain.includes(query)) return false;
-        if (deviceFilter && id !== deviceFilter) return false;
+        if (deviceFilter && id !== deviceFilter && log.device?.name !== deviceFilter) return false;
         if (protocolFilter && protocol !== protocolFilter) return false;
         if (!matchesLogFilters(log, activeFilters)) return false;
         return true;
@@ -212,25 +231,29 @@ export function renderLogs(logsOverride = null) {
  * Maps device IDs to friendly aliases if available.
  * @private
  */
-function updateDeviceFilterOptions() {
+export function updateDeviceFilterOptions() {
     const dropdown = document.getElementById("log-device-filter");
-    if (!dropdown || dropdown.options.length > 1) return;
+    if (!dropdown) return;
 
+    const existingValues = new Set(Array.from(dropdown.options).map(opt => opt.value));
     const devices = new Set();
     if (Array.isArray(state.cachedLogs)) {
         state.cachedLogs.forEach(l => {
-            const id = l.device?.id || l.clientIp;
+            const id = getLogDeviceIdentifier(l);
             if (id) devices.add(id);
         });
     }
 
     devices.forEach(id => {
-        const log = state.cachedLogs.find(l => (l.device?.id || l.clientIp) === id);
-        const name = state.hostnameAliases?.[id] || log?.device?.name || id;
-        const opt = document.createElement('option');
-        opt.value = id;
-        opt.textContent = name;
-        dropdown.appendChild(opt);
+        if (!existingValues.has(id)) {
+            const log = state.cachedLogs.find(l => getLogDeviceIdentifier(l) === id);
+            const name = state.hostnameAliases?.[id] || log?.device?.name || id;
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = name;
+            dropdown.appendChild(opt);
+            existingValues.add(id);
+        }
     });
 }
 
@@ -582,4 +605,308 @@ export async function wipeLogs() {
         if (btn) { btn.disabled = false; btn.textContent = "🗑️ Clear Logs"; }
     }
 }
+
+export let builtinAllowModalKeyHandler = null;
+
+export function closeBuiltinAllowlistModal() {
+    if (builtinAllowModalKeyHandler) {
+        document.removeEventListener('keydown', builtinAllowModalKeyHandler);
+        builtinAllowModalKeyHandler = null;
+    }
+    const existing = document.getElementById('builtin-allow-modal-backdrop');
+    if (existing) existing.remove();
+}
+
+export function openBuiltinAllowlistModal(initialDomain) {
+    closeBuiltinAllowlistModal();
+    if (!state.activeProfile) {
+        showToast("No active profile detected.", "warning");
+        return;
+    }
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'builtin-allow-modal-backdrop';
+    backdrop.className = 'nxm-modal-backdrop';
+    backdrop.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.65); z-index:10000; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(3px);';
+    backdrop.onclick = (e) => {
+        if (e.target === backdrop) closeBuiltinAllowlistModal();
+    };
+
+    const dialog = document.createElement('div');
+    dialog.id = 'builtin-allow-modal-dialog';
+    dialog.className = 'nxm-modal-dialog';
+    dialog.style.cssText = 'background:var(--bg-panel, #1e293b); border:1px solid var(--border-color, #334155); border-radius:10px; width:90%; max-width:440px; box-shadow:0 15px 30px rgba(0,0,0,0.5); overflow:hidden; display:flex; flex-direction:column;';
+    dialog.onclick = (e) => e.stopPropagation();
+
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border-color, #334155); background:rgba(0,0,0,0.2);';
+
+    const title = document.createElement('h5');
+    title.style.cssText = 'margin:0; font-size:1.05rem; font-weight:700; color:var(--text-main, #f8fafc);';
+    title.textContent = '✅ Add to Whitelist';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.id = 'builtin-allow-modal-close';
+    closeBtn.style.cssText = 'border:none; background:transparent; color:var(--text-muted, #94a3b8); font-size:1.4rem; cursor:pointer; line-height:1; padding:0 4px;';
+    closeBtn.textContent = '×';
+    closeBtn.title = 'Close (Esc)';
+    closeBtn.onclick = () => closeBuiltinAllowlistModal();
+
+    header.append(title, closeBtn);
+
+    // Body
+    const body = document.createElement('div');
+    body.style.cssText = 'padding:16px;';
+
+    const label = document.createElement('label');
+    label.style.cssText = 'display:block; font-weight:600; font-size:0.8em; color:var(--accent, #4facf7); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;';
+    label.textContent = 'Domain to Whitelist:';
+
+    const domainInput = document.createElement('input');
+    domainInput.type = 'text';
+    domainInput.id = 'builtin-allow-domain-input';
+    domainInput.value = initialDomain || '';
+    domainInput.placeholder = 'e.g. example.com';
+    domainInput.style.cssText = 'width:100%; box-sizing:border-box; background:var(--bg-main, #0f172a); color:var(--text-main, #fff); border:1px solid var(--border-color, #475569); padding:8px 10px; font-size:0.95rem; border-radius:6px; margin-bottom:8px;';
+
+    const hint = document.createElement('small');
+    hint.id = 'builtin-allow-modal-hint';
+    hint.style.cssText = 'display:block; color:var(--text-muted, #94a3b8); font-size:0.78em; line-height:1.4; margin-bottom:14px;';
+    const initialRoot = extractRootDomain(initialDomain || '');
+    hint.textContent = initialRoot && initialRoot !== initialDomain
+        ? `Root domain: ${initialRoot} (whitelisting root allows all subdomains).`
+        : `Whitelisting a domain also automatically allows all of its subdomains.`;
+
+    domainInput.oninput = () => {
+        const currentVal = domainInput.value.trim();
+        const currentRoot = extractRootDomain(currentVal);
+        if (currentRoot && currentRoot !== currentVal) {
+            hint.textContent = `Root domain: ${currentRoot} (whitelisting root allows all subdomains).`;
+        } else {
+            hint.textContent = `Whitelisting a domain also automatically allows all of its subdomains.`;
+        }
+    };
+
+    // Actions Container
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; margin-top:8px;';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.id = 'builtin-allow-cancel-btn';
+    cancelBtn.className = 'btn-secondary';
+    cancelBtn.style.cssText = 'width:auto; padding:6px 12px; font-size:0.85em;';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.onclick = () => closeBuiltinAllowlistModal();
+
+    const addRootBtn = document.createElement('button');
+    addRootBtn.type = 'button';
+    addRootBtn.id = 'builtin-allow-add-root-btn';
+    addRootBtn.className = 'btn-secondary';
+    addRootBtn.style.cssText = 'width:auto; padding:6px 12px; font-size:0.85em; background:rgba(34,197,94,0.15); color:var(--success, #22c55e); border:1px solid var(--success, #22c55e);';
+    addRootBtn.textContent = 'Add Root Domain to whitelist';
+    addRootBtn.title = 'Whitelist root domain so all subdomains for that domain are whitelisted';
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.id = 'builtin-allow-add-btn';
+    addBtn.className = 'btn-primary';
+    addBtn.style.cssText = 'width:auto; padding:6px 14px; font-size:0.85em;';
+    addBtn.textContent = 'Add';
+
+    const submitDomain = async (targetDomain, isRoot) => {
+        if (!targetDomain) {
+            showToast("Please enter a valid domain.", "warning");
+            return;
+        }
+        const cleanDomain = targetDomain.trim().toLowerCase().replace(/^\*+\./, '').replace(/^\.+|\.+$/g, '');
+        if (!cleanDomain) {
+            showToast("Invalid domain format.", "warning");
+            return;
+        }
+
+        addBtn.disabled = true;
+        addRootBtn.disabled = true;
+        cancelBtn.disabled = true;
+
+        try {
+            const res = await browser.runtime.sendMessage({
+                type: "MANAGE_DOMAIN",
+                profileId: state.activeProfile,
+                listType: "allowlist",
+                action: "add",
+                domain: cleanDomain
+            });
+
+            if (res && res.success) {
+                if (state.currentAllowlist instanceof Set) state.currentAllowlist.add(cleanDomain);
+                if (state.currentDenylist instanceof Set) state.currentDenylist.delete(cleanDomain);
+                showToast(isRoot ? `Added root domain ${cleanDomain} to allowlist` : `Added ${cleanDomain} to allowlist`, 'success');
+                closeBuiltinAllowlistModal();
+                syncLists(true);
+            } else {
+                showToast(`Error: ${res?.error || 'Failed to add domain'}`, 'error');
+                addBtn.disabled = false;
+                addRootBtn.disabled = false;
+                cancelBtn.disabled = false;
+            }
+        } catch (err) {
+            showToast(`Error: ${err.message || 'Failed to add domain'}`, 'error');
+            addBtn.disabled = false;
+            addRootBtn.disabled = false;
+            cancelBtn.disabled = false;
+        }
+    };
+
+    addBtn.onclick = () => submitDomain(domainInput.value.trim(), false);
+    addRootBtn.onclick = () => {
+        const rawVal = domainInput.value.trim();
+        submitDomain(extractRootDomain(rawVal), true);
+    };
+
+    actions.append(cancelBtn, addRootBtn, addBtn);
+    body.append(label, domainInput, hint, actions);
+    dialog.append(header, body);
+    backdrop.append(dialog);
+    document.body.appendChild(backdrop);
+
+    builtinAllowModalKeyHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeBuiltinAllowlistModal();
+        } else if (e.key === 'Enter' && document.activeElement === domainInput) {
+            e.preventDefault();
+            addBtn.click();
+        }
+    };
+    document.addEventListener('keydown', builtinAllowModalKeyHandler);
+    domainInput.focus();
+}
+
+export async function handleBuiltinDomainAction(domain, listType, action) {
+    if (!domain || !state.activeProfile) return;
+    try {
+        const res = await browser.runtime.sendMessage({
+            type: "MANAGE_DOMAIN",
+            profileId: state.activeProfile,
+            listType,
+            action,
+            domain
+        });
+        if (res && res.success) {
+            if (action === 'add') {
+                if (listType === 'denylist') {
+                    if (state.currentDenylist instanceof Set) state.currentDenylist.add(domain);
+                    if (state.currentAllowlist instanceof Set) state.currentAllowlist.delete(domain);
+                } else {
+                    if (state.currentAllowlist instanceof Set) state.currentAllowlist.add(domain);
+                    if (state.currentDenylist instanceof Set) state.currentDenylist.delete(domain);
+                }
+            } else if (action === 'delete') {
+                if (listType === 'denylist') {
+                    if (state.currentDenylist instanceof Set) state.currentDenylist.delete(domain);
+                } else {
+                    if (state.currentAllowlist instanceof Set) state.currentAllowlist.delete(domain);
+                }
+            }
+            showToast(`${action === 'add' ? 'Added' : 'Removed'} ${domain} ${action === 'add' ? 'to' : 'from'} ${listType}`, 'success');
+            syncLists(true);
+        } else {
+            showToast(`Error: ${res?.error || 'Failed to update domain'}`, 'error');
+        }
+    } catch (err) {
+        showToast(`Error: ${err.message || 'Failed to update domain'}`, 'error');
+    }
+}
+
+export function handleBuiltinHideAction(domain) {
+    if (!domain) return;
+    state.cachedLogs = (state.cachedLogs || []).filter(l => (l.name || l.domain) !== domain);
+    renderLogs();
+    showToast(`Hidden ${domain} from logs view`, 'info');
+}
+
+export async function handleBatchLogsAction(listType, action, useRoot = false) {
+    if (!state.activeProfile) {
+        showToast("No active profile detected.", "warning");
+        return;
+    }
+    const visibleRows = document.querySelectorAll('#logs-container .log-row');
+    if (visibleRows.length === 0) {
+        showToast("No logs visible to process.", "warning");
+        return;
+    }
+
+    const domainSet = new Set();
+    visibleRows.forEach(row => {
+        const btn = row.querySelector('.builtin-allow-btn');
+        const dom = btn?.getAttribute('data-domain');
+        if (dom) {
+            const target = useRoot ? extractRootDomain(dom) : dom.trim().toLowerCase();
+            if (target) domainSet.add(target);
+        }
+    });
+
+    const domains = Array.from(domainSet);
+    if (domains.length === 0) {
+        showToast("No valid domains found in visible logs.", "warning");
+        return;
+    }
+
+    showToast(`Processing ${domains.length} domains...`, 'info');
+    let successCount = 0;
+    for (const d of domains) {
+        try {
+            const res = await browser.runtime.sendMessage({
+                type: "MANAGE_DOMAIN",
+                profileId: state.activeProfile,
+                listType,
+                action,
+                domain: d
+            });
+            if (res?.success) successCount++;
+        } catch (_) {}
+    }
+
+    syncLists(true);
+    showToast(`Successfully processed ${successCount}/${domains.length} domains in ${listType}.`, successCount > 0 ? 'success' : 'error');
+}
+
+export function initBuiltinLogsEvents() {
+    const container = document.getElementById("logs-container");
+    if (container && !container._hasBuiltinLogEvents) {
+        container._hasBuiltinLogEvents = true;
+        container.addEventListener('click', (e) => {
+            const allowBtn = e.target.closest('.builtin-allow-btn');
+            if (allowBtn) {
+                e.stopPropagation();
+                openBuiltinAllowlistModal(allowBtn.getAttribute('data-domain'));
+                return;
+            }
+            const denyBtn = e.target.closest('.builtin-deny-btn');
+            if (denyBtn) {
+                e.stopPropagation();
+                handleBuiltinDomainAction(denyBtn.getAttribute('data-domain'), 'denylist', 'add');
+                return;
+            }
+            const hideBtn = e.target.closest('.builtin-hide-btn');
+            if (hideBtn) {
+                e.stopPropagation();
+                handleBuiltinHideAction(hideBtn.getAttribute('data-domain'));
+                return;
+            }
+        });
+    }
+
+    const batchBar = document.getElementById("logs-batch-bar");
+    if (batchBar && !batchBar._hasBatchEvents) {
+        batchBar._hasBatchEvents = true;
+        document.getElementById('batch-allow-all-btn')?.addEventListener('click', () => handleBatchLogsAction('allowlist', 'add', false));
+        document.getElementById('batch-allow-roots-btn')?.addEventListener('click', () => handleBatchLogsAction('allowlist', 'add', true));
+        document.getElementById('batch-deny-all-btn')?.addEventListener('click', () => handleBatchLogsAction('denylist', 'add', false));
+        document.getElementById('batch-remove-allow-btn')?.addEventListener('click', () => handleBatchLogsAction('allowlist', 'delete', false));
+        document.getElementById('batch-remove-deny-btn')?.addEventListener('click', () => handleBatchLogsAction('denylist', 'delete', false));
+    }
+}
+
 

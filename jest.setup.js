@@ -88,3 +88,15 @@ if (typeof browser !== 'undefined') {
         };
     }
 }
+
+if (typeof afterEach === 'function') {
+    afterEach(() => {
+        if (typeof window !== 'undefined' && typeof window.setInterval === 'function') {
+            const highestId = window.setInterval(() => {}, 1000);
+            for (let i = 1; i <= highestId; i++) {
+                if (typeof window.clearInterval === 'function') window.clearInterval(i);
+                if (typeof window.clearTimeout === 'function') window.clearTimeout(i);
+            }
+        }
+    });
+}

@@ -2831,8 +2831,12 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
 
         // Test openAllowlistModal when profile ID is absent in URL
         window.history.replaceState({}, '', 'https://my.nextdns.io/account');
+        jest.useFakeTimers();
         allowBtn.click();
         expect(document.getElementById('nxm-toast')?.textContent).toContain('Profile ID not detected in URL.');
+        jest.advanceTimersByTime(3100);
+        expect(document.getElementById('nxm-toast')?.style.opacity).toBe('0');
+        jest.useRealTimers();
         window.history.replaceState({}, '', 'https://my.nextdns.io/abc123/logs');
 
         // 4. Test cleanupUI removes allowlist/denylist indicators and modal backdrop

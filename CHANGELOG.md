@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.3.0] - 2026-10-17
+
+### Added
+- **AdGuard DNS Provider Integration (`src/providers/adguard.js`, `src/background/handlers.js`, `src/ui/main.js`, `src/popup.html`):** Full multi-provider DNS support enabling users to switch between NextDNS and AdGuard DNS. Supports profile/server listing, AdGuard-syntax rule synchronization (`@@||domain^` for allowlist, `||domain^` for denylist), historical query logs retrieval with local log merging, and query log clearing.
+- **Built-in Logs Page Whitelist Modal & Device Detection (`src/ui/dashboard.js`, `src/popup.html`, `src/ui/utils.js`):** Added a 3-button modal on the built-in logs page allowing users to allow the exact subdomain, the extracted root domain (via `extractRootDomain()`), or cancel. Resolved device detection so that all client devices on the network are dynamically populated in the device filter dropdown.
+- **Built-in Logs Batch Toolbar (`src/ui/dashboard.js`, `src/popup.html`):** Added batch controls to the native logs page: Allow All, Allow Roots, Deny All, Remove Allowed, and Remove Denied across all visible log entries.
+
+### Fixed
+- **Built-in Logs Device Identification (`src/ui/dashboard.js`):** Extracted device IDs, client IPs, and device names dynamically so that log entries from all devices on the network are properly identified rather than collapsing into a single device.
+- **Auto-Refresh Cleanup Lifecycle (`src/ui/main.js`, `jest.setup.js`):** Hardened auto-refresh interval teardown to prevent trailing asynchronous requests across page navigations and test teardown.
+
+### Tests & Quality
+- **100.0% Test Coverage Across All Modules:** 100.0% Statements, 100.0% Branches, 100.0% Functions, and 100.0% Lines repository-wide across all 22 source modules with 438 passing tests in Jest.
+- **Mozilla AMO Compliance:** Zero errors, zero notices, and zero warnings on `web-ext lint`.
+
 ## [1.2.6] - 2026-10-16
 
 ### Fixed

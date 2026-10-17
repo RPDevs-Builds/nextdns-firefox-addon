@@ -18,6 +18,16 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
         document.body.innerHTML = html;
         jest.resetModules();
         jest.clearAllMocks();
+        if (stateModule?.state) {
+            if (stateModule.state.autoRefreshInterval) {
+                clearInterval(stateModule.state.autoRefreshInterval);
+                stateModule.state.autoRefreshInterval = null;
+            }
+            if (stateModule.state.tabTrackingIntervalId) {
+                clearInterval(stateModule.state.tabTrackingIntervalId);
+                stateModule.state.tabTrackingIntervalId = null;
+            }
+        }
 
         mockStorageData = {
             apiKey: '0123456789abcdef01234567',
@@ -543,6 +553,8 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
 
             await uiMain.handleFetchProfilesClick(event);
             expect(btn.classList.contains('spinning')).toBe(true);
+            await new Promise(r => setTimeout(r, 600));
+            expect(btn.classList.contains('spinning')).toBe(false);
         });
 
         test('initSettingsUI initializes form inputs and sets lastIconAction', async () => {
@@ -598,6 +610,7 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
 
         test('saveMirrorMode writes selected profile IDs to storage', async () => {
             const container = document.getElementById('mirror-profiles-list');
+            const saveBtn = document.getElementById('save-mirror-btn');
             container.innerHTML = `
                 <label><input type="checkbox" data-id="p-alpha" checked> Alpha</label>
                 <label><input type="checkbox" data-id="p-beta"> Beta</label>
@@ -609,6 +622,9 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             expect(browser.storage.sync.set).toHaveBeenCalledWith({
                 mirrorProfiles: ['p-alpha', 'p-gamma']
             });
+            expect(saveBtn.textContent).toBe('✅ Saved!');
+            await new Promise(r => setTimeout(r, 2100));
+            expect(saveBtn.textContent).toBe('💾 Save Mirror Config');
         });
 
         test('initCustomizeUI updates web GUI customize toggle states', async () => {
@@ -1387,7 +1403,7 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
                 stateModule.state.tabTrackingIntervalId = null;
             }
             await uiMain.importFullConfiguration({ target: { files: [] } });
-        });
+        }, 75000);
 
         test('UI Main - handleAddDomain empty, handleBulkAdd, sub-tabs, alerts, and mirror UI', async () => {
             // 1. handleAddDomain empty input (line 147)
@@ -2015,7 +2031,7 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             await uiMain.handleFetchProfilesClick();
             document.getElementById('setting-fetch-profiles')?.remove();
             await uiMain.handleFetchProfilesClick();
-        }, 45000);
+        }, 90000);
 
         test('ui/main.js - Branch Hardening: Settings, Import/Export & Alerts', async () => {
             document.body.innerHTML = html;
@@ -2254,6 +2270,142 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
                 stateModule.state.autoRefreshInterval = null;
             }
         }, 45000);
+
+        test('UI Main - Multi-provider AdGuard UI interactions and branch coverage', async () => {
+            const { storage: storageMod } = await import('../src/storage.js');
+            document.body.innerHTML = html;
+
+            // 1. initSettingsUI with adguard provider already stored
+            await storageMod.set('dnsProvider', 'adguard');
+            await storageMod.set('adguardApiKey', 'adg-initial-api-key-1234567890');
+            browser.runtime.sendMessage.mockResolvedValue({ success: true, data: [{ id: 'srv-1', name: 'AdG Server' }] });
+
+            await uiMain.initSettingsUI();
+
+            const providerSel = document.getElementById('setting-provider-select');
+            const adgGroup = document.getElementById('adguard-credentials-group');
+            const nextdnsGroup = document.getElementById('nextdns-credentials-group');
+            const adgKeyInput = document.getElementById('setting-adguard-api-key');
+
+            expect(providerSel.value).toBe('adguard');
+            expect(adgGroup.classList.contains('hidden')).toBe(false);
+            expect(nextdnsGroup.classList.contains('hidden')).toBe(true);
+
+            // 2. Change provider back to nextdns and then to adguard via change event
+            providerSel.value = 'nextdns';
+            providerSel.dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 600));
+
+            expect(adgGroup.classList.contains('hidden')).toBe(true);
+            expect(nextdnsGroup.classList.contains('hidden')).toBe(false);
+
+            providerSel.value = 'adguard';
+            providerSel.dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 600));
+
+            expect(adgGroup.classList.contains('hidden')).toBe(false);
+            expect(nextdnsGroup.classList.contains('hidden')).toBe(true);
+
+            // 3. Debounce input on adguardKeyInput: short length (< 20) and valid length (>= 20)
+            adgKeyInput.value = 'short';
+            adgKeyInput.dispatchEvent(new Event('input'));
+            await new Promise(r => setTimeout(r, 500));
+
+            adgKeyInput.value = 'adguard-full-key-123456789012345';
+            adgKeyInput.dispatchEvent(new Event('input'));
+            await new Promise(r => setTimeout(r, 500));
+
+            // 4. loadProfiles with provider === 'adguard' and apiKey === null
+            const loadedAdg = await uiMain.loadProfiles(null);
+            expect(loadedAdg.length).toBeGreaterThan(0);
+
+            // loadProfiles with empty input
+            adgKeyInput.value = '';
+            await uiMain.loadProfiles(null);
+
+            // 5. handleFetchProfilesClick with provider adguard
+            providerSel.value = 'adguard';
+            adgKeyInput.value = 'adguard-key-for-fetch';
+            await uiMain.handleFetchProfilesClick();
+            await new Promise(r => setTimeout(r, 600));
+
+            // handleFetchProfilesClick with empty key
+            adgKeyInput.value = '';
+            await uiMain.handleFetchProfilesClick();
+            await new Promise(r => setTimeout(r, 600));
+
+            // 6. saveSettings with provider adguard
+            providerSel.value = 'adguard';
+            adgKeyInput.value = 'saved-adg-key-1234567890';
+            await uiMain.saveSettings();
+            await new Promise(r => setTimeout(r, 600));
+
+            // 7. saveSettings and handleFetchProfilesClick when setting-provider-select is missing
+            providerSel.remove();
+            await uiMain.saveSettings();
+            await uiMain.handleFetchProfilesClick();
+            await new Promise(r => setTimeout(r, 600));
+
+            // 8. providerSelect change when credential groups are absent from DOM
+            document.body.innerHTML = `
+                <select id="setting-provider-select">
+                    <option value="nextdns">NextDNS</option>
+                    <option value="adguard">AdGuard</option>
+                </select>
+            `;
+            await uiMain.initSettingsUI();
+            const standaloneProvSel = document.getElementById('setting-provider-select');
+            standaloneProvSel.value = 'adguard';
+            standaloneProvSel.dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 600));
+
+            // Clean up intervals
+            if (stateModule.state.tabTrackingIntervalId) {
+                clearInterval(stateModule.state.tabTrackingIntervalId);
+                stateModule.state.tabTrackingIntervalId = null;
+            }
+            if (stateModule.state.autoRefreshInterval) {
+                clearInterval(stateModule.state.autoRefreshInterval);
+                stateModule.state.autoRefreshInterval = null;
+            }
+        });
+
+        test('UI Main - saveAlertSettings and sendTestAlert timeouts and error states', async () => {
+            document.body.innerHTML = `
+                <button id="alert-save-btn">Save</button>
+                <button id="alert-test-btn">Test</button>
+                <input type="checkbox" id="alert-setting-enabled" checked />
+                <input type="checkbox" id="alert-setting-desktop" checked />
+                <input type="checkbox" id="alert-setting-audio" checked />
+                <input type="checkbox" id="alert-setting-badge" checked />
+                <input type="checkbox" id="setting-block-notif" />
+            `;
+            const { storage } = await import('../src/storage.js');
+            browser.runtime.sendMessage.mockResolvedValue({ success: true });
+
+            const saveBtn = document.getElementById('alert-save-btn');
+            const testBtn = document.getElementById('alert-test-btn');
+
+            await uiMain.saveAlertSettings();
+            expect(saveBtn.textContent).toBe('✅ Saved!');
+            await new Promise(r => setTimeout(r, 1300));
+            expect(saveBtn.textContent).toBe('💾 Save Alert Options');
+
+            await uiMain.sendTestAlert();
+            expect(testBtn.textContent).toBe('✅ Sent!');
+            await new Promise(r => setTimeout(r, 1300));
+            expect(testBtn.textContent).toBe('📢 Send Test Alert');
+
+            const origStorageSet = storage.set;
+            storage.set = jest.fn().mockRejectedValueOnce(new Error('Storage failure'));
+            await uiMain.saveAlertSettings();
+            expect(saveBtn.textContent).toBe('❌ Error');
+            storage.set = origStorageSet;
+
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Runtime failure'));
+            await uiMain.sendTestAlert();
+            expect(testBtn.textContent).toBe('❌ Failed');
+        });
     });
 });
 

@@ -192,4 +192,35 @@ describe('Sanitization & Safe HTML (AMO Compliance)', () => {
 
         jest.useRealTimers();
     });
+
+    describe('extractRootDomain', () => {
+        test('handles non-string, empty, or whitespace inputs gracefully', () => {
+            const { extractRootDomain } = require('../src/ui/utils.js');
+            expect(extractRootDomain(null)).toBe('');
+            expect(extractRootDomain(undefined)).toBe('');
+            expect(extractRootDomain(123)).toBe('');
+            expect(extractRootDomain('')).toBe('');
+            expect(extractRootDomain('   ')).toBe('');
+            expect(extractRootDomain('*.')).toBe('');
+            expect(extractRootDomain('...')).toBe('');
+        });
+
+        test('extracts root from standard gTLD domains and subdomains', () => {
+            const { extractRootDomain } = require('../src/ui/utils.js');
+            expect(extractRootDomain('example.com')).toBe('example.com');
+            expect(extractRootDomain('sub.example.com')).toBe('example.com');
+            expect(extractRootDomain('a.b.c.example.org')).toBe('example.org');
+            expect(extractRootDomain('*.wildcard.net')).toBe('wildcard.net');
+        });
+
+        test('correctly handles second-level ccTLDs like co.uk and com.au', () => {
+            const { extractRootDomain } = require('../src/ui/utils.js');
+            expect(extractRootDomain('news.bbc.co.uk')).toBe('bbc.co.uk');
+            expect(extractRootDomain('sub.domain.com.au')).toBe('domain.com.au');
+            expect(extractRootDomain('gov.uk')).toBe('gov.uk');
+            expect(extractRootDomain('test.ac.uk')).toBe('test.ac.uk');
+            expect(extractRootDomain('example.de')).toBe('example.de');
+        });
+    });
 });
+

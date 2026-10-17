@@ -194,3 +194,27 @@ export function renderEmptyStateHTML(message, icon = '📭') {
     </div>`;
 }
 
+/**
+ * Intelligently extracts the registrable root domain from a hostname/domain string.
+ * Supports standard gTLDs (e.g. example.com -> example.com, sub.example.com -> example.com)
+ * as well as common second-level ccTLDs (e.g. news.bbc.co.uk -> bbc.co.uk).
+ * @param {string} domain
+ * @returns {string} Clean root domain or empty string if invalid.
+ */
+export function extractRootDomain(domain) {
+    if (typeof domain !== 'string') return '';
+    const clean = domain.trim().toLowerCase().replace(/^\*+\./, '').replace(/^\.+|\.+$/g, '');
+    if (!clean) return '';
+    const parts = clean.split('.').filter(Boolean);
+    if (parts.length <= 2) return clean;
+
+    const secondLevelTlds = new Set(['co', 'com', 'org', 'net', 'edu', 'gov', 'ac', 'mil', 'nom', 'sch']);
+    const secondToLast = parts[parts.length - 2];
+    const last = parts[parts.length - 1];
+
+    if (parts.length >= 3 && secondLevelTlds.has(secondToLast) && last.length === 2) {
+        return parts.slice(-3).join('.');
+    }
+    return parts.slice(-2).join('.');
+}
+

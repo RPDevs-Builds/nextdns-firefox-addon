@@ -3131,6 +3131,124 @@ describe('Background Script - Full Coverage Suite', () => {
     // Restore fetch
     apiClient.fetchWithRetry = origFetch;
   });
+
+  test('Handlers - AdGuard DNS Provider integration full coverage', async () => {
+    const { messageHandlers } = await import('../src/background/handlers.js');
+    const { state } = await import('../src/background/state.js');
+    const { apiClient } = await import('../src/apiClient.js');
+
+    const origFetch = apiClient.fetchWithRetry;
+    apiClient.fetchWithRetry = jest.fn(async (url, opts) => {
+      if (url.includes('/dns_servers/adg-1/settings') && opts?.method === 'PUT') {
+        return { success: true };
+      }
+      if (url.includes('/dns_servers/adg-1')) {
+        return {
+          success: true,
+          response: {
+            json: async () => ({
+              settings: {
+                user_rules_settings: {
+                  rules: ['@@||allowed.com^', '||blocked.com^']
+                }
+              }
+            })
+          }
+        };
+      }
+      if (url.includes('/dns_servers/adg-2')) {
+        throw new Error('Mirror fail');
+      }
+      if (url.includes('/dns_servers')) {
+        return {
+          success: true,
+          response: {
+            json: async () => [
+              { id: 'adg-1', name: 'Server 1', default: true }
+            ]
+          }
+        };
+      }
+      if (url.includes('/query_log') && opts?.method === 'DELETE') {
+        return { success: true };
+      }
+      if (url.includes('/query_log')) {
+        return {
+          success: true,
+          response: {
+            json: async () => ({
+              items: [
+                { domain: 'adg-log.com', time_millis: 1000, filtering_info: { status: 'BLOCKED' }, device_id: 'd1' },
+                { time_millis: 500 },
+                { domain: 'no-time.com' }
+              ]
+            })
+          }
+        };
+      }
+      return { success: false };
+    });
+
+    await global.storage.set('dnsProvider', 'adguard');
+    await global.storage.set('adguardApiKey', 'test-adg-key');
+
+    // 1. GET_PROFILES_LIST with adguard
+    const listRes = await messageHandlers.GET_PROFILES_LIST({ apiKey: 'custom-adg-key' });
+    expect(listRes.success).toBe(true);
+    expect(listRes.data[0].id).toBe('adg-1');
+
+    // 2. GET_PROFILE_DATA with adguard
+    const dataRes = await messageHandlers.GET_PROFILE_DATA({ profileId: 'adg-1' });
+    expect(dataRes.success).toBe(true);
+    expect(dataRes.allowlist).toContain('allowed.com');
+    expect(dataRes.denylist).toContain('blocked.com');
+
+    // 3. MANAGE_DOMAIN with adguard + Mirror Mode replication (including mirror rejection catch)
+    await global.storage.set('mirrorProfiles', ['adg-1', 'adg-2']);
+    const manageRes = await messageHandlers.MANAGE_DOMAIN({
+      profileId: 'adg-1',
+      listType: 'allowlist',
+      domain: 'newsite.com',
+      action: 'add'
+    });
+    expect(manageRes.success).toBe(true);
+
+    // 4. GET_LOGS with adguard (including merging state.localLogs)
+    state.localLogs = [
+      { name: 'local-only.com', timestamp: 2000 },
+      { domain: 'local-domain.com' },
+      { timestamp: 100 },
+      { name: 'adg-log.com', timestamp: 500 }
+    ];
+    const logsRes = await messageHandlers.GET_LOGS({ profileId: 'adg-1' });
+    expect(logsRes.success).toBe(true);
+    expect(logsRes.data.length).toBe(5);
+
+    // GET_LOGS with adguard when localLogs is empty or null
+    state.localLogs = [];
+    const logsEmptyRes = await messageHandlers.GET_LOGS({ profileId: 'adg-1' });
+    expect(logsEmptyRes.success).toBe(true);
+
+    state.localLogs = null;
+    const logsNullRes = await messageHandlers.GET_LOGS({ profileId: 'adg-1' });
+    expect(logsNullRes.success).toBe(true);
+
+    // GET_LOGS with adguard when adgRes.data is falsy
+    apiClient.fetchWithRetry.mockResolvedValueOnce({ success: false });
+    const logsFailRes = await messageHandlers.GET_LOGS({ profileId: 'adg-1' });
+    expect(logsFailRes.success).toBe(true);
+    expect(logsFailRes.data).toEqual([]);
+
+    // 5. CLEAR_LOGS with adguard
+    const clearRes = await messageHandlers.CLEAR_LOGS({ profileId: 'adg-1' });
+    expect(clearRes.success).toBe(true);
+
+    // Reset storage and state
+    state.localLogs = [];
+    await global.storage.set('dnsProvider', 'nextdns');
+    await global.storage.set('mirrorProfiles', []);
+    apiClient.fetchWithRetry = origFetch;
+  });
 });
 
 

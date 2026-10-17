@@ -14,7 +14,15 @@ import {
     updateDashboardTabInfo,
     updateDynamicLinks,
     downloadLogsCSV,
-    wipeLogs
+    wipeLogs,
+    getLogDeviceIdentifier,
+    updateDeviceFilterOptions,
+    openBuiltinAllowlistModal,
+    closeBuiltinAllowlistModal,
+    handleBuiltinDomainAction,
+    handleBuiltinHideAction,
+    handleBatchLogsAction,
+    initBuiltinLogsEvents
 } from '../src/ui/dashboard.js';
 import { state } from '../src/ui/state.js';
 import * as utils from '../src/ui/utils.js';
@@ -1235,5 +1243,359 @@ describe('Dashboard UI Module (src/ui/dashboard.js)', () => {
             downloadSpy.mockRestore();
         });
     });
+
+    describe('getLogDeviceIdentifier', () => {
+        test('resolves device id, client ip, or device name in priority order', () => {
+            expect(getLogDeviceIdentifier(null)).toBe('');
+            expect(getLogDeviceIdentifier({})).toBe('');
+            expect(getLogDeviceIdentifier({ device: { name: 'My Phone' } })).toBe('My Phone');
+            expect(getLogDeviceIdentifier({ clientIp: '192.168.1.100', device: { name: 'My Phone' } })).toBe('192.168.1.100');
+            expect(getLogDeviceIdentifier({ device: { id: 'dev-99', name: 'My Phone' }, clientIp: '192.168.1.100' })).toBe('dev-99');
+        });
+    });
+
+    describe('Built-in Allowlist Modal & Actions', () => {
+        test('openBuiltinAllowlistModal exits with toast when no active profile', () => {
+            state.activeProfile = null;
+            const toastSpy = jest.spyOn(utils, 'showToast').mockImplementation(() => {});
+            openBuiltinAllowlistModal('test.com');
+            expect(toastSpy).toHaveBeenCalledWith('No active profile detected.', 'warning');
+            toastSpy.mockRestore();
+        });
+
+        test('openBuiltinAllowlistModal renders dialog, responds to typing, and closes on Escape/close button', () => {
+            state.activeProfile = 'test-profile';
+            openBuiltinAllowlistModal('sub.example.com');
+
+            const backdrop = document.getElementById('builtin-allow-modal-backdrop');
+            expect(backdrop).not.toBeNull();
+            const input = document.getElementById('builtin-allow-domain-input');
+            expect(input.value).toBe('sub.example.com');
+            const hint = document.getElementById('builtin-allow-modal-hint');
+            expect(hint.textContent).toContain('Root domain: example.com');
+
+            // Input changes to root domain
+            input.value = 'example.com';
+            input.dispatchEvent(new Event('input'));
+            expect(hint.textContent).toContain('automatically allows all of its subdomains');
+
+            // Input changes to another subdomain
+            input.value = 'news.bbc.co.uk';
+            input.dispatchEvent(new Event('input'));
+            expect(hint.textContent).toContain('Root domain: bbc.co.uk');
+
+            // Escape key closes modal
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            expect(document.getElementById('builtin-allow-modal-backdrop')).toBeNull();
+
+            // Re-open and click cancel
+            openBuiltinAllowlistModal('sub.example.com');
+            const cancelBtn = document.getElementById('builtin-allow-cancel-btn');
+            cancelBtn.click();
+            expect(document.getElementById('builtin-allow-modal-backdrop')).toBeNull();
+
+            // Re-open and click closeBtn
+            openBuiltinAllowlistModal('sub.example.com');
+            const closeBtn = document.getElementById('builtin-allow-modal-close');
+            closeBtn.click();
+            expect(document.getElementById('builtin-allow-modal-backdrop')).toBeNull();
+
+            // Re-open and click backdrop directly
+            openBuiltinAllowlistModal('sub.example.com');
+            const bd = document.getElementById('builtin-allow-modal-backdrop');
+            bd.click();
+            expect(document.getElementById('builtin-allow-modal-backdrop')).toBeNull();
+        });
+
+        test('submits domain via Add button with validation and handles errors', async () => {
+            state.activeProfile = 'test-profile';
+            const toastSpy = jest.spyOn(utils, 'showToast').mockImplementation(() => {});
+
+            // Empty domain validation
+            openBuiltinAllowlistModal('');
+            const addBtn = document.getElementById('builtin-allow-add-btn');
+            addBtn.click();
+            expect(toastSpy).toHaveBeenCalledWith('Please enter a valid domain.', 'warning');
+
+            // Invalid domain format
+            const input = document.getElementById('builtin-allow-domain-input');
+            input.value = '...';
+            addBtn.click();
+            expect(toastSpy).toHaveBeenCalledWith('Invalid domain format.', 'warning');
+
+            // Successful submit
+            input.value = 'valid-domain.com';
+            global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            addBtn.click();
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(state.currentAllowlist.has('valid-domain.com')).toBe(true);
+            expect(toastSpy).toHaveBeenCalledWith('Added valid-domain.com to allowlist', 'success');
+            expect(document.getElementById('builtin-allow-modal-backdrop')).toBeNull();
+
+            // Root domain submit
+            openBuiltinAllowlistModal('a.b.c.root-test.com');
+            const addRootBtn = document.getElementById('builtin-allow-add-root-btn');
+            global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            addRootBtn.click();
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(state.currentAllowlist.has('root-test.com')).toBe(true);
+            expect(toastSpy).toHaveBeenCalledWith('Added root domain root-test.com to allowlist', 'success');
+
+            // API error response
+            openBuiltinAllowlistModal('err-domain.com');
+            global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: false, error: 'Custom API Error' });
+            document.getElementById('builtin-allow-add-btn').click();
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(toastSpy).toHaveBeenCalledWith('Error: Custom API Error', 'error');
+
+            // Network rejection error
+            global.browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Network offline'));
+            document.getElementById('builtin-allow-add-btn').click();
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(toastSpy).toHaveBeenCalledWith('Error: Network offline', 'error');
+
+            // Enter key trigger when focused on input
+            input.focus();
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+            toastSpy.mockRestore();
+        });
+
+        test('handleBuiltinDomainAction handles add and delete for allowlist and denylist', async () => {
+            state.activeProfile = 'p-action';
+            const toastSpy = jest.spyOn(utils, 'showToast').mockImplementation(() => {});
+
+            // Missing domain or profile returns early
+            await handleBuiltinDomainAction('', 'denylist', 'add');
+            state.activeProfile = null;
+            await handleBuiltinDomainAction('test.com', 'denylist', 'add');
+            state.activeProfile = 'p-action';
+
+            // Add to denylist
+            global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            await handleBuiltinDomainAction('bad.org', 'denylist', 'add');
+            expect(state.currentDenylist.has('bad.org')).toBe(true);
+
+            // Add to allowlist
+            global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            await handleBuiltinDomainAction('good.org', 'allowlist', 'add');
+            expect(state.currentAllowlist.has('good.org')).toBe(true);
+
+            // Delete from denylist
+            global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            await handleBuiltinDomainAction('bad.org', 'denylist', 'delete');
+            expect(state.currentDenylist.has('bad.org')).toBe(false);
+
+            // Delete from allowlist
+            global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            await handleBuiltinDomainAction('good.org', 'allowlist', 'delete');
+            expect(state.currentAllowlist.has('good.org')).toBe(false);
+
+            // API failure
+            global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: false, error: 'Rate limit' });
+            await handleBuiltinDomainAction('bad.org', 'denylist', 'add');
+            expect(toastSpy).toHaveBeenCalledWith('Error: Rate limit', 'error');
+
+            // Exception
+            global.browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Fetch failed'));
+            await handleBuiltinDomainAction('bad.org', 'denylist', 'add');
+            expect(toastSpy).toHaveBeenCalledWith('Error: Fetch failed', 'error');
+
+            toastSpy.mockRestore();
+        });
+
+        test('handleBuiltinHideAction filters log domain from cache', () => {
+            const toastSpy = jest.spyOn(utils, 'showToast').mockImplementation(() => {});
+            handleBuiltinHideAction(''); // empty domain early return
+
+            state.cachedLogs = [
+                { name: 'hide-me.com' },
+                { domain: 'stay.com' }
+            ];
+            handleBuiltinHideAction('hide-me.com');
+            expect(state.cachedLogs.length).toBe(1);
+            expect(state.cachedLogs[0].domain).toBe('stay.com');
+            expect(toastSpy).toHaveBeenCalledWith('Hidden hide-me.com from logs view', 'info');
+            toastSpy.mockRestore();
+        });
+
+        test('handleBatchLogsAction processes visible rows', async () => {
+            state.activeProfile = null;
+            const toastSpy = jest.spyOn(utils, 'showToast').mockImplementation(() => {});
+
+            // No active profile
+            await handleBatchLogsAction('allowlist', 'add');
+            expect(toastSpy).toHaveBeenCalledWith('No active profile detected.', 'warning');
+
+            state.activeProfile = 'p-batch';
+            const container = document.getElementById('logs-container');
+            container.innerHTML = '';
+
+            // No visible logs
+            await handleBatchLogsAction('allowlist', 'add');
+            expect(toastSpy).toHaveBeenCalledWith('No logs visible to process.', 'warning');
+
+            // Visible rows with domains
+            container.innerHTML = `
+                <div class="log-row">
+                    <button class="builtin-allow-btn" data-domain="a.example.com"></button>
+                </div>
+                <div class="log-row">
+                    <button class="builtin-allow-btn" data-domain="b.example.com"></button>
+                </div>
+                <div class="log-row">
+                    <button class="builtin-allow-btn" data-domain=""></button>
+                </div>
+            `;
+
+            global.browser.runtime.sendMessage.mockResolvedValue({ success: true });
+            await handleBatchLogsAction('allowlist', 'add', false);
+            expect(toastSpy).toHaveBeenCalledWith('Successfully processed 2/2 domains in allowlist.', 'success');
+
+            // Use root domain extraction
+            await handleBatchLogsAction('allowlist', 'add', true);
+            expect(toastSpy).toHaveBeenCalledWith('Successfully processed 1/1 domains in allowlist.', 'success');
+
+            toastSpy.mockRestore();
+        });
+
+        test('initBuiltinLogsEvents sets up delegated clicks on container and batch toolbar', () => {
+            const batchBar = document.createElement('div');
+            batchBar.id = 'logs-batch-bar';
+            batchBar.innerHTML = `
+                <button id="batch-allow-all-btn"></button>
+                <button id="batch-allow-roots-btn"></button>
+                <button id="batch-deny-all-btn"></button>
+                <button id="batch-remove-allow-btn"></button>
+                <button id="batch-remove-deny-btn"></button>
+            `;
+            document.body.appendChild(batchBar);
+
+            const container = document.getElementById('logs-container');
+            container._hasBuiltinLogEvents = false;
+            initBuiltinLogsEvents();
+
+            container.innerHTML = `
+                <div class="log-row">
+                    <button class="builtin-allow-btn" data-domain="test-allow.com"></button>
+                    <button class="builtin-deny-btn" data-domain="test-deny.com"></button>
+                    <button class="builtin-hide-btn" data-domain="test-hide.com"></button>
+                </div>
+            `;
+
+            state.activeProfile = 'p-events';
+            container.querySelector('.builtin-allow-btn').click();
+            expect(document.getElementById('builtin-allow-modal-backdrop')).not.toBeNull();
+            closeBuiltinAllowlistModal();
+
+            container.querySelector('.builtin-deny-btn').click();
+            container.querySelector('.builtin-hide-btn').click();
+
+            document.getElementById('batch-allow-all-btn').click();
+            document.getElementById('batch-allow-roots-btn').click();
+            document.getElementById('batch-deny-all-btn').click();
+            document.getElementById('batch-remove-allow-btn').click();
+            document.getElementById('batch-remove-deny-btn').click();
+        });
+
+        test('Built-in logs additional branches and edge cases for 100% coverage', async () => {
+            // 1. updateDeviceFilterOptions when dropdown does not exist
+            const origDropdown = document.getElementById('log-device-filter');
+            if (origDropdown) origDropdown.remove();
+            updateDeviceFilterOptions();
+            if (origDropdown) document.body.appendChild(origDropdown);
+
+            // 2. openBuiltinAllowlistModal backdrop click vs dialog click
+            openBuiltinAllowlistModal('test.com');
+            const backdrop = document.getElementById('builtin-allow-modal-backdrop');
+            const dialog = document.getElementById('builtin-allow-modal-dialog');
+            // Click dialog (should NOT close)
+            dialog.click();
+            backdrop.onclick({ target: dialog });
+            expect(document.getElementById('builtin-allow-modal-backdrop')).not.toBeNull();
+            // Keydown other keys (e.g. 'Tab', 'Enter' when activeElement is not domainInput)
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }));
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+            // Click backdrop directly (should close)
+            backdrop.click();
+            expect(document.getElementById('builtin-allow-modal-backdrop')).toBeNull();
+
+            // 3. Modal submit with state.currentAllowlist/state.currentDenylist not Sets, error without message
+            openBuiltinAllowlistModal('noset.com');
+            state.activeProfile = 'prof-noset';
+            state.currentAllowlist = null;
+            state.currentDenylist = null;
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            const modalAddBtn = document.getElementById('builtin-allow-modal-dialog').querySelector('.btn-primary');
+            modalAddBtn.click();
+            await new Promise(r => setTimeout(r, 10));
+
+            // Error without message in modal submit
+            openBuiltinAllowlistModal('err.com');
+            browser.runtime.sendMessage.mockRejectedValueOnce({});
+            const modalAddBtn2 = document.getElementById('builtin-allow-modal-dialog').querySelector('.btn-primary');
+            modalAddBtn2.click();
+            await new Promise(r => setTimeout(r, 10));
+            closeBuiltinAllowlistModal();
+
+            // 4. handleBuiltinDomainAction delete branches and non-Set branches
+            state.activeProfile = 'p-del';
+            state.currentAllowlist = null;
+            state.currentDenylist = null;
+            browser.runtime.sendMessage.mockResolvedValue({ success: true });
+            await handleBuiltinDomainAction('test.com', 'denylist', 'add');
+            await handleBuiltinDomainAction('test.com', 'denylist', 'delete');
+            await handleBuiltinDomainAction('test.com', 'allowlist', 'delete');
+
+            state.currentAllowlist = null;
+            state.currentDenylist = null;
+            await handleBuiltinDomainAction('test.com', 'allowlist', 'add');
+
+            state.currentAllowlist = new Set(['test.com']);
+            state.currentDenylist = new Set(['test.com']);
+            await handleBuiltinDomainAction('test.com', 'allowlist', 'add');
+            await handleBuiltinDomainAction('test.com', 'denylist', 'delete');
+            await handleBuiltinDomainAction('test.com', 'allowlist', 'delete');
+            await handleBuiltinDomainAction('test.com', 'allowlist', 'unknown_action');
+
+            // handleBuiltinDomainAction error with no message
+            browser.runtime.sendMessage.mockRejectedValueOnce({});
+            await handleBuiltinDomainAction('err.com', 'allowlist', 'add');
+
+            // 5. handleBuiltinHideAction with domain-only log (no name) and null cachedLogs
+            state.cachedLogs = null;
+            handleBuiltinHideAction('test.com');
+            state.cachedLogs = [{ domain: 'domainonly.com' }];
+            handleBuiltinHideAction('domainonly.com');
+            expect(state.cachedLogs.length).toBe(0);
+
+            // 6. handleBatchLogsAction with empty domains and all failures
+            const container = document.getElementById('logs-container');
+            container.innerHTML = `
+                <div class="log-row">
+                    <button class="builtin-allow-btn" data-domain="   "></button>
+                </div>
+            `;
+            await handleBatchLogsAction('allowlist', 'add', false);
+
+            container.innerHTML = `
+                <div class="log-row">
+                    <button class="builtin-allow-btn" data-domain="failed.com"></button>
+                </div>
+            `;
+            browser.runtime.sendMessage.mockResolvedValueOnce({ success: false });
+            await handleBatchLogsAction('allowlist', 'add', false);
+
+            // 7. initBuiltinLogsEvents random click in container
+            container._hasBuiltinLogEvents = false;
+            initBuiltinLogsEvents();
+            container.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
+    });
 });
+
 

@@ -565,6 +565,13 @@
         <option value="dns">DNS</option>
       </select>
     </div>
+    <div id="logs-batch-bar" style="display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;">
+      <button id="batch-allow-all-btn" class="btn-secondary" style="width: auto; padding: 4px 8px; font-size: 0.75em; font-weight: 600;" title="Add all currently visible domains to allowlist">✅ Allow All</button>
+      <button id="batch-allow-roots-btn" class="btn-secondary" style="width: auto; padding: 4px 8px; font-size: 0.75em; font-weight: 600;" title="Add root domains of all currently visible items to allowlist">🌳 Allow Roots</button>
+      <button id="batch-deny-all-btn" class="btn-secondary" style="width: auto; padding: 4px 8px; font-size: 0.75em; font-weight: 600;" title="Add all currently visible domains to denylist">🚫 Deny All</button>
+      <button id="batch-remove-allow-btn" class="btn-secondary" style="width: auto; padding: 4px 8px; font-size: 0.75em; font-weight: 600;" title="Remove visible domains from allowlist">✕ Remove Allowed</button>
+      <button id="batch-remove-deny-btn" class="btn-secondary" style="width: auto; padding: 4px 8px; font-size: 0.75em; font-weight: 600;" title="Remove visible domains from denylist">✕ Remove Denied</button>
+    </div>
     <div id="logs-container" class="dashboard-panel" aria-live="polite"></div>
   </div>
 
@@ -635,17 +642,30 @@
     <div id="settings-setup" class="settings-sub-content active" style="padding: 15px;">
       <div class="panel-box" style="margin-bottom: 15px;">
         <h4>Connection & Credentials</h4>
-        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Link DNS Forge to your NextDNS account via your API key.</p>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Link DNS Forge to your NextDNS or AdGuard DNS account via your API key.</p>
         
-        <label for="setting-api-key" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">API Key</label>
-        <input type="text" id="setting-api-key" placeholder="Paste your NextDNS API key">
+        <label for="setting-provider-select" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">DNS Provider</label>
+        <select id="setting-provider-select" style="margin-bottom: 10px;">
+          <option value="nextdns">NextDNS</option>
+          <option value="adguard">AdGuard DNS</option>
+        </select>
+
+        <div id="nextdns-credentials-group">
+          <label for="setting-api-key" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">NextDNS API Key</label>
+          <input type="text" id="setting-api-key" placeholder="Paste your NextDNS API key">
+        </div>
+
+        <div id="adguard-credentials-group" class="hidden">
+          <label for="setting-adguard-api-key" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">AdGuard DNS API Key</label>
+          <input type="text" id="setting-adguard-api-key" placeholder="Paste your AdGuard DNS API key">
+        </div>
         
-        <label for="setting-profile-select" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Active Profile</label>
+        <label for="setting-profile-select" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Active Profile / Server</label>
         <div style="display: flex; gap: 8px; align-items: center;">
           <select id="setting-profile-select" style="margin-bottom: 0; flex-grow: 1;">
             <option value="">⚡ Auto-Detect (Default)</option>
           </select>
-          <button id="setting-fetch-profiles" class="btn-secondary" style="width: 42px; height: 38px; display: flex; align-items: center; justify-content: center;" title="Fetch Profiles from NextDNS" aria-label="Fetch Profiles from NextDNS">🔄</button>
+          <button id="setting-fetch-profiles" class="btn-secondary" style="width: 42px; height: 38px; display: flex; align-items: center; justify-content: center;" title="Fetch Profiles from DNS Provider" aria-label="Fetch Profiles from DNS Provider">🔄</button>
         </div>
       </div>
 
