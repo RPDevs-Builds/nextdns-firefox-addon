@@ -13,6 +13,7 @@ import { apiClient } from '../apiClient.js';
 import { manageDomain, detectActiveProfile, updateProfileCache, runNetworkDiagnostics } from './api.js';
 import { logStreamManager } from './logStream.js';
 import { fetchAdguardServers, fetchAdguardProfileData, manageAdguardDomain, fetchAdguardLogs, clearAdguardLogs } from '../providers/adguard.js';
+import { fetchControldProfiles, fetchControldProfileData, manageControldDomain, fetchControldLogs, clearControldLogs } from '../providers/controld.js';
 
 function isValidProfileId(id) {
     return typeof id === 'string' && /^[a-zA-Z0-9_-]+$/.test(id);
@@ -32,9 +33,11 @@ export const messageHandlers = {
      */
     MANAGE_DOMAIN: async (msg) => {
         const provider = await storage.get("dnsProvider", "nextdns");
-        const res = provider === 'adguard'
-            ? await manageAdguardDomain(msg.profileId, msg.listType, msg.domain, msg.action)
-            : await manageDomain(msg.profileId, msg.listType, msg.domain, msg.action);
+        const res = provider === 'controld'
+            ? await manageControldDomain(msg.profileId, msg.listType, msg.domain, msg.action)
+            : (provider === 'adguard'
+                ? await manageAdguardDomain(msg.profileId, msg.listType, msg.domain, msg.action)
+                : await manageDomain(msg.profileId, msg.listType, msg.domain, msg.action));
 
         if (res.success && (msg.action === 'add' || msg.action === 'delete')) {
             await updateProfileCache();
@@ -47,9 +50,12 @@ export const messageHandlers = {
                 const mirrors = mirrorProfiles.filter(mId => mId && mId !== msg.profileId);
                 await Promise.all(mirrors.map(mId => {
                     console.log(`[Mirror] Replicating domain ${msg.action} to profile: ${mId}`);
-                    return (provider === 'adguard'
-                        ? manageAdguardDomain(mId, msg.listType, msg.domain, msg.action)
-                        : manageDomain(mId, msg.listType, msg.domain, msg.action)
+                    return (provider === 'controld'
+                        ? manageControldDomain(mId, msg.listType, msg.domain, msg.action)
+                        : (provider === 'adguard'
+                            ? manageAdguardDomain(mId, msg.listType, msg.domain, msg.action)
+                            : manageDomain(mId, msg.listType, msg.domain, msg.action)
+                        )
                     ).catch(err => console.error(`[Mirror] Failed domain sync for ${mId}:`, err));
                 }));
             }
@@ -99,9 +105,11 @@ export const messageHandlers = {
     GET_LOGS: async (msg) => {
         if (!isValidProfileId(msg?.profileId)) return { success: false, data: state.localLogs || [], error: "Invalid profile ID" };
         const provider = await storage.get("dnsProvider", "nextdns");
-        if (provider === 'adguard') {
-            const adgRes = await fetchAdguardLogs(msg.profileId);
-            let data = adgRes.data;
+        if (provider === 'controld' || provider === 'adguard') {
+            const providerLogsRes = provider === 'controld'
+                ? await fetchControldLogs(msg.profileId)
+                : await fetchAdguardLogs(msg.profileId);
+            let data = providerLogsRes.data;
             if (Array.isArray(state.localLogs) && state.localLogs.length > 0) {
                 const existing = new Set(data.map(l => (l.domain || l.name || '').toLowerCase()));
                 const missingLocal = state.localLogs.filter(l => !existing.has((l.domain || l.name || '').toLowerCase()));
@@ -141,6 +149,9 @@ export const messageHandlers = {
     GET_PROFILE_DATA: async (msg) => {
         if (!isValidProfileId(msg?.profileId)) return { success: false, allowlist: [], denylist: [], error: "Invalid profile ID" };
         const provider = await storage.get("dnsProvider", "nextdns");
+        if (provider === 'controld') {
+            return await fetchControldProfileData(msg.profileId);
+        }
         if (provider === 'adguard') {
             return await fetchAdguardProfileData(msg.profileId);
         }
@@ -228,6 +239,9 @@ export const messageHandlers = {
      */
     GET_PROFILES_LIST: async (msg) => {
         const provider = await storage.get("dnsProvider", "nextdns");
+        if (provider === 'controld') {
+            return await fetchControldProfiles(msg?.apiKey);
+        }
         if (provider === 'adguard') {
             return await fetchAdguardServers(msg?.apiKey);
         }
@@ -476,6 +490,10 @@ export const messageHandlers = {
     CLEAR_LOGS: async (msg) => {
         if (!msg.profileId || !/^[a-zA-Z0-9_-]+$/.test(msg.profileId)) return { success: false, error: "Invalid profile ID" };
         const provider = await storage.get("dnsProvider", "nextdns");
+        if (provider === 'controld') {
+            const res = await clearControldLogs();
+            return res;
+        }
         if (provider === 'adguard') {
             const res = await clearAdguardLogs();
             return res;

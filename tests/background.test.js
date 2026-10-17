@@ -3249,6 +3249,101 @@ describe('Background Script - Full Coverage Suite', () => {
     await global.storage.set('mirrorProfiles', []);
     apiClient.fetchWithRetry = origFetch;
   });
+
+  test('handles controld provider actions across all handlers (GET_PROFILES_LIST, GET_PROFILE_DATA, MANAGE_DOMAIN, GET_LOGS, CLEAR_LOGS)', async () => {
+    const { messageHandlers } = await import('../src/background/handlers.js');
+    const { state } = await import('../src/background/state.js');
+    const { apiClient } = await import('../src/apiClient.js');
+
+    const origFetch = apiClient.fetchWithRetry;
+    apiClient.fetchWithRetry = jest.fn(async (url, opts = {}) => {
+      if (url.includes('/profiles') && !url.includes('/rules')) {
+        return {
+          success: true,
+          response: {
+            json: async () => ({
+              body: {
+                profiles: [
+                  { PK: 'cd-1', name: 'Home Network', updated: 12345 }
+                ]
+              }
+            })
+          }
+        };
+      }
+      if (url.includes('/rules') && (!opts.method || opts.method === 'GET')) {
+        return {
+          success: true,
+          response: {
+            json: async () => ({
+              body: {
+                rules: [
+                  { PK: 'allowed.com', action: { do: 1 } },
+                  { PK: 'blocked.com', action: { do: 0 } }
+                ]
+              }
+            })
+          }
+        };
+      }
+      if (url.includes('/rules') && opts.method === 'POST') {
+        if (opts.body && opts.body.includes('bad-mirror')) {
+          return { success: false, error: 'Mirror failed' };
+        }
+        return {
+          success: true,
+          response: {
+            json: async () => ({ body: { rules: [{ PK: 'newsite.com' }] } })
+          }
+        };
+      }
+      return { success: false };
+    });
+
+    await global.storage.set('dnsProvider', 'controld');
+    await global.storage.set('controldApiKey', 'test-cd-key');
+
+    // 1. GET_PROFILES_LIST with controld
+    const listRes = await messageHandlers.GET_PROFILES_LIST({ apiKey: 'custom-cd-key' });
+    expect(listRes.success).toBe(true);
+    expect(listRes.data[0].id).toBe('cd-1');
+
+    // 2. GET_PROFILE_DATA with controld
+    const dataRes = await messageHandlers.GET_PROFILE_DATA({ profileId: 'cd-1' });
+    expect(dataRes.success).toBe(true);
+    expect(dataRes.allowlist).toContain('allowed.com');
+    expect(dataRes.denylist).toContain('blocked.com');
+
+    // 3. MANAGE_DOMAIN with controld + Mirror Mode replication
+    await global.storage.set('mirrorProfiles', ['cd-1', 'cd-2']);
+    const manageRes = await messageHandlers.MANAGE_DOMAIN({
+      profileId: 'cd-1',
+      listType: 'allowlist',
+      domain: 'newsite.com',
+      action: 'add'
+    });
+    expect(manageRes.success).toBe(true);
+
+    // 4. GET_LOGS with controld (merging state.localLogs)
+    state.localLogs = [
+      { name: 'local-only.com', timestamp: 2000 },
+      { domain: 'local-domain.com' },
+      { timestamp: 100 }
+    ];
+    const logsRes = await messageHandlers.GET_LOGS({ profileId: 'cd-1' });
+    expect(logsRes.success).toBe(true);
+    expect(logsRes.data.length).toBe(3);
+
+    // 5. CLEAR_LOGS with controld
+    const clearRes = await messageHandlers.CLEAR_LOGS({ profileId: 'cd-1' });
+    expect(clearRes.success).toBe(true);
+
+    // Reset storage and state
+    state.localLogs = [];
+    await global.storage.set('dnsProvider', 'nextdns');
+    await global.storage.set('mirrorProfiles', []);
+    apiClient.fetchWithRetry = origFetch;
+  });
 });
 
 

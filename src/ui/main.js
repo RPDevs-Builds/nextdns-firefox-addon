@@ -929,7 +929,9 @@ export async function loadProfiles(customApiKey = null) {
         const provider = document.getElementById('setting-provider-select')?.value || (await storage.get('dnsProvider', 'nextdns'));
         let apiKey = customApiKey;
         if (apiKey === null) {
-            if (provider === 'adguard') {
+            if (provider === 'controld') {
+                apiKey = document.getElementById('setting-controld-api-key')?.value.trim() || '';
+            } else if (provider === 'adguard') {
                 apiKey = document.getElementById('setting-adguard-api-key')?.value.trim() || '';
             } else {
                 apiKey = document.getElementById('setting-api-key')?.value.trim() || '';
@@ -975,9 +977,11 @@ export async function handleFetchProfilesClick(e) {
     const btn = document.getElementById('setting-fetch-profiles');
     if (btn) btn.classList.add('spinning');
     const provider = document.getElementById('setting-provider-select')?.value || 'nextdns';
-    const key = provider === 'adguard'
-        ? (document.getElementById('setting-adguard-api-key')?.value.trim() || null)
-        : (document.getElementById('setting-api-key')?.value.trim() || null);
+    const key = provider === 'controld'
+        ? (document.getElementById('setting-controld-api-key')?.value.trim() || null)
+        : (provider === 'adguard'
+            ? (document.getElementById('setting-adguard-api-key')?.value.trim() || null)
+            : (document.getElementById('setting-api-key')?.value.trim() || null));
     const list = await loadProfiles(key);
     if (btn) setTimeout(() => btn.classList.remove('spinning'), 500);
 }
@@ -1050,7 +1054,7 @@ export async function refreshActiveProfileAndUI() {
  */
 export async function initSettingsUI() {
     const keys = [
-        "apiKey", "adguardApiKey", "dnsProvider", "activeProfile", "overrideProfileId", "iconClickAction", 
+        "apiKey", "adguardApiKey", "controldApiKey", "dnsProvider", "activeProfile", "overrideProfileId", "iconClickAction", 
         "autoRefreshLogs", "enableBlockNotifications", 
         "enableLabs", "autoRefreshTime"
     ];
@@ -1059,9 +1063,11 @@ export async function initSettingsUI() {
 
         const apiKeyInput = document.getElementById('setting-api-key');
         const adguardKeyInput = document.getElementById('setting-adguard-api-key');
+        const controldKeyInput = document.getElementById('setting-controld-api-key');
         const providerSelect = document.getElementById('setting-provider-select');
         const nextdnsGroup = document.getElementById('nextdns-credentials-group');
         const adguardGroup = document.getElementById('adguard-credentials-group');
+        const controldGroup = document.getElementById('controld-credentials-group');
         const profileSelect = document.getElementById('setting-profile-select');
         const iconActionSelect = document.getElementById('setting-icon-action');
         const autoRefreshCheck = document.getElementById('setting-auto-refresh');
@@ -1073,15 +1079,18 @@ export async function initSettingsUI() {
         if (providerSelect) providerSelect.value = currentProvider;
         if (apiKeyInput) apiKeyInput.value = data.apiKey || '';
         if (adguardKeyInput) adguardKeyInput.value = data.adguardApiKey || '';
-        if (nextdnsGroup) nextdnsGroup.classList.toggle('hidden', currentProvider === 'adguard');
+        if (controldKeyInput) controldKeyInput.value = data.controldApiKey || '';
+        if (nextdnsGroup) nextdnsGroup.classList.toggle('hidden', currentProvider !== 'nextdns');
         if (adguardGroup) adguardGroup.classList.toggle('hidden', currentProvider !== 'adguard');
+        if (controldGroup) controldGroup.classList.toggle('hidden', currentProvider !== 'controld');
 
         if (providerSelect && !providerSelect.dataset.bound) {
             providerSelect.dataset.bound = "true";
             providerSelect.addEventListener('change', async () => {
                 const prov = providerSelect.value;
-                if (nextdnsGroup) nextdnsGroup.classList.toggle('hidden', prov === 'adguard');
+                if (nextdnsGroup) nextdnsGroup.classList.toggle('hidden', prov !== 'nextdns');
                 if (adguardGroup) adguardGroup.classList.toggle('hidden', prov !== 'adguard');
+                if (controldGroup) controldGroup.classList.toggle('hidden', prov !== 'controld');
                 await storage.set({ dnsProvider: prov });
                 await handleFetchProfilesClick();
             });
@@ -1097,7 +1106,10 @@ export async function initSettingsUI() {
 
         // Load profiles into dropdown
         if (profileSelect) {
-            await loadProfiles(currentProvider === 'adguard' ? data.adguardApiKey : data.apiKey);
+            const activeKey = currentProvider === 'controld'
+                ? data.controldApiKey
+                : (currentProvider === 'adguard' ? data.adguardApiKey : data.apiKey);
+            await loadProfiles(activeKey);
             profileSelect.value = (data.overrideProfileId && data.overrideProfileId !== 'auto')
                 ? data.overrideProfileId
                 : (data.activeProfile || '');
@@ -1132,6 +1144,20 @@ export async function initSettingsUI() {
             });
         }
 
+        if (controldKeyInput && !controldKeyInput.dataset.bound) {
+            controldKeyInput.dataset.bound = "true";
+            let debounceTimer;
+            controldKeyInput.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(async () => {
+                    const val = controldKeyInput.value.trim();
+                    if (val.length >= 20) {
+                        await loadProfiles(val);
+                    }
+                }, 400);
+            });
+        }
+
         await loadAlertSettings();
 
         return data;
@@ -1152,6 +1178,7 @@ export async function saveSettings() {
     const dnsProvider = document.getElementById('setting-provider-select')?.value || 'nextdns';
     const apiKey = document.getElementById('setting-api-key')?.value.trim() || '';
     const adguardApiKey = document.getElementById('setting-adguard-api-key')?.value.trim() || '';
+    const controldApiKey = document.getElementById('setting-controld-api-key')?.value.trim() || '';
     const activeProfile = document.getElementById('setting-profile-select')?.value || '';
     const iconClickAction = document.getElementById('setting-icon-action')?.value;
     const autoRefreshLogs = document.getElementById('setting-auto-refresh')?.checked;
@@ -1163,6 +1190,7 @@ export async function saveSettings() {
         dnsProvider,
         apiKey,
         adguardApiKey,
+        controldApiKey,
         activeProfile,
         overrideProfileId: activeProfile ? activeProfile : 'auto',
         iconClickAction,
@@ -1178,7 +1206,10 @@ export async function saveSettings() {
     await storage.set(newSettings);
 
     // Refresh profile detection and reload profiles
-    await loadProfiles(dnsProvider === 'adguard' ? adguardApiKey : apiKey);
+    const activeKey = dnsProvider === 'controld'
+        ? controldApiKey
+        : (dnsProvider === 'adguard' ? adguardApiKey : apiKey);
+    await loadProfiles(activeKey);
     await refreshActiveProfileAndUI();
 
     const hasIconActionChanged = iconClickAction !== state.lastIconAction;

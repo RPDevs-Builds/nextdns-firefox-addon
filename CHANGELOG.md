@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.4.0] - 2026-10-17
+
+### Added
+- **Control D DNS Provider Integration (`src/providers/controld.js`, `src/background/handlers.js`, `src/ui/main.js`, `src/popup.html`):** Full multi-provider DNS support expanding DNS Forge to Control D (`https://api.controld.com`). Features:
+  - Profile listing via `GET /profiles` (`fetchControldProfiles`).
+  - Custom rules fetching and mapping via `GET /profiles/{profile_id}/rules` (`fetchControldProfileData`).
+  - Rule management via `POST /profiles/{profile_id}/rules` (action `do: 1` for allowlist/bypass and `do: 0` for denylist/block) and `DELETE /profiles/{profile_id}/rules/{encoded_domain}` (`manageControldDomain`).
+  - Full Mirror Mode replication support across secondary Control D profiles.
+  - Settings UI provider dropdown integration with dynamic credentials visibility and live API key debouncing.
+- **Manifest Permissions (`manifest.json`):** Added `"https://api.controld.com/*"` to `host_permissions`.
+
+### Tests & Quality
+- **100.0% Test Coverage Across All Modules:** 100.0% Statements, 100.0% Branches, 100.0% Functions, and 100.0% Lines repository-wide across all 23 source modules with 460 passing tests in Jest.
+- **Mozilla AMO Compliance:** Zero errors, zero notices, and zero warnings on `web-ext lint`.
+
 ## [1.3.0] - 2026-10-17
 
 ### Added

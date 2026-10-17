@@ -2370,6 +2370,115 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             }
         });
 
+        test('UI Main - Multi-provider Control D UI interactions and branch coverage', async () => {
+            const { storage: storageMod } = await import('../src/storage.js');
+            document.body.innerHTML = html;
+
+            // 1. initSettingsUI with controld provider already stored
+            await storageMod.set('dnsProvider', 'controld');
+            await storageMod.set('controldApiKey', 'controld-initial-api-key-1234567890');
+            browser.runtime.sendMessage.mockResolvedValue({ success: true, data: [{ id: 'cd-1', name: 'CD Profile' }] });
+
+            await uiMain.initSettingsUI();
+
+            const providerSel = document.getElementById('setting-provider-select');
+            const cdGroup = document.getElementById('controld-credentials-group');
+            const adgGroup = document.getElementById('adguard-credentials-group');
+            const nextdnsGroup = document.getElementById('nextdns-credentials-group');
+            const cdKeyInput = document.getElementById('setting-controld-api-key');
+
+            expect(providerSel.value).toBe('controld');
+            expect(cdGroup.classList.contains('hidden')).toBe(false);
+            expect(adgGroup.classList.contains('hidden')).toBe(true);
+            expect(nextdnsGroup.classList.contains('hidden')).toBe(true);
+
+            // 2. Change provider to nextdns, then to adguard, then back to controld
+            providerSel.value = 'nextdns';
+            providerSel.dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 600));
+
+            expect(cdGroup.classList.contains('hidden')).toBe(true);
+            expect(nextdnsGroup.classList.contains('hidden')).toBe(false);
+
+            providerSel.value = 'adguard';
+            providerSel.dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 600));
+
+            expect(cdGroup.classList.contains('hidden')).toBe(true);
+            expect(adgGroup.classList.contains('hidden')).toBe(false);
+
+            providerSel.value = 'controld';
+            providerSel.dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 600));
+
+            expect(cdGroup.classList.contains('hidden')).toBe(false);
+            expect(adgGroup.classList.contains('hidden')).toBe(true);
+            expect(nextdnsGroup.classList.contains('hidden')).toBe(true);
+
+            // 3. Debounce input on cdKeyInput: short length (< 20) and valid length (>= 20)
+            cdKeyInput.value = 'short';
+            cdKeyInput.dispatchEvent(new Event('input'));
+            await new Promise(r => setTimeout(r, 500));
+
+            cdKeyInput.value = 'controld-full-key-123456789012345';
+            cdKeyInput.dispatchEvent(new Event('input'));
+            await new Promise(r => setTimeout(r, 500));
+
+            // 4. loadProfiles with provider === 'controld' and apiKey === null
+            const loadedCD = await uiMain.loadProfiles(null);
+            expect(loadedCD.length).toBeGreaterThan(0);
+
+            // loadProfiles with empty input
+            cdKeyInput.value = '';
+            await uiMain.loadProfiles(null);
+
+            // 5. handleFetchProfilesClick with provider controld
+            providerSel.value = 'controld';
+            cdKeyInput.value = 'controld-key-for-fetch';
+            await uiMain.handleFetchProfilesClick();
+            await new Promise(r => setTimeout(r, 600));
+
+            // handleFetchProfilesClick with empty key
+            cdKeyInput.value = '';
+            await uiMain.handleFetchProfilesClick();
+            await new Promise(r => setTimeout(r, 600));
+
+            // 6. saveSettings with provider controld
+            providerSel.value = 'controld';
+            cdKeyInput.value = 'saved-cd-key-1234567890';
+            await uiMain.saveSettings();
+            await new Promise(r => setTimeout(r, 600));
+
+            // 7. saveSettings and handleFetchProfilesClick when setting-provider-select is missing
+            providerSel.remove();
+            await uiMain.saveSettings();
+            await uiMain.handleFetchProfilesClick();
+            await new Promise(r => setTimeout(r, 600));
+
+            // 8. providerSelect change when credential groups are absent from DOM
+            document.body.innerHTML = `
+                <select id="setting-provider-select">
+                    <option value="nextdns">NextDNS</option>
+                    <option value="controld">Control D</option>
+                </select>
+            `;
+            await uiMain.initSettingsUI();
+            const standaloneProvSel = document.getElementById('setting-provider-select');
+            standaloneProvSel.value = 'controld';
+            standaloneProvSel.dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 600));
+
+            // Clean up intervals
+            if (stateModule.state.tabTrackingIntervalId) {
+                clearInterval(stateModule.state.tabTrackingIntervalId);
+                stateModule.state.tabTrackingIntervalId = null;
+            }
+            if (stateModule.state.autoRefreshInterval) {
+                clearInterval(stateModule.state.autoRefreshInterval);
+                stateModule.state.autoRefreshInterval = null;
+            }
+        });
+
         test('UI Main - saveAlertSettings and sendTestAlert timeouts and error states', async () => {
             document.body.innerHTML = `
                 <button id="alert-save-btn">Save</button>

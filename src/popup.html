@@ -642,12 +642,13 @@
     <div id="settings-setup" class="settings-sub-content active" style="padding: 15px;">
       <div class="panel-box" style="margin-bottom: 15px;">
         <h4>Connection & Credentials</h4>
-        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Link DNS Forge to your NextDNS or AdGuard DNS account via your API key.</p>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Link DNS Forge to your NextDNS, AdGuard DNS, or Control D account via your API key.</p>
         
         <label for="setting-provider-select" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">DNS Provider</label>
         <select id="setting-provider-select" style="margin-bottom: 10px;">
           <option value="nextdns">NextDNS</option>
           <option value="adguard">AdGuard DNS</option>
+          <option value="controld">Control D</option>
         </select>
 
         <div id="nextdns-credentials-group">
@@ -658,6 +659,11 @@
         <div id="adguard-credentials-group" class="hidden">
           <label for="setting-adguard-api-key" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">AdGuard DNS API Key</label>
           <input type="text" id="setting-adguard-api-key" placeholder="Paste your AdGuard DNS API key">
+        </div>
+
+        <div id="controld-credentials-group" class="hidden">
+          <label for="setting-controld-api-key" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Control D API Key</label>
+          <input type="text" id="setting-controld-api-key" placeholder="Paste your Control D API key">
         </div>
         
         <label for="setting-profile-select" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Active Profile / Server</label>
