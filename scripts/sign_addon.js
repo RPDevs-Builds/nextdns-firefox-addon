@@ -72,11 +72,19 @@ try {
                     const addonId = '{56fda99b-4dd4-4a4a-a413-00ff1c2cffd8}';
                     if (updates.addons && updates.addons[addonId]) {
                         const target = updates.addons[addonId].updates.find(u => u.version === version);
+                        const updateEntry = {
+                            version: version,
+                            update_link: `https://github.com/RPDevs-Builds/nextdns-firefox-addon/releases/download/v${version}/dns_forge-${version}.xpi`,
+                            update_hash: `sha256:${sha256}`
+                        };
                         if (target) {
-                            target.update_hash = `sha256:${sha256}`;
-                            fs.writeFileSync(updatesPath, JSON.stringify(updates, null, 2) + '\n');
-                            console.log(`✅ updates.json updated with hash for v${version}`);
+                            target.update_link = updateEntry.update_link;
+                            target.update_hash = updateEntry.update_hash;
+                        } else {
+                            updates.addons[addonId].updates.unshift(updateEntry);
                         }
+                        fs.writeFileSync(updatesPath, JSON.stringify(updates, null, 2) + '\n');
+                        console.log(`✅ updates.json updated with v${version} (hash: sha256:${sha256})`);
                     }
                 } catch (e) {
                     console.warn("⚠️ Could not update updates.json with hash:", e.message);
