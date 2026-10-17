@@ -3344,7 +3344,123 @@ describe('Background Script - Full Coverage Suite', () => {
     await global.storage.set('mirrorProfiles', []);
     apiClient.fetchWithRetry = origFetch;
   });
+
+  test('handles pihole provider actions across all handlers (GET_PROFILES_LIST, GET_PROFILE_DATA, MANAGE_DOMAIN, GET_LOGS, CLEAR_LOGS)', async () => {
+    const { messageHandlers } = await import('../src/background/handlers.js');
+    const { state } = await import('../src/background/state.js');
+    const { apiClient } = await import('../src/apiClient.js');
+
+    const origFetch = apiClient.fetchWithRetry;
+    apiClient.fetchWithRetry = jest.fn(async (url, opts = {}) => {
+      if (url.includes('api.php?status')) {
+        return {
+          success: true,
+          response: {
+            json: async () => ({ status: 'enabled' })
+          }
+        };
+      }
+      if (url.includes('api.php?list=white')) {
+        return {
+          success: true,
+          response: {
+            json: async () => ['pihole-allowed.com']
+          }
+        };
+      }
+      if (url.includes('api.php?list=black')) {
+        return {
+          success: true,
+          response: {
+            json: async () => [['pihole-blocked.com', 1]]
+          }
+        };
+      }
+      if (url.includes('api.php?list=white&add=') || url.includes('api.php?list=white&sub=') || url.includes('api.php?list=black&add=')) {
+        if (url.includes('bad-mirror')) {
+          return { success: false, error: 'Mirror failed' };
+        }
+        return {
+          success: true,
+          response: {
+            json: async () => ({ success: true })
+          }
+        };
+      }
+      if (url.includes('api.php?getAllQueries=')) {
+        return {
+          success: true,
+          response: {
+            json: async () => ({
+              data: [
+                [1700000000, 'A', 'pihole-domain.com', '192.168.1.50', '2']
+              ]
+            })
+          }
+        };
+      }
+      return { success: false };
+    });
+
+    await global.storage.set('dnsProvider', 'pihole');
+    await global.storage.set('piholeApiKey', 'test-pi-key');
+    await global.storage.set('piholeUrl', 'http://192.168.1.10/admin');
+
+    // 1. GET_PROFILES_LIST with pihole (with url or apiKey)
+    const listRes = await messageHandlers.GET_PROFILES_LIST({ apiKey: 'custom-key', url: 'http://192.168.1.10/admin' });
+    expect(listRes.success).toBe(true);
+    expect(listRes.data[0].id).toBe('pihole-default');
+
+    // Also without msg.url to exercise msg.apiKey fallback
+    const listRes2 = await messageHandlers.GET_PROFILES_LIST({ apiKey: 'http://192.168.1.10/admin' });
+    expect(listRes2.success).toBe(true);
+
+    // 2. GET_PROFILE_DATA with pihole
+    const dataRes = await messageHandlers.GET_PROFILE_DATA({ profileId: 'pihole-default' });
+    expect(dataRes.success).toBe(true);
+    expect(dataRes.allowlist).toContain('pihole-allowed.com');
+    expect(dataRes.denylist).toContain('pihole-blocked.com');
+
+    // 3. MANAGE_DOMAIN with pihole + Mirror Mode replication
+    await global.storage.set('mirrorProfiles', ['pihole-default', 'bad-mirror', 'pihole-2']);
+    const manageRes = await messageHandlers.MANAGE_DOMAIN({
+      profileId: 'pihole-default',
+      listType: 'allowlist',
+      domain: 'newsite.com',
+      action: 'add'
+    });
+    expect(manageRes.success).toBe(true);
+
+    // Also test delete action
+    const deleteRes = await messageHandlers.MANAGE_DOMAIN({
+      profileId: 'pihole-default',
+      listType: 'allowlist',
+      domain: 'newsite.com',
+      action: 'delete'
+    });
+    expect(deleteRes.success).toBe(true);
+
+    // 4. GET_LOGS with pihole (merging state.localLogs)
+    state.localLogs = [
+      { name: 'local-pi.com', timestamp: 2000 },
+      { domain: 'pihole-domain.com', timestamp: 1000 } // duplicate should be skipped
+    ];
+    const logsRes = await messageHandlers.GET_LOGS({ profileId: 'pihole-default' });
+    expect(logsRes.success).toBe(true);
+    expect(logsRes.data.length).toBe(2);
+
+    // 5. CLEAR_LOGS with pihole
+    const clearRes = await messageHandlers.CLEAR_LOGS({ profileId: 'pihole-default' });
+    expect(clearRes.success).toBe(true);
+
+    // Reset storage and state
+    state.localLogs = [];
+    await global.storage.set('dnsProvider', 'nextdns');
+    await global.storage.set('mirrorProfiles', []);
+    apiClient.fetchWithRetry = origFetch;
+  });
 });
+
 
 
 

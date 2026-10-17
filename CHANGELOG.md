@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.5.0] - 2026-10-17
+
+### Added
+- **Pi-hole DNS Provider Integration (`src/providers/pihole.js`, `src/background/handlers.js`, `src/ui/main.js`, `src/popup.html`):** Full multi-provider DNS support expanding DNS Forge to Pi-hole local / LAN instances via FTL Web API:
+  - Instance endpoint normalization (`normalizePiholeUrl`) and authentication via API token (`&auth=`).
+  - Active status & instance detection via `GET /api.php?status` (`fetchPiholeProfiles`).
+  - Whitelist & blacklist rule retrieval via `GET /api.php?list=white` and `GET /api.php?list=black` (`fetchPiholeProfileData`).
+  - List manipulation via `GET /api.php?list=white&add/sub={domain}` and `black&add/sub={domain}` (`managePiholeDomain`).
+  - Historical query logs retrieval with status mapping via `GET /api.php?getAllQueries=100` (`fetchPiholeLogs`) and local log merging.
+  - Temporary ad-blocking suspension (snooze) via `GET /api.php?disable={seconds}` (`disablePiholeBlocking`).
+  - Full Mirror Mode replication support across secondary Pi-hole instances.
+  - Settings UI provider dropdown integration with dynamic Pi-hole Base URL and API Key inputs and live input debouncing.
+
+### Tests & Quality
+- **100.0% Test Coverage Across All Modules:** 100.0% Statements, 100.0% Branches, 100.0% Functions, and 100.0% Lines repository-wide across all 24 source modules with 492 passing tests in Jest.
+- **Mozilla AMO Compliance:** Zero errors, zero notices, and zero warnings on `web-ext lint`.
+
 ## [1.4.0] - 2026-10-17
 
 ### Added

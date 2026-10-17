@@ -2479,6 +2479,107 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             }
         });
 
+        test('UI Main - Multi-provider Pi-hole UI interactions and branch coverage', async () => {
+            const { storage: storageMod } = await import('../src/storage.js');
+            document.body.innerHTML = html;
+
+            // 1. initSettingsUI with pihole provider already stored
+            await storageMod.set('dnsProvider', 'pihole');
+            await storageMod.set('piholeApiKey', 'pihole-initial-api-key-1234567890');
+            await storageMod.set('piholeUrl', 'http://192.168.1.99/admin');
+            browser.runtime.sendMessage.mockResolvedValue({ success: true, data: [{ id: 'pihole-default', name: 'Pi-hole (enabled)' }] });
+
+            await uiMain.initSettingsUI();
+
+            const providerSel = document.getElementById('setting-provider-select');
+            const piholeGroup = document.getElementById('pihole-credentials-group');
+            const cdGroup = document.getElementById('controld-credentials-group');
+            const adgGroup = document.getElementById('adguard-credentials-group');
+            const nextdnsGroup = document.getElementById('nextdns-credentials-group');
+            const piholeKeyInput = document.getElementById('setting-pihole-api-key');
+            const piholeUrlInput = document.getElementById('setting-pihole-url');
+
+            expect(providerSel.value).toBe('pihole');
+            expect(piholeGroup.classList.contains('hidden')).toBe(false);
+            expect(cdGroup.classList.contains('hidden')).toBe(true);
+            expect(adgGroup.classList.contains('hidden')).toBe(true);
+            expect(nextdnsGroup.classList.contains('hidden')).toBe(true);
+            expect(piholeUrlInput.value).toBe('http://192.168.1.99/admin');
+
+            // 2. Change provider to nextdns, then back to pihole
+            providerSel.value = 'nextdns';
+            providerSel.dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 600));
+
+            expect(piholeGroup.classList.contains('hidden')).toBe(true);
+            expect(nextdnsGroup.classList.contains('hidden')).toBe(false);
+
+            providerSel.value = 'pihole';
+            providerSel.dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 600));
+
+            expect(piholeGroup.classList.contains('hidden')).toBe(false);
+            expect(nextdnsGroup.classList.contains('hidden')).toBe(true);
+
+            // 3. Debounce input on piholeKeyInput: short length (< 20) and valid length (>= 20)
+            piholeKeyInput.value = 'short';
+            piholeKeyInput.dispatchEvent(new Event('input'));
+            await new Promise(r => setTimeout(r, 500));
+
+            piholeKeyInput.value = 'pihole-full-key-123456789012345';
+            piholeKeyInput.dispatchEvent(new Event('input'));
+            await new Promise(r => setTimeout(r, 500));
+
+            // 4. loadProfiles with provider === 'pihole' and customApiKey === null
+            const loadedPihole = await uiMain.loadProfiles(null);
+            expect(loadedPihole.length).toBeGreaterThan(0);
+
+            // loadProfiles with empty input
+            piholeKeyInput.value = '';
+            await uiMain.loadProfiles(null);
+
+            // 5. handleFetchProfilesClick with provider pihole
+            providerSel.value = 'pihole';
+            piholeKeyInput.value = 'pihole-key-for-fetch';
+            await uiMain.handleFetchProfilesClick();
+            await new Promise(r => setTimeout(r, 600));
+
+            // handleFetchProfilesClick with empty key
+            piholeKeyInput.value = '';
+            await uiMain.handleFetchProfilesClick();
+            await new Promise(r => setTimeout(r, 600));
+
+            // 6. saveSettings with provider pihole
+            providerSel.value = 'pihole';
+            piholeKeyInput.value = 'saved-pi-key-1234567890';
+            piholeUrlInput.value = 'http://pi.hole/admin';
+            await uiMain.saveSettings();
+            await new Promise(r => setTimeout(r, 600));
+
+            // 7. providerSelect change to pihole when credential groups are absent from DOM
+            document.body.innerHTML = `
+                <select id="setting-provider-select">
+                    <option value="nextdns">NextDNS</option>
+                    <option value="pihole">Pi-hole</option>
+                </select>
+            `;
+            await uiMain.initSettingsUI();
+            const standaloneProvSel = document.getElementById('setting-provider-select');
+            standaloneProvSel.value = 'pihole';
+            standaloneProvSel.dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 600));
+
+            // Clean up intervals
+            if (stateModule.state.tabTrackingIntervalId) {
+                clearInterval(stateModule.state.tabTrackingIntervalId);
+                stateModule.state.tabTrackingIntervalId = null;
+            }
+            if (stateModule.state.autoRefreshInterval) {
+                clearInterval(stateModule.state.autoRefreshInterval);
+                stateModule.state.autoRefreshInterval = null;
+            }
+        });
+
         test('UI Main - saveAlertSettings and sendTestAlert timeouts and error states', async () => {
             document.body.innerHTML = `
                 <button id="alert-save-btn">Save</button>

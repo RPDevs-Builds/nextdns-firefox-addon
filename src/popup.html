@@ -642,13 +642,14 @@
     <div id="settings-setup" class="settings-sub-content active" style="padding: 15px;">
       <div class="panel-box" style="margin-bottom: 15px;">
         <h4>Connection & Credentials</h4>
-        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Link DNS Forge to your NextDNS, AdGuard DNS, or Control D account via your API key.</p>
+        <p style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 12px;">Link DNS Forge to your NextDNS, AdGuard DNS, Control D, or Pi-hole account/instance.</p>
         
         <label for="setting-provider-select" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">DNS Provider</label>
         <select id="setting-provider-select" style="margin-bottom: 10px;">
           <option value="nextdns">NextDNS</option>
           <option value="adguard">AdGuard DNS</option>
           <option value="controld">Control D</option>
+          <option value="pihole">Pi-hole (Local / LAN)</option>
         </select>
 
         <div id="nextdns-credentials-group">
@@ -664,6 +665,13 @@
         <div id="controld-credentials-group" class="hidden">
           <label for="setting-controld-api-key" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Control D API Key</label>
           <input type="text" id="setting-controld-api-key" placeholder="Paste your Control D API key">
+        </div>
+
+        <div id="pihole-credentials-group" class="hidden">
+          <label for="setting-pihole-url" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Pi-hole Web URL</label>
+          <input type="text" id="setting-pihole-url" placeholder="http://pi.hole/admin or LAN IP" style="margin-bottom: 8px;">
+          <label for="setting-pihole-api-key" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Pi-hole API Token (WEBPASSWORD)</label>
+          <input type="text" id="setting-pihole-api-key" placeholder="Paste your Pi-hole API token">
         </div>
         
         <label for="setting-profile-select" style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Active Profile / Server</label>
