@@ -2555,6 +2555,23 @@ describe('Background Script - Full Coverage Suite', () => {
     await global.storage.set('iconClickAction', 'other-unknown');
     await actionClickListenerRef();
 
+    // applyIconAction branches (lines 164-165)
+    await global.storage.set('iconClickAction', 'sidebar');
+    await bg.applyIconAction();
+    expect(global.browser.action.setPopup).toHaveBeenCalledWith({ popup: "" });
+
+    await global.storage.set('iconClickAction', 'popout');
+    await bg.applyIconAction();
+    expect(global.browser.action.setPopup).toHaveBeenCalledWith({ popup: "" });
+
+    await global.storage.set('iconClickAction', 'popup');
+    await bg.applyIconAction();
+    expect(global.browser.action.setPopup).toHaveBeenCalledWith({ popup: "src/popup.html" });
+
+    // applyIconAction error handling
+    global.browser.action.setPopup.mockRejectedValueOnce(new Error('setPopup failed'));
+    await expect(bg.applyIconAction()).resolves.not.toThrow();
+
     // 18. menus.onClicked: info with pageUrl (no linkUrl), and tab with url (no linkUrl, no pageUrl) (line 240)
     await global.storage.set('overrideProfileId', 'profMenuTest');
     apiClient.fetchWithRetry = jest.fn().mockResolvedValue({ success: true });
@@ -2595,12 +2612,63 @@ describe('Background Script - Full Coverage Suite', () => {
     await global.storage.set('detectedProfileId', 'profDetectedMenu');
     await menuClickListenerRef({ menuItemId: 'dns-forge-other', linkUrl: 'https://other-action.com' }, {});
 
-    // 21. main.js top-level fallback when browser.menus is undefined
+    // 21. main.js top-level fallback when browser.menus is undefined & storage.onChanged listeners
     await jest.isolateModulesAsync(async () => {
+      let mainStorageListener = null;
+      const origAddListener = global.browser.storage.onChanged.addListener;
+      global.browser.storage.onChanged.addListener = jest.fn(cb => {
+        mainStorageListener = cb;
+        if (origAddListener) origAddListener(cb);
+      });
+
       const savedMenus = global.browser.menus;
       delete global.browser.menus;
       await import('../src/background/main.js');
+      const { storage: isolatedStorage } = await import('../src/storage.js');
       global.browser.menus = savedMenus;
+      global.browser.storage.onChanged.addListener = origAddListener;
+
+      if (mainStorageListener) {
+        global.browser.action.setPopup.mockClear();
+        mockStorage.iconClickAction = 'sidebar';
+        if (isolatedStorage.cache) isolatedStorage.cache.iconClickAction = 'sidebar';
+        mainStorageListener({ iconClickAction: { newValue: 'sidebar' } }, 'sync');
+        await new Promise(r => setTimeout(r, 25));
+        expect(global.browser.action.setPopup).toHaveBeenCalledWith({ popup: "" });
+
+        global.browser.action.setPopup.mockClear();
+        mockStorage.iconClickAction = 'popup';
+        if (isolatedStorage.cache) isolatedStorage.cache.iconClickAction = 'popup';
+        mainStorageListener({ iconClickAction: { newValue: 'popup' } }, 'local');
+        await new Promise(r => setTimeout(r, 25));
+        expect(global.browser.action.setPopup).toHaveBeenCalledWith({ popup: "src/popup.html" });
+
+        global.browser.action.setPopup.mockClear();
+        mainStorageListener({ iconClickAction: { newValue: 'popup' } }, 'managed');
+        await new Promise(r => setTimeout(r, 25));
+        expect(global.browser.action.setPopup).not.toHaveBeenCalled();
+
+        global.browser.action.setPopup.mockClear();
+        mainStorageListener({ otherKey: { newValue: 'foo' } }, 'sync');
+        await new Promise(r => setTimeout(r, 25));
+        expect(global.browser.action.setPopup).not.toHaveBeenCalled();
+      }
+    });
+
+    // main.js top-level fallback when browser.storage is undefined
+    await jest.isolateModulesAsync(async () => {
+      const savedStorage = global.browser.storage;
+      delete global.browser.storage;
+      await import('../src/background/main.js');
+      global.browser.storage = savedStorage;
+    });
+
+    // main.js top-level fallback when browser.storage.onChanged is undefined
+    await jest.isolateModulesAsync(async () => {
+      const savedOnChanged = global.browser.storage.onChanged;
+      delete global.browser.storage.onChanged;
+      await import('../src/background/main.js');
+      global.browser.storage.onChanged = savedOnChanged;
     });
 
     // 22. Additional detectActiveProfile edge cases (lines 154-165)

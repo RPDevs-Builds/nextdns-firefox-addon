@@ -229,6 +229,20 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             const redirected = await uiMain.handleIconClickModeRedirect();
             expect(redirected).toBe(false);
         });
+
+        test('handleIconClickModeRedirect catches sidebarAction.open failure and returns false without closing window', async () => {
+            stateModule.isPopoutMode = false;
+            stateModule.isSidebarMode = false;
+            stateModule.isTabMode = false;
+            mockStorageData.iconClickAction = 'sidebar';
+            browser.sidebarAction = {
+                open: jest.fn().mockRejectedValue(new Error('User gesture required'))
+            };
+
+            const redirected = await uiMain.handleIconClickModeRedirect();
+            expect(redirected).toBe(false);
+            expect(window.close).not.toHaveBeenCalled();
+        });
     });
 
     describe('Domain Management', () => {
@@ -835,6 +849,43 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             document.getElementById('export-diagnostics-btn')?.click();
             document.getElementById('launch-full-manager-btn')?.click();
             expect(browser.tabs.create).toHaveBeenCalled();
+        });
+
+        test('handles header sidebar control button', async () => {
+            uiMain.initGlobalEventListeners();
+
+            // 1. sidebar-ui-btn with sidebarAction.open
+            const sidebarBtn = document.getElementById('sidebar-ui-btn');
+            sidebarBtn.click();
+            await new Promise(r => setTimeout(r, 20));
+            expect(browser.sidebarAction.open).toHaveBeenCalled();
+            expect(window.close).toHaveBeenCalled();
+
+            // 2. sidebar-ui-btn fallback to tabs.create
+            delete browser.sidebarAction;
+            window.close.mockClear();
+            browser.tabs.create.mockClear();
+            sidebarBtn.click();
+            await new Promise(r => setTimeout(r, 20));
+            expect(browser.tabs.create).toHaveBeenCalledWith(expect.objectContaining({ url: expect.stringContaining('mode=tab') }));
+            expect(window.close).toHaveBeenCalled();
+
+            // 2b. sidebar-ui-btn when neither sidebarAction nor tabs.create exists
+            delete browser.sidebarAction;
+            delete browser.tabs;
+            window.close.mockClear();
+            sidebarBtn.click();
+            await new Promise(r => setTimeout(r, 20));
+            expect(window.close).not.toHaveBeenCalled();
+
+            // 3. sidebar-ui-btn catches error
+            browser.tabs = { create: jest.fn().mockResolvedValue({}) };
+            browser.sidebarAction = {
+                open: jest.fn().mockRejectedValue(new Error('Sidebar error'))
+            };
+            window.close.mockClear();
+            sidebarBtn.click();
+            await new Promise(r => setTimeout(r, 20));
         });
 
         test('handles window pagehide and unload lifecycle cleanup', async () => {

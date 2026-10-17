@@ -261,15 +261,20 @@ export async function handleIconClickModeRedirect() {
             window.close();
             return true;
         } else if (iconClickAction === 'sidebar') {
-            if (window.browser?.sidebarAction?.open) {
-                await browser.sidebarAction.open();
-                window.close();
-                return true;
-            } else if (window.browser?.tabs?.create) {
-                const url = browser.runtime.getURL('src/popup.html?mode=tab');
-                await browser.tabs.create({ url });
-                window.close();
-                return true;
+            try {
+                if (window.browser?.sidebarAction?.open) {
+                    await browser.sidebarAction.open();
+                    window.close();
+                    return true;
+                } else if (window.browser?.tabs?.create) {
+                    const url = browser.runtime.getURL('src/popup.html?mode=tab');
+                    await browser.tabs.create({ url });
+                    window.close();
+                    return true;
+                }
+            } catch (sidebarErr) {
+                console.warn("[DNS Forge] Could not open sidebar from popup context, displaying dropdown instead:", sidebarErr);
+                return false;
             }
         }
     } catch (e) {
@@ -542,6 +547,20 @@ export function initGlobalEventListeners() {
     document.getElementById('setting-fetch-profiles')?.addEventListener('click', handleFetchProfilesClick);
 
     // Header controls
+    document.getElementById('sidebar-ui-btn')?.addEventListener('click', async () => {
+        try {
+            if (browser.sidebarAction?.open) {
+                await browser.sidebarAction.open();
+                window.close();
+            } else if (browser.tabs?.create) {
+                browser.tabs.create({ url: browser.runtime.getURL('src/popup.html?mode=tab') });
+                window.close();
+            }
+        } catch (e) {
+            console.warn("[DNS Forge] Failed to open sidebar from button:", e);
+        }
+    });
+
     document.getElementById('popout-ui-btn')?.addEventListener('click', () => {
         const url = browser.runtime.getURL('src/popup.html?mode=popout');
         if (browser.windows?.create) {

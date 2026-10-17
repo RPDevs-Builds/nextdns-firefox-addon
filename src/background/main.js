@@ -151,21 +151,22 @@ export async function initializeBackground() {
 
 /**
  * Applies the user-configured icon click action (popup, popout, or sidebar).
- * Always ensures the popup path is set so clicking the toolbar icon or the Unified
- * Extensions panel reliably opens the extension interface (avoiding Mozilla Bug 1805908 / Bug 1814231
- * where setting popup to "" causes only context menu items to appear).
+ * Dynamically unsets the popup path for sidebar or popout modes to enable the
+ * browser.action.onClicked listener (which carries the required user gesture),
+ * or sets popup to "src/popup.html" for dropdown mode.
  * @async
  */
-async function applyIconAction() {
+export async function applyIconAction() {
     try {
         const iconClickAction = await storage.get("iconClickAction", "popup");
         console.log("[Background] Applying icon click action:", iconClickAction);
-        // Note: In Firefox, setting popup to "" causes clicking on the extension
-        // in the Unified Extensions panel or toolbar to display the context menu
-        // with only menu items (Mozilla Bug 1805908).
-        // Therefore, we ALWAYS ensure the popup is set to "src/popup.html".
-        await browser.action.setPopup({ popup: "src/popup.html" });
-        console.log("[Background] Popup enabled (src/popup.html).");
+        if (iconClickAction === 'sidebar' || iconClickAction === 'popout') {
+            await browser.action.setPopup({ popup: "" });
+            console.log("[Background] Popup disabled to enable onClicked listener.");
+        } else {
+            await browser.action.setPopup({ popup: "src/popup.html" });
+            console.log("[Background] Popup enabled (src/popup.html).");
+        }
     } catch (e) {
         console.error("[Background] Failed to apply icon action:", e);
     }
@@ -202,6 +203,16 @@ browser.action.onClicked.addListener(async () => {
         console.error("[Background] onClicked handler failed:", e);
     }
 });
+
+if (browser.storage?.onChanged?.addListener) {
+    browser.storage.onChanged.addListener((changes, area) => {
+        if (area === "sync" || area === "local") {
+            if (changes.iconClickAction) {
+                applyIconAction();
+            }
+        }
+    });
+}
 
 /**
  * Creates the extension's context menu entries for allowing/denying domains.
