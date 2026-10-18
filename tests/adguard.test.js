@@ -374,11 +374,11 @@ describe('AdGuard DNS Provider Module (src/providers/adguard.js)', () => {
                     response: {
                         json: async () => ({ settings: {} })
                     }
-                })
-                .mockResolvedValueOnce({ success: true });
+                });
 
             const res2 = await manageAdguardDomain('srv-1', 'allowlist', 'valid.com', 'other-action');
-            expect(res2.success).toBe(true);
+            expect(res2.success).toBe(false);
+            expect(res2.error).toBe('Unknown action');
 
             // Error with no message
             apiClient.fetchWithRetry.mockImplementationOnce(() => {

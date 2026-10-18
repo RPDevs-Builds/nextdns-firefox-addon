@@ -8,6 +8,7 @@
 import { state } from './state.js';
 import { escapeHTML, setSafeHTML, downloadAsFile, showToast, renderEmptyStateHTML, extractRootDomain } from './utils.js';
 import { syncLists } from './blocks.js';
+import { mapConcurrent } from '../apiClient.js';
 
 /**
  * Returns a standardized device identifier string for a log entry.
@@ -283,6 +284,12 @@ export async function loadAnalytics() {
         if (summary?.data && container) {
             const queries = Number(summary.data.queries) || 0;
             const blockedQueries = Number(summary.data.blockedQueries) || 0;
+
+            const statTotalEl = document.getElementById("stat-total");
+            const statBlockedEl = document.getElementById("stat-blocked");
+            if (statTotalEl) statTotalEl.textContent = queries.toLocaleString();
+            if (statBlockedEl) statBlockedEl.textContent = blockedQueries.toLocaleString();
+
             let rawBlockedPercent = summary.data.blockedPercent;
             if (typeof rawBlockedPercent !== 'number' || isNaN(rawBlockedPercent)) {
                 rawBlockedPercent = queries > 0 ? (blockedQueries / queries) * 100 : 0;
@@ -606,6 +613,7 @@ export async function wipeLogs() {
     }
 }
 
+let previousActiveElement = null;
 export let builtinAllowModalKeyHandler = null;
 
 export function closeBuiltinAllowlistModal() {
@@ -615,10 +623,18 @@ export function closeBuiltinAllowlistModal() {
     }
     const existing = document.getElementById('builtin-allow-modal-backdrop');
     if (existing) existing.remove();
+    if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
+        try {
+            previousActiveElement.focus();
+        } catch (_) {}
+        previousActiveElement = null;
+    }
 }
 
 export function openBuiltinAllowlistModal(initialDomain) {
+    const prev = document.activeElement;
     closeBuiltinAllowlistModal();
+    previousActiveElement = prev;
     if (!state.activeProfile) {
         showToast("No active profile detected.", "warning");
         return;
@@ -635,6 +651,9 @@ export function openBuiltinAllowlistModal(initialDomain) {
     const dialog = document.createElement('div');
     dialog.id = 'builtin-allow-modal-dialog';
     dialog.className = 'nxm-modal-dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'builtin-allow-modal-title');
     dialog.style.cssText = 'background:var(--bg-panel, #1e293b); border:1px solid var(--border-color, #334155); border-radius:10px; width:90%; max-width:440px; box-shadow:0 15px 30px rgba(0,0,0,0.5); overflow:hidden; display:flex; flex-direction:column;';
     dialog.onclick = (e) => e.stopPropagation();
 
@@ -643,11 +662,13 @@ export function openBuiltinAllowlistModal(initialDomain) {
     header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border-color, #334155); background:rgba(0,0,0,0.2);';
 
     const title = document.createElement('h5');
+    title.id = 'builtin-allow-modal-title';
     title.style.cssText = 'margin:0; font-size:1.05rem; font-weight:700; color:var(--text-main, #f8fafc);';
     title.textContent = '✅ Add to Whitelist';
 
     const closeBtn = document.createElement('button');
     closeBtn.id = 'builtin-allow-modal-close';
+    closeBtn.setAttribute('aria-label', 'Close dialog');
     closeBtn.style.cssText = 'border:none; background:transparent; color:var(--text-muted, #94a3b8); font-size:1.4rem; cursor:pointer; line-height:1; padding:0 4px;';
     closeBtn.textContent = '×';
     closeBtn.title = 'Close (Esc)';
@@ -660,6 +681,7 @@ export function openBuiltinAllowlistModal(initialDomain) {
     body.style.cssText = 'padding:16px;';
 
     const label = document.createElement('label');
+    label.htmlFor = 'builtin-allow-domain-input';
     label.style.cssText = 'display:block; font-weight:600; font-size:0.8em; color:var(--accent, #4facf7); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;';
     label.textContent = 'Domain to Whitelist:';
 
@@ -774,6 +796,19 @@ export function openBuiltinAllowlistModal(initialDomain) {
     builtinAllowModalKeyHandler = (e) => {
         if (e.key === 'Escape') {
             closeBuiltinAllowlistModal();
+        } else if (e.key === 'Tab') {
+            const focusables = dialog.querySelectorAll('button:not([disabled]), input:not([disabled])');
+            if (focusables.length > 0) {
+                const first = focusables[0];
+                const last = focusables[focusables.length - 1];
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
         } else if (e.key === 'Enter' && document.activeElement === domainInput) {
             e.preventDefault();
             addBtn.click();
@@ -827,6 +862,7 @@ export function handleBuiltinHideAction(domain) {
 }
 
 export async function handleBatchLogsAction(listType, action, useRoot = false) {
+    if (state.isBatchPending) return;
     if (!state.activeProfile) {
         showToast("No active profile detected.", "warning");
         return;
@@ -853,23 +889,33 @@ export async function handleBatchLogsAction(listType, action, useRoot = false) {
         return;
     }
 
-    showToast(`Processing ${domains.length} domains...`, 'info');
-    let successCount = 0;
-    for (const d of domains) {
-        try {
-            const res = await browser.runtime.sendMessage({
-                type: "MANAGE_DOMAIN",
-                profileId: state.activeProfile,
-                listType,
-                action,
-                domain: d
-            });
-            if (res?.success) successCount++;
-        } catch (_) {}
-    }
+    state.isBatchPending = true;
+    const batchButtons = document.querySelectorAll('#logs-batch-bar button');
+    batchButtons.forEach(b => { b.disabled = true; });
 
-    syncLists(true);
-    showToast(`Successfully processed ${successCount}/${domains.length} domains in ${listType}.`, successCount > 0 ? 'success' : 'error');
+    showToast(`Processing ${domains.length} domains...`, 'info');
+    try {
+        const results = await mapConcurrent(domains, 4, async (d) => {
+            try {
+                const res = await browser.runtime.sendMessage({
+                    type: "MANAGE_DOMAIN",
+                    profileId: state.activeProfile,
+                    listType,
+                    action,
+                    domain: d
+                });
+                return res?.success ? 1 : 0;
+            } catch (_) {
+                return 0;
+            }
+        });
+        const successCount = results.reduce((acc, curr) => acc + curr, 0);
+        syncLists(true);
+        showToast(`Successfully processed ${successCount}/${domains.length} domains in ${listType}.`, successCount > 0 ? 'success' : 'error');
+    } finally {
+        state.isBatchPending = false;
+        batchButtons.forEach(b => { b.disabled = false; });
+    }
 }
 
 export function initBuiltinLogsEvents() {

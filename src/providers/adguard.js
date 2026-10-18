@@ -132,6 +132,8 @@ export async function manageAdguardDomain(serverId, listType, domain, action) {
             }
         } else if (action === 'delete') {
             rules = rules.filter(r => r !== allowRule && r !== denyRule);
+        } else {
+            return { success: false, error: 'Unknown action' };
         }
 
         const putRes = await apiClient.fetchWithRetry(`${ADGUARD_API_BASE}/dns_servers/${serverId}/settings`, {

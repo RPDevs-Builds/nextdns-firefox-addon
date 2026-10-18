@@ -112,7 +112,10 @@ class LogStreamManager {
             (async () => {
                 while (!this.isExplicitlyStopped) {
                     const { done, value } = await reader.read();
-                    if (done) break;
+                    if (done) {
+                        this._scheduleReconnect(profileId);
+                        break;
+                    }
                     this.reconnectAttempts = 0;
                     buffer += decoder.decode(value, { stream: true });
                     const events = buffer.split("\n\n");

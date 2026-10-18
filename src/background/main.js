@@ -27,6 +27,7 @@ import { updateProfileCache, detectActiveProfile, manageDomain, checkAndUpdateLi
 import { requestListener } from './requestListener.js';
 import { messageHandlers } from './handlers.js';
 import { checkAutomationRules } from './scheduler.js';
+import { providerRegistry } from '../providers/index.js';
 
 /**
  * Bootstraps the background engine.
@@ -116,13 +117,18 @@ export async function initializeBackground() {
 
     browser.alarms.onAlarm.addListener(async (alarm) => {
         if (alarm.name.startsWith(ALARM_PREFIX)) {
-            const params = new URLSearchParams(alarm.name.split('?')[1]);
+            const queryStr = alarm.name.slice(ALARM_PREFIX.length);
+            const params = new URLSearchParams(queryStr);
+            const prov = params.get('prov') || 'nextdns';
             const profileId = params.get('p');
             const domain = params.get('d');
             if (profileId && domain) {
-                console.log(`[Scheduler] Temporary allow expired for ${domain}. Removing...`);
-                await manageDomain(profileId, "allowlist", domain, "delete");
-                await updateProfileCache();
+                console.log(`[Scheduler] Temporary allow expired for ${domain}. Removing from ${prov}...`);
+                const provider = providerRegistry.get(prov);
+                await provider.manageDomain(profileId, "allowlist", domain, "delete");
+                if (prov === 'nextdns') {
+                    await updateProfileCache();
+                }
             }
         }
         if (alarm.name === "rule-engine") {
@@ -262,16 +268,21 @@ if (browser.menus?.onClicked?.addListener) {
 
             const activeProfileId = (await storage.get("overrideProfileId")) || (await storage.get("activeProfile")) || (await storage.get("detectedProfileId"));
             if (!activeProfileId || activeProfileId === 'auto' || activeProfileId.startsWith('fp')) {
-                console.warn("[ContextMenus] Cannot apply menu action: No valid NextDNS profile active.");
+                console.warn("[ContextMenus] Cannot apply menu action: No valid DNS profile active.");
                 return;
             }
 
+            const providerName = await storage.get("dnsProvider", "nextdns");
+            const provider = providerRegistry.get(providerName);
+
             if (info.menuItemId === "dns-forge-allow") {
-                await manageDomain(activeProfileId, "allowlist", domain, "add");
+                await provider.manageDomain(activeProfileId, "allowlist", domain, "add");
             } else if (info.menuItemId === "dns-forge-deny") {
-                await manageDomain(activeProfileId, "denylist", domain, "add");
+                await provider.manageDomain(activeProfileId, "denylist", domain, "add");
             }
-            await updateProfileCache();
+            if (providerName === 'nextdns') {
+                await updateProfileCache();
+            }
         } catch (e) {
             console.error("[ContextMenus] Error handling click:", e);
         }

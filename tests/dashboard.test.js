@@ -51,6 +51,8 @@ describe('Dashboard UI Module (src/ui/dashboard.js)', () => {
             <div id="tab-log"></div>
             <input id="domain-input" value="" />
             <span id="tab-blocked-count">0</span>
+            <span id="stat-total">0</span>
+            <span id="stat-blocked">0</span>
             <a id="web-gui-profile-link" href="#"></a>
             <a id="web-gui-logs-link" href="#"></a>
             <a id="web-gui-security-link" href="#"></a>
@@ -278,6 +280,8 @@ describe('Dashboard UI Module (src/ui/dashboard.js)', () => {
             expect(overview.innerHTML).toContain('250');
             expect(overview.innerHTML).toContain('Block Rate: <strong>25%</strong>');
             expect(overview.innerHTML).toContain('traffic');
+            expect(document.getElementById('stat-total').textContent).toBe('1,000');
+            expect(document.getElementById('stat-blocked').textContent).toBe('250');
         });
 
         test('handles loadAnalytics errors gracefully', async () => {
@@ -966,11 +970,14 @@ describe('Dashboard UI Module (src/ui/dashboard.js)', () => {
             await loadAnalytics();
             document.body.appendChild(analyticsContainer);
 
-            // series with null/empty data (line 269: series?.data || [])
+            // series with null/empty data and missing stat-total/stat-blocked elements
+            document.getElementById('stat-total')?.remove();
+            document.getElementById('stat-blocked')?.remove();
             global.browser.runtime.sendMessage = jest.fn()
                 .mockResolvedValueOnce({ data: { queries: 10, blockedQueries: 1, blockedPercent: 10 } })
                 .mockResolvedValueOnce({});
             await loadAnalytics();
+            document.body.insertAdjacentHTML('beforeend', '<span id="stat-total">0</span><span id="stat-blocked">0</span>');
             expect(analyticsContainer.textContent).toContain('Block Rate: 10%');
 
             // rawBlockedPercent is NaN and queries === 0 (line 265: falls back to 0)
@@ -1439,7 +1446,15 @@ describe('Dashboard UI Module (src/ui/dashboard.js)', () => {
             await handleBatchLogsAction('allowlist', 'add');
             expect(toastSpy).toHaveBeenCalledWith('No logs visible to process.', 'warning');
 
-            // Visible rows with domains
+            // Visible rows with domains and batch toolbar buttons
+            let batchBar = document.getElementById('logs-batch-bar');
+            if (!batchBar) {
+                batchBar = document.createElement('div');
+                batchBar.id = 'logs-batch-bar';
+                document.body.appendChild(batchBar);
+            }
+            batchBar.innerHTML = '<button id="test-batch-btn">Batch Action</button>';
+
             container.innerHTML = `
                 <div class="log-row">
                     <button class="builtin-allow-btn" data-domain="a.example.com"></button>
@@ -1595,7 +1610,104 @@ describe('Dashboard UI Module (src/ui/dashboard.js)', () => {
             initBuiltinLogsEvents();
             container.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
+
+        test('Built-in modal accessibility, focus management, and focus trap', async () => {
+            state.activeProfile = 'p-modal-a11y';
+            const triggerBtn = document.createElement('button');
+            triggerBtn.id = 'trigger-btn';
+            document.body.appendChild(triggerBtn);
+            triggerBtn.focus();
+            expect(document.activeElement).toBe(triggerBtn);
+
+            openBuiltinAllowlistModal('test.example.com');
+            const dialog = document.getElementById('builtin-allow-modal-dialog');
+            expect(dialog).not.toBeNull();
+            expect(dialog.getAttribute('role')).toBe('dialog');
+            expect(dialog.getAttribute('aria-modal')).toBe('true');
+            expect(dialog.getAttribute('aria-labelledby')).toBe('builtin-allow-modal-title');
+
+            const closeBtn = document.getElementById('builtin-allow-modal-close');
+            expect(closeBtn.getAttribute('aria-label')).toBe('Close dialog');
+
+            const label = dialog.querySelector('label');
+            expect(label.htmlFor).toBe('builtin-allow-domain-input');
+
+            const domainInput = document.getElementById('builtin-allow-domain-input');
+            const cancelBtn = document.getElementById('builtin-allow-cancel-btn');
+            const addRootBtn = document.getElementById('builtin-allow-add-root-btn');
+            const addBtn = document.getElementById('builtin-allow-add-btn');
+
+            // Focus trap: Shift+Tab on first element wraps to last element (addBtn)
+            closeBtn.focus();
+            expect(document.activeElement).toBe(closeBtn);
+            const shiftTabEvt = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true });
+            document.dispatchEvent(shiftTabEvt);
+            expect(document.activeElement).toBe(addBtn);
+
+            // Focus trap: Tab on last element wraps to first element (closeBtn)
+            addBtn.focus();
+            expect(document.activeElement).toBe(addBtn);
+            const tabEvt = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: false, bubbles: true });
+            document.dispatchEvent(tabEvt);
+            expect(document.activeElement).toBe(closeBtn);
+
+            // Enter key submits when domainInput is active
+            domainInput.focus();
+            global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+            const enterEvt = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+            document.dispatchEvent(enterEvt);
+
+            // Enter key when activeElement is not domainInput (line 806 false branch)
+            closeBtn.focus();
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+            // Tab when focusables length === 0 (line 795 false branch)
+            const allElements = dialog.querySelectorAll('button, input');
+            allElements.forEach(el => { el.disabled = true; });
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+            allElements.forEach(el => { el.disabled = false; });
+
+            // Closing modal restores focus to triggerBtn
+            closeBuiltinAllowlistModal();
+            expect(document.getElementById('builtin-allow-modal-backdrop')).toBeNull();
+            expect(document.activeElement).toBe(triggerBtn);
+            triggerBtn.remove();
+        });
+
+        test('handleBuiltinDomainAction delete branches when Sets are not initialized', async () => {
+            state.activeProfile = 'prof-noset';
+            state.currentAllowlist = null;
+            state.currentDenylist = null;
+            global.browser.runtime.sendMessage.mockResolvedValue({ success: true });
+
+            await handleBuiltinDomainAction('del-allow.com', 'allowlist', 'delete');
+            await handleBuiltinDomainAction('del-deny.com', 'denylist', 'delete');
+        });
+
+        test('handleBatchLogsAction respects isBatchPending guard and handles worker rejections', async () => {
+            state.activeProfile = 'p-batch';
+            state.isBatchPending = true;
+
+            const toastSpy = jest.spyOn(utils, 'showToast').mockImplementation(() => {});
+            await handleBatchLogsAction('allowlist', 'add');
+            // When isBatchPending is true, returns immediately without toasts
+            expect(toastSpy).not.toHaveBeenCalled();
+
+            state.isBatchPending = false;
+            const container = document.getElementById('logs-container');
+            container.innerHTML = `
+                <div class="log-row">
+                    <button class="builtin-allow-btn" data-domain="reject.com"></button>
+                </div>
+            `;
+            // Worker rejection handled cleanly in mapConcurrent
+            browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Batch rejected'));
+            await handleBatchLogsAction('allowlist', 'add');
+            expect(state.isBatchPending).toBe(false);
+            toastSpy.mockRestore();
+        });
     });
 });
+
 
 

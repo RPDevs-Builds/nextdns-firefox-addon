@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.5.1] - 2026-10-18
+
+### Security & AMO Compliance
+- **Credential Storage Isolation (`src/storage.js`, `src/content.js`):** Moving provider credentials to `LOCAL_ONLY_KEYS` ensures API tokens stay strictly on the local machine and are not transmitted across Firefox Sync when `syncCredentials: false` (default), while retaining user opt-in support.
+- **Content Script Isolation (`src/content.js`):** API key extraction from the NextDNS console checks `syncCredentials` across `storage.sync` and `storage.local` and purges credentials from `storage.sync` when disabled.
+- **Process Credential Security (`scripts/sign_addon.js`):** Replaced `execSync` with `execFileSync`, injecting `WEB_EXT_API_KEY` and `WEB_EXT_API_SECRET` strictly via `process.env` rather than shell arguments.
+- **Configuration Backup Sanitization (`src/ui/main.js`):** `exportFullConfiguration()` excludes credentials by default, and `importFullConfiguration()` validates imported properties against `ALLOWED_CONFIG_KEYS` to block prototype pollution.
+- **Storage Precedence & Auto-Heal (`src/storage.js`):** Fixed cache initialization merge precedence (`{ ...syncData, ...localData }`) and protected local credentials from eviction or automatic overwrites.
+- **Self-Published Update URL Retention (`manifest.json`):** Retained mandatory `browser_specific_settings.gecko.update_url` pointing to `updates.json` on GitHub `main` for self-published unlisted updates.
+
+### Architecture & Multi-Provider Engine
+- **Provider Registry Abstraction (`src/providers/base.js`, `src/providers/index.js`):** Introduced `BaseProvider` contract and centralized `ProviderRegistry` for NextDNS, AdGuard, Control D, and Pi-hole.
+- **Cross-Provider Mirror Mode (`src/background/handlers.js`):** Support composite namespacing (`provider:profileId`) to allow mirroring domain rules across heterogeneous DNS providers.
+- **Provider-Aware Temporary Whitelist & Context Menus (`src/background/handlers.js`, `src/background/main.js`):** Routed `TEMP_ALLOW` and browser context menu actions through `ProviderRegistry`, encoding provider details into alarm triggers.
+
+### Reliability & Bug Fixes
+- **Wildcard Domain Matching (`src/background/utils.js`):** Fixed `getMatch()` to recursively evaluate wildcard domain rules (`*.example.com`).
+- **SSE Stream Auto-Reconnect (`src/background/logStream.js`):** Automatically reconnects with exponential backoff on clean server-side EOF stream termination.
+- **Auto-Refresh Lifecycle (`src/ui/main.js`):** Pauses `state.autoRefreshInterval` when switching away from the Logs tab and resumes upon return.
+- **Semver Validation (`scripts/bump_version.js`):** Enforces strict semver formatting and exits with code 1 on file write failures.
+
+### Accessibility & UI
+- **Modal Dialog Accessibility (`src/viewer.html`, `src/viewer.js`):** Added ARIA roles (`role="dialog"`, `aria-modal="true"`), focus traps (Tab/Shift-Tab), and focus restoration to the Data Manager edit modal.
+- **WCAG AA Visual & Contrast Improvements (`src/popup.html`):** Added 2px `:focus-visible` outlines to switch sliders and improved text contrast for the snooze button.
+- **Analytics Binding (`src/ui/dashboard.js`):** Formatted and bound 24-hour total and blocked query counters directly to `#stat-total` and `#stat-blocked`.
+- **Non-blocking Confirmations (`src/ui/main.js`, `src/viewer.js`):** Replaced blocking `confirm()` with non-blocking inline dialogs to prevent popup thread dismissal.
+
+### Tests & Quality
+- **100.0% Test Coverage:** 100.0% Statements, Branches, Functions, and Lines repository-wide across 29 test suites with 524 passing tests in Jest without `--forceExit`.
+- **Mozilla AMO Compliance:** Zero errors, zero notices, and zero warnings on `web-ext lint`.
+
 ## [1.5.0] - 2026-10-17
 
 ### Added

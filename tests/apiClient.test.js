@@ -549,11 +549,114 @@ describe('APIClient Unit Tests', () => {
         expect(netErrNoMsg.error).toBe("Network Error");
 
         // 7. Line 150 & 160: mapConcurrent with default concurrency and error without message
-        const { mapConcurrent } = await import('../src/apiClient.js');
+        const { mapConcurrent, sanitizeUrlForLog } = await import('../src/apiClient.js');
         const defaultConcRes = await mapConcurrent([1, 2], undefined, async (x) => x * 10);
         expect(defaultConcRes).toEqual([10, 20]);
 
         const workerErrNoMsg = await mapConcurrent(['bad'], 2, async () => { throw 'String exception'; });
         expect(workerErrNoMsg[0]).toEqual({ error: 'String exception' });
     });
+
+    describe('sanitizeUrlForLog', () => {
+        test('redacts auth and api_key parameters from URLs and paths', async () => {
+            const { sanitizeUrlForLog } = await import('../src/apiClient.js');
+
+            expect(sanitizeUrlForLog(null)).toBe('');
+            expect(sanitizeUrlForLog(123)).toBe('');
+            expect(sanitizeUrlForLog('/profiles/p1/allowlist')).toBe('/profiles/p1/allowlist');
+
+            const redactedPihole = sanitizeUrlForLog('http://pi.hole/admin/api.php?auth=supersecret123&status');
+            expect(redactedPihole).toContain('auth=[REDACTED]');
+            expect(redactedPihole).not.toContain('supersecret123');
+
+            const redactedControld = sanitizeUrlForLog('https://api.controld.com/profiles?api_key=apikey999&limit=10');
+            expect(redactedControld).toContain('api_key=[REDACTED]');
+            expect(redactedControld).not.toContain('apikey999');
+
+            const relativeRedacted = sanitizeUrlForLog('/api?auth=secrettoken');
+            expect(relativeRedacted).toContain('auth=[REDACTED]');
+
+            // URL that fails URL parsing
+            expect(sanitizeUrlForLog('http://[::1:bad-url')).toBe('http://[::1:bad-url');
+        });
+    });
+
+    describe('Request Timeout Signal', () => {
+        test('attaches AbortSignal to fetch options and respects timeoutMs', async () => {
+            const client = new APIClient();
+            global.fetch.mockResolvedValueOnce({
+                status: 200,
+                ok: true,
+                json: async () => ({ success: true })
+            });
+
+            const res = await client.fetchWithRetry('/test', { timeoutMs: 5000 }, 1, 10);
+            expect(res.success).toBe(true);
+            expect(global.fetch).toHaveBeenCalledWith(
+                'https://api.nextdns.io/test',
+                expect.objectContaining({ signal: expect.any(Object) })
+            );
+        });
+
+        test('uses custom signal if provided and handles AbortError', async () => {
+            const client = new APIClient();
+            const controller = new AbortController();
+            controller.abort();
+
+            const abortErr = new Error('The operation was aborted');
+            abortErr.name = 'AbortError';
+            global.fetch.mockRejectedValueOnce(abortErr);
+
+            const res = await client.fetchWithRetry('/test', { signal: controller.signal }, 1, 10);
+            expect(res.success).toBe(false);
+            expect(res.error).toBe('The operation was aborted');
+        });
+
+        test('fallback to AbortController when AbortSignal.timeout is not supported', async () => {
+            const client = new APIClient();
+            const origTimeout = AbortSignal.timeout;
+            AbortSignal.timeout = undefined;
+
+            global.fetch.mockResolvedValueOnce({
+                status: 200,
+                ok: true,
+                json: async () => ({ ok: true })
+            });
+
+            const res = await client.fetchWithRetry('/test', { timeoutMs: 1000 }, 1, 10);
+            expect(res.success).toBe(true);
+
+            AbortSignal.timeout = origTimeout;
+        });
+
+        test('fallback to AbortController when AbortSignal.timeout is not supported and triggers timeout', async () => {
+            const client = new APIClient();
+            const origTimeout = AbortSignal.timeout;
+            AbortSignal.timeout = undefined;
+
+            let capturedSignal;
+            global.fetch.mockImplementationOnce((url, opts) => {
+                capturedSignal = opts.signal;
+                return new Promise((_, reject) => {
+                    const abortHandler = () => {
+                        const err = new Error('The operation was aborted');
+                        err.name = 'AbortError';
+                        reject(err);
+                    };
+                    if (opts.signal?.aborted) {
+                        abortHandler();
+                    } else if (opts.signal) {
+                        opts.signal.addEventListener('abort', abortHandler);
+                    }
+                });
+            });
+
+            const res = await client.fetchWithRetry('/test', { timeoutMs: 50 }, 1, 10);
+            expect(res.success).toBe(false);
+            expect(capturedSignal.aborted).toBe(true);
+
+            AbortSignal.timeout = origTimeout;
+        });
+    });
 });
+

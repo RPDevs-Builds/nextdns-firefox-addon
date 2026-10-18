@@ -439,19 +439,19 @@
   </div>
 
   <!-- Entry Edit/Add Modal -->
-  <div id="edit-modal" class="modal">
+  <div id="edit-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div class="modal-content">
       <h2 id="modal-title">Edit Entry</h2>
       
       <div id="key-section">
-        <label id="label-key"></label>
+        <label id="label-key" for="input-key"></label>
         <input type="text" id="input-key" placeholder="Key (e.g. domain.com)">
-        <select id="select-profile" class="hidden">
+        <select id="select-profile" class="hidden" aria-label="Select Profile">
           <option value="">Loading profiles...</option>
         </select>
       </div>
 
-      <label id="label-note">Note / Value</label>
+      <label id="label-note" for="input-note">Note / Value</label>
       <textarea id="input-note" rows="4" placeholder="Enter description or value..."></textarea>
       
       <div class="flex-between" style="justify-content: flex-end; gap: 12px;">

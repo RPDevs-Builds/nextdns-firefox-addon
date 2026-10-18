@@ -2,8 +2,9 @@ const fs = require('fs');
 const path = require('path');
 
 const version = process.argv[2];
-if (!version) {
-    console.error("Usage: node scripts/bump_version.js <version>");
+const SEMVER_REGEX = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
+if (!version || !SEMVER_REGEX.test(version)) {
+    console.error("Usage: node scripts/bump_version.js <valid-semver> (e.g. 1.5.1)");
     process.exit(1);
 }
 
@@ -21,6 +22,7 @@ files.forEach(file => {
         console.log(`✅ ${file.name}: ${oldVersion} -> ${version}`);
     } catch (e) {
         console.error(`❌ Error updating ${file.name}:`, e.message);
+        process.exit(1);
     }
 });
 
@@ -39,6 +41,7 @@ try {
     }
 } catch (e) {
     console.error("❌ Error updating package-lock.json:", e.message);
+    process.exit(1);
 }
 
 // Update CHANGELOG.md

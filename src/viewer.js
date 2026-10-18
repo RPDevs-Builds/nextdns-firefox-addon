@@ -47,6 +47,32 @@ const inputNote = document.getElementById('input-note');
 const saveBtn = document.getElementById('save-btn');
 const cancelBtn = document.getElementById('cancel-btn');
 
+let previousActiveElement = null;
+
+export function closeModal() {
+    if (editModal) {
+        editModal.style.display = 'none';
+    }
+    if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
+        try { previousActiveElement.focus(); } catch (_) {}
+        previousActiveElement = null;
+    }
+}
+
+export function showModal() {
+    previousActiveElement = document.activeElement;
+    if (editModal) {
+        editModal.style.display = 'flex';
+        if (inputKey && !inputKey.classList.contains('hidden') && !inputKey.disabled) {
+            inputKey.focus();
+        } else if (selectProfile && !selectProfile.classList.contains('hidden')) {
+            selectProfile.focus();
+        } else if (inputNote) {
+            inputNote.focus();
+        }
+    }
+}
+
 /**
  * Initializes the Comparison tab UI by populating profile selectors.
  * Binds the comparison trigger button.
@@ -244,19 +270,36 @@ function initEventListeners() {
     addBtn.onclick = openAddModal;
 
     // Modal Controls
-    cancelBtn.onclick = () => { editModal.style.display = 'none'; };
+    cancelBtn.onclick = closeModal;
     saveBtn.onclick = handleSave;
 
     // Close modal on backdrop click
     editModal.onclick = (e) => {
-        if (e.target === editModal) editModal.style.display = 'none';
+        if (e.target === editModal) closeModal();
     };
+
+    // Trap focus inside modal
+    editModal.addEventListener('keydown', (e) => {
+        if (e.key === 'Tab') {
+            const focusables = Array.from(editModal.querySelectorAll('input:not(.hidden):not([disabled]), select:not(.hidden):not([disabled]), textarea:not([disabled]), button:not([disabled])'));
+            if (focusables.length === 0) return;
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        }
+    });
 
     // Close modal & diff viewer on Escape key
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            if (editModal.style.display !== 'none') {
-                editModal.style.display = 'none';
+            if (editModal && editModal.style.display !== 'none') {
+                closeModal();
             }
             const diffViewer = document.getElementById('snapshot-diff-container');
             if (diffViewer && !diffViewer.classList.contains('hidden')) {
@@ -905,7 +948,7 @@ function openEditModal(key) {
         inputNote.placeholder = (activeTab === 'rewrites') ? 'IP Address or Target Hostname (e.g. 1.2.3.4)' : 'Enter description or value...';
     }
 
-    editModal.style.display = 'flex';
+    showModal();
 }
 
 /**
@@ -939,7 +982,7 @@ function openAddModal() {
         inputNote.placeholder = (activeTab === 'rewrites') ? 'IP Address or Target Hostname (e.g. 1.2.3.4)' : 'Enter description or value...';
     }
 
-    editModal.style.display = 'flex';
+    showModal();
 }
 
 /**
@@ -1008,7 +1051,7 @@ async function handleSave() {
             if (inputKey.disabled && existingMeta) {
                 // If content hasn't changed, close modal without unnecessary requests
                 if (existingMeta.content === note) {
-                    editModal.style.display = 'none';
+                    closeModal();
                     return;
                 }
                 // NextDNS API doesn't support PUT/PATCH for rewrites; delete the previous entry before POSTing
@@ -1032,7 +1075,7 @@ async function handleSave() {
             await storage.set(storageKey, data);
         }
         
-        editModal.style.display = 'none';
+        closeModal();
         showToast('Entry saved successfully.', 'success');
         refreshView();
     } catch (err) {

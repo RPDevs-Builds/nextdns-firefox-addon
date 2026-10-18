@@ -15,11 +15,14 @@ import { apiClient } from '../apiClient.js';
  * @returns {string|null} The matched domain from the set, or null if no match.
  */
 export function getMatch(domain, listSet) {
+    if (!domain || !listSet) return null;
     if (listSet.has(domain)) return domain;
+    if (listSet.has('*.' + domain)) return '*.' + domain;
     const parts = domain.split('.');
     for (let i = 1; i < parts.length - 1; i++) {
         const root = parts.slice(i).join('.');
         if (listSet.has(root)) return root;
+        if (listSet.has('*.' + root)) return '*.' + root;
     }
     return null;
 }

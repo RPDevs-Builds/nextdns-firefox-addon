@@ -14,16 +14,19 @@ import { loadMetadata } from '../metadataManager.js';
  */
 export async function syncLists(force = false) {
     if (!state.activeProfile || (!force && state.listsSynced)) return;
-    const [a, d] = await Promise.all([
-        browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: state.activeProfile, listType: "allowlist", action: "list" }),
-        browser.runtime.sendMessage({ type: "MANAGE_DOMAIN", profileId: state.activeProfile, listType: "denylist", action: "list" })
-    ]).catch(() => [null, null]);
-
-    if (Array.isArray(a?.data)) {
-        state.currentAllowlist = new Set(a.data.filter(i => i?.id).map(i => i.id));
+    let res = null;
+    try {
+        res = await browser.runtime.sendMessage({ 
+            type: "GET_PROFILE_DATA", 
+            profileId: state.activeProfile 
+        });
+    } catch (_) {
+        res = null;
     }
-    if (Array.isArray(d?.data)) {
-        state.currentDenylist = new Set(d.data.filter(i => i?.id).map(i => i.id));
+
+    if (res?.success && (Array.isArray(res.allowlist) || Array.isArray(res.denylist))) {
+        state.currentAllowlist = new Set(Array.isArray(res.allowlist) ? res.allowlist : []);
+        state.currentDenylist = new Set(Array.isArray(res.denylist) ? res.denylist : []);
     }
     state.listsSynced = true;
 

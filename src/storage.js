@@ -5,13 +5,21 @@
  * 
  * @module storage
  */
-const LOCAL_ONLY_KEYS = new Set([
+export const LOCAL_ONLY_KEYS = new Set([
     'cachedAllowlist',
     'cachedDenylist',
     'profileSnapshots',
     'notifications',
     'scrapedMeta',
     'localLogs'
+]);
+
+export const CREDENTIAL_KEYS = new Set([
+    'apiKey',
+    'adguardApiKey',
+    'controldApiKey',
+    'piholeApiKey',
+    'piholeUrl'
 ]);
 
 class StorageManager {
@@ -36,10 +44,11 @@ class StorageManager {
 
         this.initPromise = (async () => {
             try {
-                // Use a timeout to prevent hanging forever if storage API is unresponsive
-                const storageTimeout = new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error("Storage init timeout")), 2000)
-                );
+                let timeoutId;
+                const storageTimeout = new Promise((_, reject) => {
+                    timeoutId = setTimeout(() => reject(new Error("Storage init timeout")), 2000);
+                    if (timeoutId && typeof timeoutId.unref === 'function') timeoutId.unref();
+                });
 
                 const loadData = async () => {
                     const syncData = (typeof browser !== 'undefined' && browser.storage?.sync?.get)
@@ -51,13 +60,23 @@ class StorageManager {
                     return { syncData, localData };
                 };
 
-                const { syncData, localData } = await Promise.race([loadData(), storageTimeout]);
+                let syncData, localData;
+                try {
+                    const result = await Promise.race([loadData(), storageTimeout]);
+                    syncData = result.syncData;
+                    localData = result.localData;
+                } finally {
+                    clearTimeout(timeoutId);
+                }
                 
-                this.cache = { ...localData, ...syncData };
+                this.cache = { ...syncData, ...localData };
                 
                 const healObj = {};
                 for (let k in syncData) {
                     if (syncData[k] !== undefined && localData[k] === undefined) {
+                        if (CREDENTIAL_KEYS.has(k) && syncData.syncCredentials === false) {
+                            continue;
+                        }
                         healObj[k] = syncData[k];
                     }
                 }
@@ -69,7 +88,17 @@ class StorageManager {
                     browser.storage.onChanged.addListener((changes, area) => {
                         for (let [key, { newValue }] of Object.entries(changes)) {
                             if (newValue === undefined) {
-                                delete this.cache[key];
+                                if (area === 'sync' && (CREDENTIAL_KEYS.has(key) || LOCAL_ONLY_KEYS.has(key))) {
+                                    browser.storage.local.get(key).then(res => {
+                                        if (!res || res[key] === undefined) {
+                                            delete this.cache[key];
+                                        } else {
+                                            this.cache[key] = res[key];
+                                        }
+                                    }).catch(() => null);
+                                } else {
+                                    delete this.cache[key];
+                                }
                             } else {
                                 this.cache[key] = newValue;
                             }
@@ -130,14 +159,20 @@ class StorageManager {
 
         const promises = [];
         if (typeof browser !== 'undefined' && browser.storage) {
+            const allowSyncCredentials = Boolean(this.cache.syncCredentials);
             const syncObj = {};
             for (const [k, v] of Object.entries(updateObj)) {
-                if (!LOCAL_ONLY_KEYS.has(k)) {
+                const isCredential = CREDENTIAL_KEYS.has(k);
+                if (!LOCAL_ONLY_KEYS.has(k) && (!isCredential || allowSyncCredentials)) {
                     syncObj[k] = v;
                 }
             }
             if (Object.keys(syncObj).length > 0 && browser.storage.sync?.set) {
                 promises.push(browser.storage.sync.set(syncObj).catch(() => null));
+            }
+            // If user explicitly disabled syncCredentials, purge credentials from sync storage
+            if (updateObj.syncCredentials === false && browser.storage.sync?.remove) {
+                promises.push(browser.storage.sync.remove(Array.from(CREDENTIAL_KEYS)).catch(() => null));
             }
             if (browser.storage.local?.set) {
                 promises.push(browser.storage.local.set(updateObj).catch(() => null));

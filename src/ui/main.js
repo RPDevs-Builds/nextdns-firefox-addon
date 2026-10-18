@@ -295,6 +295,21 @@ export function initGlobalEventListeners() {
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.onclick = () => {
             const tabId = btn.dataset.tab;
+            if (state.activeTab === 'logs' && tabId !== 'logs' && state.autoRefreshInterval) {
+                clearInterval(state.autoRefreshInterval);
+                state.autoRefreshInterval = null;
+                state.wasAutoRefreshActive = true;
+                const autoBtn = document.getElementById("auto-refresh-btn");
+                if (autoBtn) {
+                    autoBtn.classList.remove("btn-secondary");
+                    autoBtn.classList.add("btn-dark");
+                    autoBtn.textContent = "▶️ Auto";
+                }
+            } else if (tabId === 'logs' && state.wasAutoRefreshActive && !state.autoRefreshInterval) {
+                state.wasAutoRefreshActive = false;
+                toggleAutoRefresh(true);
+            }
+
             setActiveTab(tabId);
             if (tabId === 'dashboard') {
                 if (!state.activeProfile || document.getElementById("profile-status")?.textContent.includes("Not Detected")) {
@@ -819,6 +834,10 @@ export async function initializeApp() {
             clearInterval(state.tabTrackingIntervalId);
             state.tabTrackingIntervalId = null;
         }
+        if (state.autoRefreshInterval) {
+            clearInterval(state.autoRefreshInterval);
+            state.autoRefreshInterval = null;
+        }
         browser.runtime.sendMessage({ type: "STOP_STREAM" }).catch(() => {});
     };
 
@@ -1060,7 +1079,7 @@ export async function initSettingsUI() {
     const keys = [
         "apiKey", "adguardApiKey", "controldApiKey", "piholeApiKey", "piholeUrl", "dnsProvider", "activeProfile", "overrideProfileId", "iconClickAction", 
         "autoRefreshLogs", "enableBlockNotifications", 
-        "enableLabs", "autoRefreshTime"
+        "enableLabs", "syncCredentials", "autoRefreshTime"
     ];
     try {
         const data = await storage.get(keys);
@@ -1080,6 +1099,7 @@ export async function initSettingsUI() {
         const autoRefreshCheck = document.getElementById('setting-auto-refresh');
         const blockNotifCheck = document.getElementById('setting-block-notif');
         const enableLabsCheck = document.getElementById('setting-enable-labs');
+        const syncCredentialsCheck = document.getElementById('setting-sync-credentials');
         const refreshTimeInput = document.getElementById('setting-refresh-time');
 
         const currentProvider = data.dnsProvider || 'nextdns';
@@ -1111,6 +1131,7 @@ export async function initSettingsUI() {
         if (autoRefreshCheck) autoRefreshCheck.checked = !!data.autoRefreshLogs;
         if (blockNotifCheck) blockNotifCheck.checked = !!data.enableBlockNotifications;
         if (enableLabsCheck) enableLabsCheck.checked = !!data.enableLabs;
+        if (syncCredentialsCheck) syncCredentialsCheck.checked = !!data.syncCredentials;
         if (refreshTimeInput) refreshTimeInput.value = data.autoRefreshTime || 5;
 
         state.lastIconAction = data.iconClickAction || 'popup';
@@ -1213,6 +1234,7 @@ export async function saveSettings() {
     const autoRefreshLogs = document.getElementById('setting-auto-refresh')?.checked;
     const enableBlockNotifications = document.getElementById('setting-block-notif')?.checked;
     const enableLabs = document.getElementById('setting-enable-labs')?.checked;
+    const syncCredentials = document.getElementById('setting-sync-credentials')?.checked;
     const autoRefreshTime = document.getElementById('setting-refresh-time')?.value;
 
     const newSettings = {
@@ -1228,6 +1250,7 @@ export async function saveSettings() {
         autoRefreshLogs,
         enableBlockNotifications,
         enableLabs,
+        syncCredentials: !!syncCredentials,
         autoRefreshTime: parseInt(autoRefreshTime) || 5
     };
 
@@ -1284,18 +1307,57 @@ export async function toggleAutoRefresh(enable) {
     }
 }
 
+export const CREDENTIAL_KEYS = ["apiKey", "adguardApiKey", "controldApiKey", "piholeApiKey", "piholeUrl"];
+
+export const ALLOWED_CONFIG_KEYS = new Set([
+    "activeProfile", "detectedProfileId", "overrideProfileId", "provider", "mirrorProfiles",
+    "customProfiles", "quickSwitchProfiles", "iconClickAction", "theme", "syncCredentials",
+    "showDescriptions", "autoRefreshLogs", "logDisplayLimit", "blockNotif", "disableNotifications",
+    "disableAnimation", "advancedMode", "compactView", "logFilters", "alertSettings",
+    "scheduleSettings", "hostnameAliases", "savedPresets", "linkedIpSettings",
+    "webGuiMaster", "webGuiDesc", "webGuiNotes", "webGuiTlds", "webGuiBlocklists",
+    "webGuiLogs", "webGuiFilter", "webGuiSort", "allowlistNotes", "denylistNotes",
+    "parentalToggles", "apiKey", "adguardApiKey", "controldApiKey", "piholeApiKey", "piholeUrl",
+    "activeTheme", "customThemes", "autoRefreshTime", "enableBlockNotifications",
+    "cachedAllowlist", "cachedDenylist", "profileSnapshots", "notifications", "scrapedMeta", "localLogs"
+]);
+
+export function filterOutCredentials(data) {
+    if (!data || typeof data !== 'object') return {};
+    const filtered = { ...data };
+    for (const key of CREDENTIAL_KEYS) {
+        delete filtered[key];
+    }
+    return filtered;
+}
+
+export function sanitizeImportedData(data) {
+    if (!data || typeof data !== 'object') return {};
+    const sanitized = {};
+    for (const [k, v] of Object.entries(data)) {
+        if (ALLOWED_CONFIG_KEYS.has(k) && !k.startsWith('__proto__') && k !== 'prototype' && k !== 'constructor') {
+            sanitized[k] = v;
+        }
+    }
+    return sanitized;
+}
+
 /**
  * Exports the entire extension configuration (sync and local storage) as a JSON file.
+ * Automatically filters out sensitive API keys and provider tokens by default.
  * @async
+ * @param {boolean} [includeCredentials=false] - Whether to include sensitive API keys.
  */
-export async function exportFullConfiguration() {
-    const data = await browser.storage.sync.get(null);
-    const localData = await browser.storage.local.get(null);
+export async function exportFullConfiguration(includeCredentials = false) {
+    const rawSync = await browser.storage.sync.get(null);
+    const rawLocal = await browser.storage.local.get(null);
+    const syncData = includeCredentials ? rawSync : filterOutCredentials(rawSync);
+    const localData = includeCredentials ? rawLocal : filterOutCredentials(rawLocal);
     const payload = JSON.stringify({
         type: "DNS_FORGE_BACKUP",
         version: browser.runtime.getManifest().version,
         timestamp: new Date().toISOString(),
-        sync: data,
+        sync: syncData,
         local: localData
     }, null, 2);
     downloadAsFile(`dns_forge_backup_${Date.now()}.json`, payload);
@@ -1303,7 +1365,7 @@ export async function exportFullConfiguration() {
 
 /**
  * Imports an extension configuration from a JSON file.
- * Validates the file structure before applying settings.
+ * Validates the file structure and whitelists allowed configuration keys before applying.
  * @async
  * @param {Event} e - The file input change event.
  */
@@ -1315,13 +1377,19 @@ export async function importFullConfiguration(e) {
     reader.onload = async (event) => {
         try {
             const config = JSON.parse(event.target.result);
-            if (config.type !== "DNS_FORGE_BACKUP") {
+            if (!config || config.type !== "DNS_FORGE_BACKUP") {
                 throw new Error("Invalid backup file format.");
             }
 
             if (confirm("This will overwrite your current settings. Continue?")) {
-                if (config.sync) await browser.storage.sync.set(config.sync);
-                if (config.local) await browser.storage.local.set(config.local);
+                if (config.sync && typeof config.sync === 'object') {
+                    const sanitizedSync = sanitizeImportedData(config.sync);
+                    await browser.storage.sync.set(sanitizedSync);
+                }
+                if (config.local && typeof config.local === 'object') {
+                    const sanitizedLocal = sanitizeImportedData(config.local);
+                    await browser.storage.local.set(sanitizedLocal);
+                }
                 showToast("Settings restored successfully! Reloading...", 'success');
                 setTimeout(() => browser.runtime.reload(), 800);
             }

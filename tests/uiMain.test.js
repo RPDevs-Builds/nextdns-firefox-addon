@@ -429,7 +429,7 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
                 type: 'DNS_FORGE_BACKUP',
                 version: '1.2.2',
                 sync: { apiKey: 'restored-key', activeProfile: 'restored-prof' },
-                local: { testLocal: 'value' }
+                local: { activeTheme: 'matrix' }
             });
 
             const fakeFile = new Blob([backupPayload], { type: 'application/json' });
@@ -453,7 +453,7 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
                 activeProfile: 'restored-prof'
             });
             expect(browser.storage.local.set).toHaveBeenCalledWith({
-                testLocal: 'value'
+                activeTheme: 'matrix'
             });
             expect(event.target.value).toBe('');
         });
@@ -907,9 +907,11 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
         test('handles window pagehide and unload lifecycle cleanup', async () => {
             await uiMain.initializeApp();
             stateModule.state.tabTrackingIntervalId = setInterval(() => {}, 1000);
+            stateModule.state.autoRefreshInterval = setInterval(() => {}, 1000);
 
             window.dispatchEvent(new Event('pagehide'));
             expect(stateModule.state.tabTrackingIntervalId).toBeNull();
+            expect(stateModule.state.autoRefreshInterval).toBeNull();
             expect(browser.runtime.sendMessage).toHaveBeenCalledWith({ type: 'STOP_STREAM' });
         });
 
@@ -2615,6 +2617,88 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             browser.runtime.sendMessage.mockRejectedValueOnce(new Error('Runtime failure'));
             await uiMain.sendTestAlert();
             expect(testBtn.textContent).toBe('❌ Failed');
+        });
+
+        test('UI Main - loads and saves syncCredentials setting', async () => {
+            const { storage } = await import('../src/storage.js');
+            await storage.set('syncCredentials', true);
+
+            await uiMain.initSettingsUI();
+            const syncCredsCheckbox = document.getElementById('setting-sync-credentials');
+            expect(syncCredsCheckbox).not.toBeNull();
+            expect(syncCredsCheckbox.checked).toBe(true);
+
+            syncCredsCheckbox.checked = false;
+            await uiMain.saveSettings();
+            expect(await storage.get('syncCredentials')).toBe(false);
+        });
+
+        test('UI Main - backup helpers: filterOutCredentials and sanitizeImportedData', async () => {
+            expect(uiMain.filterOutCredentials(null)).toEqual({});
+            expect(uiMain.filterOutCredentials("not-an-object")).toEqual({});
+            const dataWithCreds = { apiKey: 'secret', activeProfile: 'prof1', adguardApiKey: 'ad-secret', theme: 'dark' };
+            expect(uiMain.filterOutCredentials(dataWithCreds)).toEqual({ activeProfile: 'prof1', theme: 'dark' });
+
+            expect(uiMain.sanitizeImportedData(null)).toEqual({});
+            expect(uiMain.sanitizeImportedData("not-an-object")).toEqual({});
+            const rawImport = {
+                activeProfile: 'prof1',
+                evilKey: 'malicious',
+                __proto__: { polluted: true },
+                prototype: 'bad',
+                constructor: 'bad'
+            };
+            const sanitized = uiMain.sanitizeImportedData(rawImport);
+            expect(sanitized).toEqual({ activeProfile: 'prof1' });
+            expect(sanitized.evilKey).toBeUndefined();
+
+            // Test exportFullConfiguration with includeCredentials=true
+            browser.storage.sync.get.mockResolvedValueOnce({ apiKey: 'sync-secret', activeProfile: 'prof-sync' });
+            browser.storage.local.get.mockResolvedValueOnce({ piholeApiKey: 'local-secret', activeTheme: 'matrix' });
+            await uiMain.exportFullConfiguration(true);
+        });
+
+        test('UI Main - pauses auto-refresh interval when leaving logs tab and resumes on return', async () => {
+            document.body.innerHTML = `
+                <div class="tab-bar">
+                    <button class="tab-btn" data-tab="logs">Logs</button>
+                    <button class="tab-btn" data-tab="dashboard">Dashboard</button>
+                </div>
+                <button id="auto-refresh-btn" class="btn-secondary">⏸️ Auto</button>
+            `;
+            uiMain.initGlobalEventListeners();
+
+            // Set state to active logs tab with active auto-refresh
+            stateModule.state.activeTab = 'logs';
+            stateModule.state.autoRefreshInterval = 99999;
+            stateModule.state.wasAutoRefreshActive = false;
+
+            // Click dashboard tab
+            const dashBtn = document.querySelector('.tab-btn[data-tab="dashboard"]');
+            dashBtn.click();
+
+            expect(stateModule.state.autoRefreshInterval).toBeNull();
+            expect(stateModule.state.wasAutoRefreshActive).toBe(true);
+            const autoBtn = document.getElementById('auto-refresh-btn');
+            expect(autoBtn.textContent).toBe('▶️ Auto');
+            expect(autoBtn.classList.contains('btn-dark')).toBe(true);
+
+            // Now click logs tab again to resume
+            const logsBtn = document.querySelector('.tab-btn[data-tab="logs"]');
+            logsBtn.click();
+
+            expect(stateModule.state.wasAutoRefreshActive).toBe(false);
+            if (stateModule.state.autoRefreshInterval) {
+                clearInterval(stateModule.state.autoRefreshInterval);
+                stateModule.state.autoRefreshInterval = null;
+            }
+
+            // Click dashboard tab when auto-refresh-btn is missing (covers if (autoBtn) false branch)
+            document.getElementById('auto-refresh-btn')?.remove();
+            stateModule.state.activeTab = 'logs';
+            stateModule.state.autoRefreshInterval = 77777;
+            dashBtn.click();
+            expect(stateModule.state.autoRefreshInterval).toBeNull();
         });
     });
 });

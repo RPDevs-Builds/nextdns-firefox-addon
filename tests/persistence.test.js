@@ -28,6 +28,11 @@ describe('Storage Persistence & Auto-Heal', () => {
                     set: jest.fn(obj => {
                         Object.assign(mockLocal, obj);
                         return Promise.resolve();
+                    }),
+                    remove: jest.fn(keys => {
+                        const arr = Array.isArray(keys) ? keys : [keys];
+                        arr.forEach(k => delete mockLocal[k]);
+                        return Promise.resolve();
                     })
                 },
                 sync: {
@@ -37,6 +42,11 @@ describe('Storage Persistence & Auto-Heal', () => {
                     }),
                     set: jest.fn(obj => {
                         Object.assign(mockSync, obj);
+                        return Promise.resolve();
+                    }),
+                    remove: jest.fn(keys => {
+                        const arr = Array.isArray(keys) ? keys : [keys];
+                        arr.forEach(k => delete mockSync[k]);
                         return Promise.resolve();
                     })
                 },
@@ -117,6 +127,55 @@ describe('Storage Persistence & Auto-Heal', () => {
         expect(mockSync.profileSnapshots).toBeUndefined();
     });
 
+    test('StorageManager: Credential isolation and syncCredentials toggle behavior', async () => {
+        const { storage, LOCAL_ONLY_KEYS, CREDENTIAL_KEYS } = await import('../src/storage.js');
+        expect(LOCAL_ONLY_KEYS.has('cachedAllowlist')).toBe(true);
+        expect(CREDENTIAL_KEYS.has('apiKey')).toBe(true);
+        expect(CREDENTIAL_KEYS.has('adguardApiKey')).toBe(true);
+        expect(CREDENTIAL_KEYS.has('controldApiKey')).toBe(true);
+        expect(CREDENTIAL_KEYS.has('piholeApiKey')).toBe(true);
+        expect(CREDENTIAL_KEYS.has('piholeUrl')).toBe(true);
+
+        await storage.init();
+
+        // 1. When syncCredentials is false (default)
+        await storage.set({
+            syncCredentials: false,
+            apiKey: 'local-only-token',
+            adguardApiKey: 'adg-token',
+            profileId: 'my-profile'
+        });
+
+        expect(mockLocal.apiKey).toBe('local-only-token');
+        expect(mockLocal.adguardApiKey).toBe('adg-token');
+        expect(mockLocal.profileId).toBe('my-profile');
+        expect(mockSync.profileId).toBe('my-profile');
+        expect(mockSync.apiKey).toBeUndefined();
+        expect(mockSync.adguardApiKey).toBeUndefined();
+
+        // 2. When syncCredentials is true
+        await storage.set({
+            syncCredentials: true,
+            apiKey: 'synced-token',
+            adguardApiKey: 'synced-adg'
+        });
+
+        expect(mockLocal.apiKey).toBe('synced-token');
+        expect(mockSync.apiKey).toBe('synced-token');
+        expect(mockSync.adguardApiKey).toBe('synced-adg');
+
+        // 3. When toggling syncCredentials from true back to false, removes credentials from sync
+        await storage.set({ syncCredentials: false });
+        expect(mockSync.apiKey).toBeUndefined();
+        expect(mockSync.adguardApiKey).toBeUndefined();
+        // Kept in local storage
+        expect(mockLocal.apiKey).toBe('synced-token');
+
+        // 4. Handles rejection in sync.remove safely
+        browser.storage.sync.remove.mockRejectedValueOnce(new Error('Sync remove failed'));
+        await expect(storage.set({ syncCredentials: false })).resolves.not.toThrow();
+    });
+
     test('StorageManager: Supports removing keys', async () => {
         const { storage } = await import('../src/storage.js');
         await storage.init();
@@ -139,9 +198,37 @@ describe('Storage Persistence & Auto-Heal', () => {
         changeListener({ newProp: { newValue: 'hello' } }, 'sync');
         expect(await storage.get('newProp')).toBe('hello');
 
-        // Simulate delete (newValue: undefined)
+        // Simulate delete (newValue: undefined) for normal key
         changeListener({ newProp: { newValue: undefined } }, 'sync');
         expect(await storage.get('newProp')).toBeNull();
+
+        // Simulate delete for CREDENTIAL_KEY in sync area where local has value
+        global.browser.storage.local.get = jest.fn().mockResolvedValue({ apiKey: 'localApiKeyVal' });
+        changeListener({ apiKey: { newValue: undefined } }, 'sync');
+        await new Promise(r => setTimeout(r, 20));
+        expect(storage.cache.apiKey).toBe('localApiKeyVal');
+
+        // Simulate delete for CREDENTIAL_KEY in sync area where local does not have value
+        global.browser.storage.local.get = jest.fn().mockResolvedValue({});
+        changeListener({ apiKey: { newValue: undefined } }, 'sync');
+        await new Promise(r => setTimeout(r, 20));
+        expect(storage.cache.apiKey).toBeUndefined();
+
+        // Simulate delete for CREDENTIAL_KEY in sync area where local.get rejects
+        global.browser.storage.local.get = jest.fn().mockRejectedValue(new Error('Local get failed'));
+        changeListener({ apiKey: { newValue: undefined } }, 'sync');
+        await new Promise(r => setTimeout(r, 20));
+    });
+
+    test('StorageManager: Auto-heal skips credentials when syncCredentials is false', async () => {
+        mockSync = { apiKey: 'sync-key-123', syncCredentials: false, activeProfile: 'p1' };
+        mockLocal = {};
+        const { storage } = await import('../src/storage.js');
+        storage.initialized = false;
+        storage.initPromise = null;
+        await storage.init();
+        expect(mockLocal.apiKey).toBeUndefined();
+        expect(mockLocal.activeProfile).toBe('p1');
     });
 
     test('StorageManager: handles init timeout or failure gracefully', async () => {

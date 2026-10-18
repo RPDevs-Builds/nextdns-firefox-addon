@@ -3239,6 +3239,12 @@ describe('Background Script - Full Coverage Suite', () => {
     expect(logsFailRes.success).toBe(true);
     expect(logsFailRes.data).toEqual([]);
 
+    const { providerRegistry } = await import('../src/providers/index.js');
+    jest.spyOn(providerRegistry.get('adguard'), 'fetchLogs').mockResolvedValueOnce({ success: true, data: null });
+    const logsNullDataRes = await messageHandlers.GET_LOGS({ profileId: 'adg-1' });
+    expect(logsNullDataRes.success).toBe(true);
+    expect(logsNullDataRes.data).toEqual([]);
+
     // 5. CLEAR_LOGS with adguard
     const clearRes = await messageHandlers.CLEAR_LOGS({ profileId: 'adg-1' });
     expect(clearRes.success).toBe(true);
@@ -3458,6 +3464,58 @@ describe('Background Script - Full Coverage Suite', () => {
     await global.storage.set('dnsProvider', 'nextdns');
     await global.storage.set('mirrorProfiles', []);
     apiClient.fetchWithRetry = origFetch;
+  });
+
+  test('Branch hardening: non-nextdns provider for TEMP_ALLOW, alarms, context menus, and colon mirror profiles', async () => {
+    const { messageHandlers } = await import('../src/background/handlers.js');
+    const { providerRegistry } = await import('../src/providers/index.js');
+    await bg.initializeBackground();
+
+    // 1. MANAGE_DOMAIN with composite colon mirror ID
+    const piProvider = providerRegistry.get('pihole');
+    const manageSpy = jest.spyOn(piProvider, 'manageDomain').mockResolvedValue({ success: true });
+    await global.storage.set('mirrorProfiles', ['pihole:pi-mirror-1']);
+    const manageRes = await messageHandlers.MANAGE_DOMAIN({
+      profileId: 'p123',
+      listType: 'allowlist',
+      domain: 'colon-test.com',
+      action: 'add'
+    });
+    expect(manageRes.success).toBe(true);
+    expect(manageSpy).toHaveBeenCalledWith('pi-mirror-1', 'allowlist', 'colon-test.com', 'add');
+
+    // 2. TEMP_ALLOW with non-nextdns provider (pihole)
+    await global.storage.set('dnsProvider', 'pihole');
+    const piTempRes = await messageHandlers.TEMP_ALLOW({
+      profileId: 'pi-prof',
+      domain: 'pi-temp.org',
+      durationInMinutes: 10
+    });
+    expect(piTempRes.success).toBe(true);
+
+    // 3. Alarm expiration with prov=pihole
+    expect(alarmListenerRef).toBeDefined();
+    const mockAlarm = {
+      name: 'tempAllow?prov=pihole&p=pi-prof&d=pi-temp.org'
+    };
+    await alarmListenerRef(mockAlarm);
+
+    // 4. Context menus click with non-nextdns provider
+    expect(menuClickListenerRef).toBeDefined();
+    await global.storage.set('overrideProfileId', 'pi-prof');
+    await menuClickListenerRef(
+      { menuItemId: 'dns-forge-allow', linkUrl: 'https://pi-allow.com/test' },
+      {}
+    );
+    await menuClickListenerRef(
+      { menuItemId: 'dns-forge-deny', linkUrl: 'https://pi-deny.com/test' },
+      {}
+    );
+
+    // Cleanup
+    manageSpy.mockRestore();
+    await global.storage.set('dnsProvider', 'nextdns');
+    await global.storage.set('mirrorProfiles', []);
   });
 });
 

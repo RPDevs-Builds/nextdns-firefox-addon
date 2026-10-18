@@ -344,6 +344,7 @@
     /* Modern Toggle Switch */
     .switch { position: relative; display: inline-block; width: 40px; height: 22px; margin: 0; }
     .switch input { opacity: 0; width: 0; height: 0; }
+    .switch input:focus-visible + .slider { outline: 2px solid var(--accent); outline-offset: 2px; }
     .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border-color); transition: .3s; }
     .slider.round { border-radius: 22px; }
     .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
@@ -482,7 +483,7 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 8px; margin-bottom: 15px;">
           <button id="allow-btn" class="btn-allow">Allow</button>
           <button id="deny-btn" class="btn-deny">Deny</button>
-          <button id="snooze-btn" class="btn-allow" style="background-color: var(--warning); padding: 8px 4px; font-size: 0.8em;">⏳ Temp (5m)</button>
+          <button id="snooze-btn" class="btn-allow" style="background-color: var(--warning); color: #0f172a; font-weight: 700; padding: 8px 4px; font-size: 0.8em;">⏳ Temp (5m)</button>
         </div>
         
         <div class="grid" style="margin-bottom: 15px;">
@@ -712,6 +713,13 @@
           <label for="setting-enable-labs" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Enable Experimental Labs Features</label>
           <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
             <input type="checkbox" id="setting-enable-labs">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="flex-between" style="margin-bottom: 8px;">
+          <label for="setting-sync-credentials" style="font-size: 0.85em; color: var(--text-main); cursor: pointer; flex: 1;">Sync Credentials across Firefox (Firefox Sync)</label>
+          <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+            <input type="checkbox" id="setting-sync-credentials">
             <span class="slider round"></span>
           </label>
         </div>

@@ -1,4 +1,4 @@
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -31,17 +31,25 @@ const ignorePatterns = [
     "*.skill", "**/*.test.js", "*-results.json", "reports/**",
     "web-ext-artifacts/**", "updates.json", "coverage/**", "coverage",
     ".amo-upload-uuid"
-].map(p => `"${p}"`).join(' ');
+];
 
 const crypto = require('crypto');
 
 console.log("🚀 Submitting extension to Mozilla for automated signing (unlisted)...");
 
 try {
-    execSync(`npx web-ext sign --channel=unlisted --api-key="${apiKey}" --api-secret="${apiSecret}" --ignore-files ${ignorePatterns}`, {
+    execFileSync('npx', [
+        'web-ext',
+        'sign',
+        '--channel=unlisted',
+        '--ignore-files',
+        ...ignorePatterns
+    ], {
         stdio: 'inherit',
         env: {
             ...process.env,
+            WEB_EXT_API_KEY: apiKey,
+            WEB_EXT_API_SECRET: apiSecret,
             NODE_OPTIONS: '--max-old-space-size=4096'
         }
     });

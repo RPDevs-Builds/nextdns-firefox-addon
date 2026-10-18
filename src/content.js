@@ -354,16 +354,25 @@ async function extractApiKey() {
   
   if (apiKeyEl) {
     const newKey = (apiKeyEl.tagName === 'INPUT' ? apiKeyEl.value : apiKeyEl.textContent).trim();
-    const sync = await browser.storage.sync.get("apiKey");
-    const local = await browser.storage.local.get("apiKey");
-    const currentKey = sync.apiKey || local.apiKey;
+    const sync = await browser.storage.sync.get(["apiKey", "syncCredentials"]);
+    const local = await browser.storage.local.get(["apiKey", "syncCredentials"]);
+    const syncCredentials = Boolean(sync?.syncCredentials ?? local?.syncCredentials);
+    const currentKey = sync?.apiKey || local?.apiKey;
     
     if (newKey && newKey !== currentKey) {
-      await Promise.all([
-        browser.storage.sync.set({ apiKey: newKey }),
-        browser.storage.local.set({ apiKey: newKey })
-      ]);
-      console.log("[DNS Forge] API Key auto-extracted and synced.");
+      if (syncCredentials) {
+        await Promise.all([
+          browser.storage.sync.set({ apiKey: newKey }),
+          browser.storage.local.set({ apiKey: newKey })
+        ]);
+        console.log("[DNS Forge] API Key auto-extracted and synced.");
+      } else {
+        await Promise.all([
+          browser.storage.local.set({ apiKey: newKey }),
+          browser.storage.sync.remove("apiKey")
+        ]);
+        console.log("[DNS Forge] API Key auto-extracted and stored locally.");
+      }
       showToast("DNS Forge: Linked NextDNS API key successfully!", "success");
     }
   }

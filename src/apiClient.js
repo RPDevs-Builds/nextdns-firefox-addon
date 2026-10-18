@@ -5,6 +5,11 @@
  * 
  * @module apiClient
  */
+export function sanitizeUrlForLog(urlStr) {
+    if (typeof urlStr !== 'string') return '';
+    return urlStr.replace(/([?&](?:auth|api_key)=)[^&]+/gi, '$1[REDACTED]');
+}
+
 export class APIClient {
     /**
      * @param {string} [baseURL="https://api.nextdns.io"] - The base URL for the NextDNS API.
@@ -63,14 +68,33 @@ export class APIClient {
         const url = endpoint.startsWith("http") ? endpoint : `${this.baseURL}${endpoint}`;
         
         for (let i = 0; i < retries; i++) {
+            let timeoutId;
             try {
+                let signal = options.signal;
+                if (!signal) {
+                    const timeoutMs = options.timeoutMs || 8000;
+                    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+                        signal = AbortSignal.timeout(timeoutMs);
+                    } else {
+                        const controller = new AbortController();
+                        timeoutId = setTimeout(() => controller.abort(new Error("Request timed out")), timeoutMs);
+                        signal = controller.signal;
+                    }
+                }
+
                 const defaultHeaders = await this.getHeaders(url);
                 const requestOptions = {
                     ...options,
+                    signal,
                     headers: { ...defaultHeaders, ...(options.headers || {}) }
                 };
 
-                const response = await fetch(url, requestOptions);
+                let response;
+                try {
+                    response = await fetch(url, requestOptions);
+                } finally {
+                    if (timeoutId) clearTimeout(timeoutId);
+                }
                 if (!response) {
                     throw new Error("No response returned from fetch");
                 }
@@ -93,7 +117,7 @@ export class APIClient {
                     const retryAfter = response.headers?.get ? response.headers.get("Retry-After") : null;
                     const delay = retryAfter ? parseInt(retryAfter) * 1000 : backoffMs * Math.pow(2, i);
                     
-                    console.warn(`[APIClient] HTTP ${response.status} on ${endpoint}. Retrying in ${delay}ms...`);
+                    console.warn(`[APIClient] HTTP ${response.status} on ${sanitizeUrlForLog(endpoint)}. Retrying in ${delay}ms...`);
                     await new Promise(r => setTimeout(r, delay));
                     continue;
                 }
@@ -132,7 +156,7 @@ export class APIClient {
                 // Network error (e.g. offline)
                 if (i === retries - 1) return { success: false, error: error.message || "Network Error" };
                 const delay = backoffMs * Math.pow(2, i);
-                console.warn(`[APIClient] Network error on ${endpoint}. Retrying in ${delay}ms...`, error);
+                console.warn(`[APIClient] Network error on ${sanitizeUrlForLog(endpoint)}. Retrying in ${delay}ms...`, error);
                 await new Promise(r => setTimeout(r, delay));
             }
         }

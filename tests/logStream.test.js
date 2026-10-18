@@ -259,6 +259,28 @@ describe('LogStreamManager', () => {
         global.fetch = origFetch;
     });
 
+    test('_startFetchStream stream reader completed by server schedules reconnect', async () => {
+        logStreamManager.isExplicitlyStopped = false;
+        const reconnectSpy = jest.spyOn(logStreamManager, '_scheduleReconnect').mockImplementation(() => {});
+        const mockReader = {
+            read: jest.fn().mockResolvedValueOnce({ done: true }),
+            cancel: jest.fn()
+        };
+        const origFetch = global.fetch;
+        global.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            body: { getReader: () => mockReader }
+        });
+
+        const started = await logStreamManager._startFetchStream('p12345', 'key');
+        expect(started).toBe(true);
+
+        await new Promise(r => setTimeout(r, 50));
+        expect(reconnectSpy).toHaveBeenCalledWith('p12345');
+        reconnectSpy.mockRestore();
+        global.fetch = origFetch;
+    });
+
     test('_startEventSourceStream logs warning on invalid JSON', () => {
         const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
         const originalEventSource = global.EventSource;

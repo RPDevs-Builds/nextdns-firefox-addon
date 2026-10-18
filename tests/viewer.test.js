@@ -48,7 +48,11 @@ describe('Data Manager Viewer UI Suite', () => {
         expect(document.getElementById('tab-profiles')).not.toBeNull();
         expect(document.getElementById('tab-snapshots')).not.toBeNull();
         expect(document.getElementById('tab-comparison')).not.toBeNull();
-        expect(document.getElementById('edit-modal')).not.toBeNull();
+        const modal = document.getElementById('edit-modal');
+        expect(modal).not.toBeNull();
+        expect(modal.getAttribute('role')).toBe('dialog');
+        expect(modal.getAttribute('aria-modal')).toBe('true');
+        expect(modal.getAttribute('aria-labelledby')).toBe('modal-title');
         expect(document.getElementById('save-btn')).not.toBeNull();
         expect(document.getElementById('cancel-btn')).not.toBeNull();
     });

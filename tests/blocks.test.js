@@ -696,11 +696,19 @@ describe('Popup UI - Blocks Expansion Suite', () => {
         state.activeTab = 'toggles';
         state.activeBlocksSubTab = 'privacy';
         state.listsSynced = false;
-        global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: true, data: [] });
-        global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: true, data: [] });
+        global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: true, allowlist: ['allow-only.com'] });
 
         await blocks.syncLists();
         expect(state.listsSynced).toBe(true);
+        expect(state.currentAllowlist.has('allow-only.com')).toBe(true);
+        expect(state.currentDenylist.size).toBe(0);
+
+        // Denylist only array
+        state.listsSynced = false;
+        global.browser.runtime.sendMessage.mockResolvedValueOnce({ success: true, denylist: ['deny-only.com'] });
+        await blocks.syncLists();
+        expect(state.currentDenylist.has('deny-only.com')).toBe(true);
+        expect(state.currentAllowlist.size).toBe(0);
     });
 
     test('Blocks UI - renderSecurityToggles full branch coverage', async () => {

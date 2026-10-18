@@ -40,11 +40,13 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
                         webGuiForcedTheme: 'default',
                         hostnameAliases: { '192.168.1.10': 'Smart TV' }
                     }),
-                    set: jest.fn().mockResolvedValue({})
+                    set: jest.fn().mockResolvedValue({}),
+                    remove: jest.fn().mockResolvedValue({})
                 },
                 local: {
                     get: jest.fn().mockResolvedValue({}),
-                    set: jest.fn().mockResolvedValue({})
+                    set: jest.fn().mockResolvedValue({}),
+                    remove: jest.fn().mockResolvedValue({})
                 },
                 onChanged: {
                     addListener: jest.fn(cb => storageChangedListener = cb)
@@ -141,9 +143,48 @@ describe('Content Script (NextDNS Web Console Enhancements)', () => {
         window.dispatchEvent(new Event('hashchange'));
         await new Promise(r => setTimeout(r, 180));
 
-        expect(global.browser.storage.sync.set).toHaveBeenCalledWith({
+        expect(global.browser.storage.local.set).toHaveBeenCalledWith({
             apiKey: '0123456789abcdef01234567'
         });
+        expect(global.browser.storage.sync.remove).toHaveBeenCalledWith("apiKey");
+    });
+
+    test('Extracts API key when on account page and syncCredentials is true', async () => {
+        global.browser.storage.sync.get.mockResolvedValueOnce({ syncCredentials: true });
+        global.browser.storage.local.get.mockResolvedValueOnce({ syncCredentials: true });
+        window.history.pushState({}, '', '/account');
+
+        document.body.innerHTML = `
+            <input class="api-key" type="text" value="abcdef012345678901234567" />
+        `;
+
+        window.dispatchEvent(new Event('hashchange'));
+        await new Promise(r => setTimeout(r, 180));
+
+        expect(global.browser.storage.sync.set).toHaveBeenCalledWith({
+            apiKey: 'abcdef012345678901234567'
+        });
+        expect(global.browser.storage.local.set).toHaveBeenCalledWith({
+            apiKey: 'abcdef012345678901234567'
+        });
+    });
+
+    test('Extracts API key when on account page and syncCredentials is false', async () => {
+        global.browser.storage.sync.get.mockResolvedValueOnce({ syncCredentials: false });
+        global.browser.storage.local.get.mockResolvedValueOnce({ syncCredentials: false });
+        window.history.pushState({}, '', '/account');
+
+        document.body.innerHTML = `
+            <input class="api-key" type="text" value="fedcba012345678901234567" />
+        `;
+
+        window.dispatchEvent(new Event('hashchange'));
+        await new Promise(r => setTimeout(r, 180));
+
+        expect(global.browser.storage.local.set).toHaveBeenCalledWith({
+            apiKey: 'fedcba012345678901234567'
+        });
+        expect(global.browser.storage.sync.remove).toHaveBeenCalledWith('apiKey');
     });
 
     test('Storage onChanged listener updates live config and cleans up UI when master disabled', async () => {

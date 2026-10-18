@@ -36,6 +36,20 @@ describe('Background Utilities (utils.js)', () => {
             expect(getMatch('example.net', set)).toBeNull();
             expect(getMatch('notgoogle.com', set)).toBeNull();
         });
+
+        test('matches wildcard domain and parent wildcard in set', () => {
+            const set = new Set(['*.wildcard.com', '*.corp.internal']);
+            expect(getMatch('wildcard.com', set)).toBe('*.wildcard.com');
+            expect(getMatch('deep.sub.wildcard.com', set)).toBe('*.wildcard.com');
+            expect(getMatch('dev.corp.internal', set)).toBe('*.corp.internal');
+        });
+
+        test('returns null when domain or listSet is null or falsy', () => {
+            expect(getMatch(null, new Set(['domain.com']))).toBeNull();
+            expect(getMatch('', new Set(['domain.com']))).toBeNull();
+            expect(getMatch('domain.com', null)).toBeNull();
+            expect(getMatch('domain.com', undefined)).toBeNull();
+        });
     });
 
     describe('handleBlockNotification', () => {

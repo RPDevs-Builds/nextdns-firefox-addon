@@ -27,7 +27,8 @@ export const state = {
     savedThemes: {},
     isThemeUnsaved: false,
     notifications: [],
-    tabTrackingIntervalId: null
+    tabTrackingIntervalId: null,
+    isBatchPending: false
 };
 
 export const DEFAULT_THEME_COLORS = {

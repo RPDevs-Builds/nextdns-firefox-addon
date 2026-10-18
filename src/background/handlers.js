@@ -12,12 +12,10 @@ import { storage } from '../storage.js';
 import { apiClient } from '../apiClient.js';
 import { manageDomain, detectActiveProfile, updateProfileCache, runNetworkDiagnostics } from './api.js';
 import { logStreamManager } from './logStream.js';
-import { fetchAdguardServers, fetchAdguardProfileData, manageAdguardDomain, fetchAdguardLogs, clearAdguardLogs } from '../providers/adguard.js';
-import { fetchControldProfiles, fetchControldProfileData, manageControldDomain, fetchControldLogs, clearControldLogs } from '../providers/controld.js';
-import { fetchPiholeProfiles, fetchPiholeProfileData, managePiholeDomain, fetchPiholeLogs, clearPiholeLogs } from '../providers/pihole.js';
+import { providerRegistry } from '../providers/index.js';
 
-function isValidProfileId(id) {
-    return typeof id === 'string' && /^[a-zA-Z0-9_-]+$/.test(id);
+export function isValidProfileId(id) {
+    return typeof id === 'string' && /^[a-zA-Z0-9_.:-]+$/.test(id) && !id.includes('..');
 }
 
 const ALLOWED_ANALYTICS_ENDPOINTS = new Set(['status', 'reasons', 'destinations', 'devices', 'protocols', 'dnssec', 'ip_versions']);
@@ -33,16 +31,11 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId, listType, domain, and action.
      */
     MANAGE_DOMAIN: async (msg) => {
-        const provider = await storage.get("dnsProvider", "nextdns");
-        const res = provider === 'pihole'
-            ? await managePiholeDomain(msg.profileId, msg.listType, msg.domain, msg.action)
-            : (provider === 'controld'
-                ? await manageControldDomain(msg.profileId, msg.listType, msg.domain, msg.action)
-                : (provider === 'adguard'
-                    ? await manageAdguardDomain(msg.profileId, msg.listType, msg.domain, msg.action)
-                    : await manageDomain(msg.profileId, msg.listType, msg.domain, msg.action)));
+        const providerName = await storage.get("dnsProvider", "nextdns");
+        const provider = providerRegistry.get(providerName);
+        const res = await provider.manageDomain(msg.profileId, msg.listType, msg.domain, msg.action);
 
-        if (res.success && (msg.action === 'add' || msg.action === 'delete')) {
+        if (res.success && (msg.action === 'add' || msg.action === 'delete') && providerName === 'nextdns') {
             await updateProfileCache();
         }
 
@@ -50,19 +43,21 @@ export const messageHandlers = {
         if (res.success && (msg.action === 'add' || msg.action === 'delete') && !msg._mirrored) {
             const mirrorProfiles = await storage.get("mirrorProfiles", []);
             if (Array.isArray(mirrorProfiles) && mirrorProfiles.length > 0) {
-                const mirrors = mirrorProfiles.filter(mId => mId && mId !== msg.profileId);
+                const mirrors = mirrorProfiles.filter(mId => mId && mId !== msg.profileId && mId !== `${providerName}:${msg.profileId}`);
                 await Promise.all(mirrors.map(mId => {
+                    const colonIdx = mId.indexOf(':');
+                    const targetProviderName = colonIdx !== -1 ? mId.slice(0, colonIdx) : providerName;
+                    const targetProfileId = colonIdx !== -1 ? mId.slice(colonIdx + 1) : mId;
+                    const targetProvider = providerRegistry.get(targetProviderName);
                     console.log(`[Mirror] Replicating domain ${msg.action} to profile: ${mId}`);
-                    return (provider === 'pihole'
-                        ? managePiholeDomain(mId, msg.listType, msg.domain, msg.action)
-                        : (provider === 'controld'
-                            ? manageControldDomain(mId, msg.listType, msg.domain, msg.action)
-                            : (provider === 'adguard'
-                                ? manageAdguardDomain(mId, msg.listType, msg.domain, msg.action)
-                                : manageDomain(mId, msg.listType, msg.domain, msg.action)
-                            )
-                        )
-                    ).catch(err => console.error(`[Mirror] Failed domain sync for ${mId}:`, err));
+                    return targetProvider.manageDomain(targetProfileId, msg.listType, msg.domain, msg.action)
+                        .then(r => {
+                            if (!r?.success) {
+                                console.error(`[Mirror] Failed domain sync for ${mId}:`, r?.error);
+                            }
+                            return r;
+                        })
+                        .catch(err => console.error(`[Mirror] Failed domain sync for ${mId}:`, err));
                 }));
             }
         }
@@ -75,13 +70,17 @@ export const messageHandlers = {
      */
     TEMP_ALLOW: async (msg) => {
         if (!msg.profileId || !msg.domain) return { success: false, error: "Missing parameters" };
-        const res = await manageDomain(msg.profileId, "allowlist", msg.domain, "add");
+        const providerName = await storage.get("dnsProvider", "nextdns");
+        const provider = providerRegistry.get(providerName);
+        const res = await provider.manageDomain(msg.profileId, "allowlist", msg.domain, "add");
         if (res.success) {
             const rawDuration = Number(msg.durationInMinutes || msg.duration) || 5;
             const duration = Math.max(1, Math.min(1440, rawDuration));
-            const alarmName = `${ALARM_PREFIX}p=${encodeURIComponent(msg.profileId)}&d=${encodeURIComponent(msg.domain)}`;
+            const alarmName = `${ALARM_PREFIX}prov=${encodeURIComponent(providerName)}&p=${encodeURIComponent(msg.profileId)}&d=${encodeURIComponent(msg.domain)}`;
             browser.alarms.create(alarmName, { delayInMinutes: duration });
-            await updateProfileCache();
+            if (providerName === 'nextdns') {
+                await updateProfileCache();
+            }
         }
         return res;
     },
@@ -110,33 +109,12 @@ export const messageHandlers = {
      */
     GET_LOGS: async (msg) => {
         if (!isValidProfileId(msg?.profileId)) return { success: false, data: state.localLogs || [], error: "Invalid profile ID" };
-        const provider = await storage.get("dnsProvider", "nextdns");
-        if (provider === 'pihole' || provider === 'controld' || provider === 'adguard') {
-            const providerLogsRes = provider === 'pihole'
-                ? await fetchPiholeLogs(msg.profileId)
-                : (provider === 'controld'
-                    ? await fetchControldLogs(msg.profileId)
-                    : await fetchAdguardLogs(msg.profileId));
-            let data = providerLogsRes.data;
-            if (Array.isArray(state.localLogs) && state.localLogs.length > 0) {
-                const existing = new Set(data.map(l => (l.domain || l.name || '').toLowerCase()));
-                const missingLocal = state.localLogs.filter(l => !existing.has((l.domain || l.name || '').toLowerCase()));
-                data = [...missingLocal, ...data].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-            }
-            return { success: true, data };
-        }
+        const providerName = await storage.get("dnsProvider", "nextdns");
+        const provider = providerRegistry.get(providerName);
         try {
-            const rawParam = msg.raw === false ? '' : '?raw=1';
-            const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/logs${rawParam}`, { 
-                cache: 'no-store', 
-                headers: { "Accept": "application/json", "X-Api-Key": await storage.get("apiKey", "") } 
-            });
-            let data = [];
-            if (r.success) {
-                const json = await r.response.json();
-                data = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
-            }
-            
+            const providerLogsRes = await provider.fetchLogs(msg.profileId, { raw: msg.raw });
+            let data = Array.isArray(providerLogsRes?.data) ? providerLogsRes.data : [];
+
             // Merge locally captured browser requests if any, avoiding duplicate domain entries
             if (Array.isArray(state.localLogs) && state.localLogs.length > 0) {
                 const existing = new Set(data.map(l => (l.domain || l.name || '').toLowerCase()));
@@ -156,28 +134,10 @@ export const messageHandlers = {
      */
     GET_PROFILE_DATA: async (msg) => {
         if (!isValidProfileId(msg?.profileId)) return { success: false, allowlist: [], denylist: [], error: "Invalid profile ID" };
-        const provider = await storage.get("dnsProvider", "nextdns");
-        if (provider === 'pihole') {
-            return await fetchPiholeProfileData(msg.profileId);
-        }
-        if (provider === 'controld') {
-            return await fetchControldProfileData(msg.profileId);
-        }
-        if (provider === 'adguard') {
-            return await fetchAdguardProfileData(msg.profileId);
-        }
+        const providerName = await storage.get("dnsProvider", "nextdns");
+        const provider = providerRegistry.get(providerName);
         try {
-            const [allow, deny] = await Promise.all([
-                apiClient.fetchWithRetry(`/profiles/${msg.profileId}/allowlist`),
-                apiClient.fetchWithRetry(`/profiles/${msg.profileId}/denylist`)
-            ]);
-            const aJson = allow.success ? await allow.response.json() : { data: [] };
-            const dJson = deny.success ? await deny.response.json() : { data: [] };
-            return { 
-                success: true, 
-                allowlist: (Array.isArray(aJson.data) ? aJson.data : (Array.isArray(aJson) ? aJson : [])).map(d => d.id),
-                denylist: (Array.isArray(dJson.data) ? dJson.data : (Array.isArray(dJson) ? dJson : [])).map(d => d.id)
-            };
+            return await provider.fetchProfileData(msg.profileId);
         } catch (e) {
             console.warn("[Handler] GET_PROFILE_DATA failed:", e);
             return { success: false, allowlist: [], denylist: [] };
@@ -249,29 +209,10 @@ export const messageHandlers = {
      * Fetches the list of all available NextDNS profiles in the account.
      */
     GET_PROFILES_LIST: async (msg) => {
-        const provider = await storage.get("dnsProvider", "nextdns");
-        if (provider === 'pihole') {
-            return await fetchPiholeProfiles(msg?.apiKey);
-        }
-        if (provider === 'controld') {
-            return await fetchControldProfiles(msg?.apiKey);
-        }
-        if (provider === 'adguard') {
-            return await fetchAdguardServers(msg?.apiKey);
-        }
+        const providerName = await storage.get("dnsProvider", "nextdns");
+        const provider = providerRegistry.get(providerName);
         try {
-            const fetchOptions = { cache: 'no-store' };
-            if (msg?.apiKey) {
-                fetchOptions.headers = {
-                    "Content-Type": "application/json",
-                    "X-Api-Key": msg.apiKey.trim()
-                };
-            }
-            const r = await apiClient.fetchWithRetry(`/profiles`, fetchOptions);
-            if (!r.success) return { success: false, data: [] };
-            const json = await r.response.json();
-            const data = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
-            return { success: true, data };
+            return await provider.fetchProfiles(msg?.apiKey);
         } catch(e) {
             console.warn("[Handler] GET_PROFILES_LIST failed:", e);
             return { success: false, data: [] };
@@ -290,7 +231,7 @@ export const messageHandlers = {
         }
 
         // Input validation & path traversal guard
-        if (!profileId || typeof profileId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(profileId)) {
+        if (!isValidProfileId(profileId)) {
             return { success: false, error: "Invalid profile ID" };
         }
         if (!category || typeof category !== 'string' || !/^[a-zA-Z0-9_-]+(\/[a-zA-Z0-9_-]+)*$/.test(category)) {
@@ -502,24 +443,10 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId.
      */
     CLEAR_LOGS: async (msg) => {
-        if (!msg.profileId || !/^[a-zA-Z0-9_-]+$/.test(msg.profileId)) return { success: false, error: "Invalid profile ID" };
-        const provider = await storage.get("dnsProvider", "nextdns");
-        if (provider === 'pihole') {
-            const res = await clearPiholeLogs();
-            return res;
-        }
-        if (provider === 'controld') {
-            const res = await clearControldLogs();
-            return res;
-        }
-        if (provider === 'adguard') {
-            const res = await clearAdguardLogs();
-            return res;
-        }
-        const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/logs`, { method: 'DELETE' });
-        const out = { success: r.success };
-        if (r.error) out.error = r.error;
-        return out;
+        if (!isValidProfileId(msg?.profileId)) return { success: false, error: "Invalid profile ID" };
+        const providerName = await storage.get("dnsProvider", "nextdns");
+        const provider = providerRegistry.get(providerName);
+        return await provider.clearLogs(msg.profileId);
     },
     /**
      * Lists all configured automation rules.
@@ -558,7 +485,7 @@ export const messageHandlers = {
      * @param {Object} msg - The message object containing profileId.
      */
     LIST_REWRITES: async (msg) => {
-        if (!msg.profileId || !/^[a-zA-Z0-9_-]+$/.test(msg.profileId)) return { success: false, error: "Invalid profile ID" };
+        if (!isValidProfileId(msg?.profileId)) return { success: false, error: "Invalid profile ID" };
         const r = await apiClient.fetchWithRetry(`/profiles/${msg.profileId}/rewrites`, { cache: 'no-store' });
         if (!r.success) return { success: false, error: r.error || "Failed to fetch rewrites" };
         const data = await r.response.json().catch(() => ({}));
@@ -570,7 +497,7 @@ export const messageHandlers = {
      */
     SAVE_REWRITE: async (msg) => {
         const { profileId, name, content } = msg;
-        if (!profileId || !/^[a-zA-Z0-9_-]+$/.test(profileId)) return { success: false, error: "Invalid profile ID" };
+        if (!isValidProfileId(profileId)) return { success: false, error: "Invalid profile ID" };
         if (!name || typeof name !== 'string' || !name.trim()) return { success: false, error: "Invalid domain name" };
         if (!content || typeof content !== 'string' || !content.trim()) return { success: false, error: "Invalid rewrite target" };
         const r = await apiClient.fetchWithRetry(`/profiles/${profileId}/rewrites`, {
@@ -587,7 +514,7 @@ export const messageHandlers = {
      */
     DELETE_REWRITE: async (msg) => {
         const { profileId, name, id } = msg;
-        if (!profileId || !/^[a-zA-Z0-9_-]+$/.test(profileId)) return { success: false, error: "Invalid profile ID" };
+        if (!isValidProfileId(profileId)) return { success: false, error: "Invalid profile ID" };
         const target = (id && typeof id === 'string' && id.trim()) ? id.trim() : (name && typeof name === 'string' ? name.trim() : '');
         if (!target) return { success: false, error: "Invalid domain name" };
         const safeTarget = encodeURIComponent(target);

@@ -201,6 +201,13 @@ describe('Popup UI - Advanced Coverage Suite', () => {
                     blockedCount: 1
                 });
             }
+            if (msg.type === 'GET_PROFILE_DATA') {
+                return Promise.resolve({
+                    success: true,
+                    allowlist: Array.from(state.currentAllowlist || []),
+                    denylist: Array.from(state.currentDenylist || [])
+                });
+            }
             if (msg.type === 'MANAGE_DOMAIN') {
                 if (msg.action === 'list') {
                     const set = msg.listType === 'allowlist' ? state.currentAllowlist : state.currentDenylist;
