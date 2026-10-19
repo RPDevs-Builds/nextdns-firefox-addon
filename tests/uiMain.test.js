@@ -497,6 +497,21 @@ describe('UI Main Module (src/ui/main.js) Comprehensive Test Suite', () => {
             }));
         });
 
+        test('refreshActiveProfileAndUI handles connected state with manual profile override badge', async () => {
+            browser.runtime.sendMessage.mockImplementation(async (msg) => {
+                if (msg.type === 'GET_PROFILE') return { id: 'p-man-conn', name: 'Manual Conn Prof', manual: true };
+                if (msg.type === 'GET_NETWORK_STATUS') return { networkStatus: { isConnected: true, protocol: 'DoH', popServer: 'iad-1' } };
+                return { success: true };
+            });
+
+            await uiMain.refreshActiveProfileAndUI();
+            const statusEl = document.getElementById('profile-status');
+            expect(statusEl.textContent).toContain('Manual Conn Prof');
+            expect(statusEl.textContent).toContain('Override');
+            expect(statusEl.textContent).toContain('DoH');
+            expect(statusEl.textContent).toContain('iad-1');
+        });
+
         test('refreshActiveProfileAndUI handles manual profile override badge', async () => {
             browser.runtime.sendMessage.mockImplementation(async (msg) => {
                 if (msg.type === 'GET_PROFILE') return { id: 'p-man', name: 'Manual Prof', manual: true };

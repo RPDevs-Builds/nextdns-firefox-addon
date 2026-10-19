@@ -964,10 +964,10 @@ export async function loadProfiles(customApiKey = null) {
             apiKey: apiKey || undefined
         });
 
-        const storedSync = await storage.get(["activeProfile", "detectedProfileId", "activeProfileName"], {});
+        const storedSync = await storage.get(["activeProfile", "detectedProfileId", "activeProfileName", "overrideProfileId"], {});
         const currentSelected = profileSelect.value !== undefined && profileSelect.value !== '' 
             ? profileSelect.value 
-            : (storedSync.activeProfile || '');
+            : ((storedSync.overrideProfileId && storedSync.overrideProfileId !== 'auto') ? storedSync.overrideProfileId : '');
 
         setSafeHTML(profileSelect, '<option value="">⚡ Auto-Detect (Default)</option>');
 
@@ -1036,7 +1036,7 @@ export async function refreshActiveProfileAndUI() {
                 const isConn = Boolean(netStatus.isConnected);
                 const dotColor = isConn ? 'var(--success)' : 'var(--warning)';
                 const statusBadge = isConn 
-                    ? `<span style="font-size: 0.7em; background: rgba(34, 197, 94, 0.15); color: var(--success); border: 1px solid var(--success); padding: 1px 5px; border-radius: 4px; font-weight: 700;" title="DNS queries are actively routed through NextDNS via ${escapeHTML(netStatus.protocol || 'DoH')}">🟢 ${escapeHTML(netStatus.protocol || 'DoH')}${netStatus.popServer ? ` (${escapeHTML(netStatus.popServer)})` : ''}</span>`
+                    ? `<span style="font-size: 0.7em; background: rgba(34, 197, 94, 0.15); color: var(--success); border: 1px solid var(--success); padding: 1px 5px; border-radius: 4px; font-weight: 700;" title="DNS queries are actively routed through NextDNS via ${escapeHTML(netStatus.protocol || 'DoH')}">🟢 ${escapeHTML(netStatus.protocol || 'DoH')}${netStatus.popServer ? ` (${escapeHTML(netStatus.popServer)})` : ''}${profile.manual ? ' • Override' : ''}</span>`
                     : (profile.manual 
                         ? `<span style="font-size: 0.7em; background: rgba(243, 156, 18, 0.15); color: var(--warning); border: 1px solid var(--warning); padding: 1px 5px; border-radius: 4px; font-weight: 700;" title="Manual profile override is active, but DNS queries are not currently routing through NextDNS">🟡 Override (DNS Inactive)</span>`
                         : `<span style="font-size: 0.7em; background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid var(--danger); padding: 1px 5px; border-radius: 4px; font-weight: 700;" title="Profile is configured in DNS Forge, but this browser is not currently routing DNS through NextDNS">🔴 DNS Inactive</span>`);
@@ -1146,7 +1146,7 @@ export async function initSettingsUI() {
             await loadProfiles(activeKey);
             profileSelect.value = (data.overrideProfileId && data.overrideProfileId !== 'auto')
                 ? data.overrideProfileId
-                : (data.activeProfile || '');
+                : '';
         }
 
         // Live fetch on API key input (debounced)

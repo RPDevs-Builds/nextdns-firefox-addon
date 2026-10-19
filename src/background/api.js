@@ -78,12 +78,10 @@ async function _detectActiveProfile() {
     const storedActive = await storage.get("activeProfile");
     const apiKey = await storage.get("apiKey");
 
-    // Resolve explicit override or stored manual profile (ignore 'auto' and legacy 'fp' fingerprints)
+    // Resolve explicit override (ignore 'auto' and legacy 'fp' fingerprints)
     let overrideId = null;
     if (overrideSetting && overrideSetting !== 'auto' && !overrideSetting.startsWith('fp')) {
         overrideId = overrideSetting;
-    } else if ((overrideSetting === undefined || overrideSetting === null) && storedActive && storedActive !== 'auto' && !storedActive.startsWith('fp')) {
-        overrideId = storedActive;
     }
 
     const isManual = Boolean(overrideId);
@@ -102,25 +100,10 @@ async function _detectActiveProfile() {
         }
     }
 
-    if (isManual) {
-        let profileName = activeId;
-        const matched = accountProfiles.find(p => p.id === activeId);
-        if (matched) {
-            profileName = `${matched.name} (${activeId})`;
-        }
-        await storage.set("activeProfile", activeId);
-        await storage.set("activeProfileName", profileName);
-        if (state.networkStatus) {
-            state.networkStatus.profileId = activeId;
-        }
-        return { id: activeId, name: profileName, manual: true };
-    }
+    let networkProfile = null;
+    let isConnected = false;
 
-    // Auto-detection mode
-    let detectedId = null;
-    let detectedName = null;
-
-    // 1. Try test.nextdns.io to identify active network profile
+    // Probe test.nextdns.io to detect active network profile and connection status
     try {
         const res = await apiClient.fetchWithRetry(TEST_URL, { 
             cache: 'no-store',
@@ -133,8 +116,8 @@ async function _detectActiveProfile() {
             } catch (_) {
                 data = {};
             }
-            const networkProfile = data?.profile;
-            const isConnected = data?.status === 'ok';
+            networkProfile = data?.profile;
+            isConnected = data?.status === 'ok';
             if (state.networkStatus) {
                 state.networkStatus = {
                     ...state.networkStatus,
@@ -148,21 +131,6 @@ async function _detectActiveProfile() {
                     lastChecked: Date.now()
                 };
                 await storage.set("networkStatus", state.networkStatus);
-            }
-            if (networkProfile) {
-                if (accountProfiles.length > 0) {
-                    const matched = accountProfiles.find(p => p.id === networkProfile || p.fingerprint === networkProfile);
-                    if (matched) {
-                        detectedId = matched.id;
-                        detectedName = `${matched.name} (${detectedId})`;
-                    } else if (accountProfiles.length === 1 && isConnected) {
-                        detectedId = accountProfiles[0].id;
-                        detectedName = `${accountProfiles[0].name} (${detectedId})`;
-                    }
-                } else if (!networkProfile.startsWith('fp')) {
-                    detectedId = networkProfile;
-                    detectedName = networkProfile;
-                }
             }
         } else {
             // Fallback probe to NextDNS edge Anycast info if test.nextdns.io was unreachable
@@ -192,11 +160,51 @@ async function _detectActiveProfile() {
         console.warn("[ProfileDetect] Test URL detection failed:", e);
     }
 
+    if (isManual) {
+        let profileName = activeId;
+        const matched = accountProfiles.find(p => p.id === activeId);
+        if (matched) {
+            profileName = `${matched.name} (${activeId})`;
+        }
+        await storage.set("activeProfile", activeId);
+        await storage.set("activeProfileName", profileName);
+        if (state.networkStatus) {
+            state.networkStatus.profileId = activeId;
+        }
+        return { id: activeId, name: profileName, manual: true };
+    }
+
+    // Auto-detection mode
+    let detectedId = null;
+    let detectedName = null;
+
+    if (networkProfile) {
+        if (accountProfiles.length > 0) {
+            const matched = accountProfiles.find(p => p.id === networkProfile || p.fingerprint === networkProfile);
+            if (matched) {
+                detectedId = matched.id;
+                detectedName = `${matched.name} (${detectedId})`;
+            } else if (accountProfiles.length === 1 && isConnected) {
+                detectedId = accountProfiles[0].id;
+                detectedName = `${accountProfiles[0].name} (${detectedId})`;
+            }
+        } else if (!networkProfile.startsWith('fp')) {
+            detectedId = networkProfile;
+            detectedName = networkProfile;
+        }
+    }
+
     // 2. If test.nextdns.io didn't match, fall back to first account profile
     if (!detectedId && accountProfiles.length > 0) {
         const first = accountProfiles[0];
         detectedId = first.id;
         detectedName = `${first.name} (${detectedId})`;
+    }
+
+    // 3. Fallback to storedActive if available
+    if (!detectedId && storedActive && storedActive !== 'auto' && !storedActive.startsWith('fp')) {
+        detectedId = storedActive;
+        detectedName = (await storage.get("activeProfileName")) || storedActive;
     }
 
     if (detectedId) {
@@ -232,8 +240,8 @@ export async function updateProfileCache() {
                 manageDomain(activeProfileId, "denylist", null, "list")
             ]);
 
-            const allowList = (allow?.data || []).filter(d => d?.id).map(d => d.id);
-            const denyList = (deny?.data || []).filter(d => d?.id).map(d => d.id);
+            const allowList = (Array.isArray(allow?.data) ? allow.data : []).filter(d => d?.id).map(d => d.id);
+            const denyList = (Array.isArray(deny?.data) ? deny.data : []).filter(d => d?.id).map(d => d.id);
 
             state.currentProfileData.allowlist = new Set(allowList);
             state.currentProfileData.denylist = new Set(denyList);

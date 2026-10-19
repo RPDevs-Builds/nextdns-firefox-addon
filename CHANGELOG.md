@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.5.2] - 2026-10-19
+
+### Bug Fixes & Reliability
+- **Pinned Toolbar Icon Popup Path (`src/background/main.js`):** Resolved toolbar menu failure by using `browser.runtime.getURL("src/popup.html")` in `applyIconAction()`. Prevents relative path resolution errors from the background script directory (`/src/background/src/popup.html` 404).
+- **Active Profile Override Logic (`src/background/api.js`):** Eliminated false manual override triggering when `overrideProfileId` is empty or unset (`'auto'`). Only sets `overrideId` when an explicit manual profile is selected, preserving automatic detection mode.
+- **Unconditional NextDNS Network Probing (`src/background/api.js`):** Network diagnostics probe (`https://test.nextdns.io/`) now executes unconditionally during profile detection, ensuring live connectivity, protocol, and PoP edge server status are always updated even under manual profile overrides.
+- **Defensive Cache Syncing (`src/background/api.js`):** Hardened `updateProfileCache()` to validate `Array.isArray(allow?.data)` and `Array.isArray(deny?.data)` before filtering to prevent runtime type errors on malformed responses.
+- **UI Dropdown & Overview Badge Accuracy (`src/ui/main.js`):**
+  - Profile selection dropdown defaults to `""` (`⚡ Auto-Detect (Default)`) when no override is set, preventing inadvertent persistence of detected profiles as manual overrides.
+  - Corrected status badge rendering on the Overview page: displays `🟢 <protocol> (<popServer>)` (appending `• Override` only when an override is active). Only displays `🟡 Override (DNS Inactive)` when genuinely disconnected with an active override.
+
+### Quality & Compliance
+- **100.0% Test Coverage:** 100.0% Statements, Branches, Functions, and Lines repository-wide across 29 test suites with 525 passing tests in Jest.
+- **Mozilla AMO Compliance:** Zero errors, zero notices, and zero warnings on `web-ext lint`.
+
 ## [1.5.1] - 2026-10-18
 
 ### Security & AMO Compliance

@@ -170,8 +170,9 @@ export async function applyIconAction() {
             await browser.action.setPopup({ popup: "" });
             console.log("[Background] Popup disabled to enable onClicked listener.");
         } else {
-            await browser.action.setPopup({ popup: "src/popup.html" });
-            console.log("[Background] Popup enabled (src/popup.html).");
+            const popupUrl = browser.runtime.getURL("src/popup.html");
+            await browser.action.setPopup({ popup: popupUrl });
+            console.log("[Background] Popup enabled (" + popupUrl + ").");
         }
     } catch (e) {
         console.error("[Background] Failed to apply icon action:", e);

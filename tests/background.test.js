@@ -1534,13 +1534,20 @@ describe('Background Script - Full Coverage Suite', () => {
     expect(manageDomainErr.error).toBe('Hard Network Failure');
     apiClient.fetchWithRetry = origFetchRetry;
 
-    // 12. api.js detectActiveProfile storedActive manual override fallback (line 86)
+    // 12. api.js detectActiveProfile storedActive auto-detected fallback (line 204)
     await global.storage.set('overrideProfileId', null);
     await global.storage.set('activeProfile', 'pStoredManualOnly');
     bgApi._resetDetectInFlight();
     const storedManualProfile = await bgApi.detectActiveProfile();
     expect(storedManualProfile.id).toBe('pStoredManualOnly');
-    expect(storedManualProfile.manual).toBe(true);
+    expect(storedManualProfile.autoDetected).toBe(true);
+
+    // Explicit overrideProfileId sets manual: true
+    await global.storage.set('overrideProfileId', 'pExplicitOverride');
+    bgApi._resetDetectInFlight();
+    const explicitOverrideProfile = await bgApi.detectActiveProfile();
+    expect(explicitOverrideProfile.id).toBe('pExplicitOverride');
+    expect(explicitOverrideProfile.manual).toBe(true);
   });
 
   test('handlers.js & api.js - Exhaustive Statement, Function & Branch Coverage Deep Dive', async () => {
@@ -2566,7 +2573,7 @@ describe('Background Script - Full Coverage Suite', () => {
 
     await global.storage.set('iconClickAction', 'popup');
     await bg.applyIconAction();
-    expect(global.browser.action.setPopup).toHaveBeenCalledWith({ popup: "src/popup.html" });
+    expect(global.browser.action.setPopup).toHaveBeenCalledWith({ popup: global.browser.runtime.getURL("src/popup.html") });
 
     // applyIconAction error handling
     global.browser.action.setPopup.mockRejectedValueOnce(new Error('setPopup failed'));
@@ -2641,7 +2648,7 @@ describe('Background Script - Full Coverage Suite', () => {
         if (isolatedStorage.cache) isolatedStorage.cache.iconClickAction = 'popup';
         mainStorageListener({ iconClickAction: { newValue: 'popup' } }, 'local');
         await new Promise(r => setTimeout(r, 25));
-        expect(global.browser.action.setPopup).toHaveBeenCalledWith({ popup: "src/popup.html" });
+        expect(global.browser.action.setPopup).toHaveBeenCalledWith({ popup: global.browser.runtime.getURL("src/popup.html") });
 
         global.browser.action.setPopup.mockClear();
         mainStorageListener({ iconClickAction: { newValue: 'popup' } }, 'managed');
