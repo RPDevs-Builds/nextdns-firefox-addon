@@ -17,7 +17,7 @@
     "@babel/core": "^8.1.0",
     "@babel/preset-env": "^8.0.7",
     "@testing-library/dom": "^10.4.2",
-    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/jest-dom": "^8.0.0",
     "jest": "^30.5.2",
     "jest-environment-jsdom": "^30.5.2",
     "jest-fetch-mock": "^4.2.0",
